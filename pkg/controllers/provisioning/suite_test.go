@@ -111,7 +111,7 @@ var _ = AfterEach(func() {
 	ExpectCleanedUp(ctx, env.Client)
 	cloudProvider.Reset()
 	cluster.Reset()
-	pscheduling.IgnoredPodCount.Set(0, nil)
+	pscheduling.IgnoredPodCount.Reset()
 })
 
 var _ = Describe("Provisioning", func() {
@@ -1984,6 +1984,70 @@ var _ = Describe("Provisioning", func() {
 			ExpectScheduled(ctx, env.Client, pod2)
 		})
 	})
+	Context("Ignored Pod Metrics", func() {
+		// expectIgnoredPodCounts asserts the gauge value of every reason series,
+		// proving both the reported reason and the zero-fill of all the others.
+		expectIgnoredPodCounts := func(counts map[string]float64) {
+			GinkgoHelper()
+			for _, reason := range metrics.IgnoredPodReason.Values {
+				ExpectMetricGaugeValue(pscheduling.IgnoredPodCount, counts[reason.Name], map[string]string{metrics.ReasonLabel: reason.Name})
+			}
+		}
+		It("should count pods opting out of Karpenter-managed capacity as karpenter_opt_out", func() {
+			ExpectApplied(ctx, env.Client, test.NodePool())
+			pod := test.UnschedulablePod(test.PodOptions{
+				NodeRequirements: []corev1.NodeSelectorRequirement{{Key: v1.NodePoolLabelKey, Operator: corev1.NodeSelectorOpDoesNotExist}},
+			})
+			ExpectApplied(ctx, env.Client, pod)
+			ExpectProvisioned(ctx, env.Client, cluster, cloudProvider, prov, pod)
+			expectIgnoredPodCounts(map[string]float64{metrics.IgnoredReasonKarpenterOptOut: 1})
+			ExpectNotScheduled(ctx, env.Client, pod)
+		})
+		It("should count pods with an invalid node selector as invalid_node_selector", func() {
+			ExpectApplied(ctx, env.Client, test.NodePool())
+			pod := test.UnschedulablePod(test.PodOptions{
+				NodeSelector: map[string]string{fmt.Sprintf("%s/restricted", apis.Group): "value"},
+			})
+			ExpectApplied(ctx, env.Client, pod)
+			ExpectProvisioned(ctx, env.Client, cluster, cloudProvider, prov, pod)
+			expectIgnoredPodCounts(map[string]float64{metrics.IgnoredReasonInvalidNodeSelector: 1})
+			ExpectNotScheduled(ctx, env.Client, pod)
+		})
+		It("should count pods with an invalid required node affinity as invalid_affinity", func() {
+			ExpectApplied(ctx, env.Client, test.NodePool())
+			pod := test.UnschedulablePod(test.PodOptions{
+				NodeRequirements: []corev1.NodeSelectorRequirement{{Key: fmt.Sprintf("%s/restricted", apis.Group), Operator: corev1.NodeSelectorOpIn, Values: []string{"value"}}},
+			})
+			ExpectApplied(ctx, env.Client, pod)
+			ExpectProvisioned(ctx, env.Client, cluster, cloudProvider, prov, pod)
+			expectIgnoredPodCounts(map[string]float64{metrics.IgnoredReasonInvalidAffinity: 1})
+			ExpectNotScheduled(ctx, env.Client, pod)
+		})
+		It("should classify a pod that both opts out and is invalid as karpenter_opt_out", func() {
+			ExpectApplied(ctx, env.Client, test.NodePool())
+			pod := test.UnschedulablePod(test.PodOptions{
+				NodeSelector:     map[string]string{fmt.Sprintf("%s/restricted", apis.Group): "value"},
+				NodeRequirements: []corev1.NodeSelectorRequirement{{Key: v1.NodePoolLabelKey, Operator: corev1.NodeSelectorOpDoesNotExist}},
+			})
+			ExpectApplied(ctx, env.Client, pod)
+			ExpectProvisioned(ctx, env.Client, cluster, cloudProvider, prov, pod)
+			expectIgnoredPodCounts(map[string]float64{metrics.IgnoredReasonKarpenterOptOut: 1})
+		})
+		It("should return every reason series to zero once ignored pods are gone", func() {
+			ExpectApplied(ctx, env.Client, test.NodePool())
+			pod := test.UnschedulablePod(test.PodOptions{
+				NodeSelector: map[string]string{fmt.Sprintf("%s/restricted", apis.Group): "value"},
+			})
+			ExpectApplied(ctx, env.Client, pod)
+			ExpectProvisioned(ctx, env.Client, cluster, cloudProvider, prov, pod)
+			expectIgnoredPodCounts(map[string]float64{metrics.IgnoredReasonInvalidNodeSelector: 1})
+
+			ExpectDeleted(ctx, env.Client, pod)
+			_, err := prov.GetPendingPods(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			expectIgnoredPodCounts(map[string]float64{})
+		})
+	})
 	Context("Volume Topology Requirements", func() {
 		var storageClass *storagev1.StorageClass
 		BeforeEach(func() {
@@ -1998,7 +2062,7 @@ var _ = Describe("Provisioning", func() {
 				PersistentVolumeClaims: []string{"invalid"},
 			})
 			ExpectProvisioned(ctx, env.Client, cluster, cloudProvider, prov, pod)
-			ExpectMetricGaugeValue(pscheduling.IgnoredPodCount, 1, nil)
+			ExpectMetricGaugeValue(pscheduling.IgnoredPodCount, 1, map[string]string{metrics.ReasonLabel: metrics.IgnoredReasonInvalidVolumeTopology})
 			ExpectNotScheduled(ctx, env.Client, pod)
 		})
 		It("should schedule with an empty storage class if the pvc is bound", func() {

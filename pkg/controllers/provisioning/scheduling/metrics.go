@@ -88,9 +88,9 @@ var (
 			Namespace: metrics.Namespace,
 			Subsystem: schedulerSubsystem,
 			Name:      "ignored_pods_count",
-			Help:      "Number of pods ignored during scheduling by Karpenter",
+			Help:      "Number of pods ignored during scheduling by Karpenter, by validation-rejection reason",
 		},
-		[]opmetrics.Label{},
+		[]opmetrics.Label{metrics.IgnoredPodReason},
 		opmetrics.Alpha,
 	)
 	UnschedulablePodsCount = opmetrics.NewPrometheusGauge(

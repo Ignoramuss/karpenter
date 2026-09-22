@@ -46,6 +46,14 @@ const (
 	TerminationModeGraceful = "graceful"
 	TerminationModeEventual = "eventual"
 	TerminationModeForceful = "forceful"
+
+	// Reasons a pending pod is ignored by the provisioner, one per rejection
+	// class in Provisioner.Validate.
+	IgnoredReasonKarpenterOptOut       = "karpenter_opt_out"
+	IgnoredReasonInvalidNodeSelector   = "invalid_node_selector"
+	IgnoredReasonInvalidAffinity       = "invalid_affinity"
+	IgnoredReasonInvalidVolumeTopology = "invalid_volume_topology"
+	IgnoredReasonUnknown               = "unknown"
 )
 
 // DurationBuckets returns a []float64 of default threshold values for duration histograms.

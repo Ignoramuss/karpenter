@@ -45,6 +45,12 @@ var (
 	reasonUnderutilized        = opmetrics.Value{Name: strings.ToLower(string(v1.DisruptionReasonUnderutilized)), Help: "The node was underutilized."}
 	reasonEmpty                = opmetrics.Value{Name: strings.ToLower(string(v1.DisruptionReasonEmpty)), Help: "The node had no workload pods."}
 	reasonDrifted              = opmetrics.Value{Name: strings.ToLower(string(v1.DisruptionReasonDrifted)), Help: "The node drifted from its desired specification."}
+
+	reasonKarpenterOptOut       = opmetrics.Value{Name: IgnoredReasonKarpenterOptOut, Help: "The pod requires the karpenter.sh/nodepool label to not exist, deliberately opting out of Karpenter-managed capacity. Expected steady-state; exclude from service-defect alarms."}
+	reasonInvalidNodeSelector   = opmetrics.Value{Name: IgnoredReasonInvalidNodeSelector, Help: "The pod's nodeSelector failed requirement validation (e.g. a restricted or unknown label)."}
+	reasonInvalidAffinity       = opmetrics.Value{Name: IgnoredReasonInvalidAffinity, Help: "The pod's required node affinity failed requirement validation."}
+	reasonInvalidVolumeTopology = opmetrics.Value{Name: IgnoredReasonInvalidVolumeTopology, Help: "The pod's PersistentVolumeClaims failed volume-topology validation."}
+	reasonIgnoredUnknown        = opmetrics.Value{Name: IgnoredReasonUnknown, Help: "The pod was rejected by validation for an unclassified reason."}
 )
 
 // disruptionReasonValues are the voluntary-disruption reasons, shared by the
@@ -110,6 +116,14 @@ var (
 		Name:   ReasonLabel,
 		Help:   "Why the NodeClaim was disrupted.",
 		Values: nodeClaimDisruptedReasonValues,
+	}
+	// IgnoredPodReason is the `reason` dimension for the ignored-pods gauge: which
+	// Provisioner.Validate rejection class ignored the pod. The value set is closed —
+	// emission zero-fills every value each provisioning pass.
+	IgnoredPodReason = opmetrics.Label{
+		Name:   ReasonLabel,
+		Help:   "Why the provisioner ignored the pod.",
+		Values: []opmetrics.Value{reasonKarpenterOptOut, reasonInvalidNodeSelector, reasonInvalidAffinity, reasonInvalidVolumeTopology, reasonIgnoredUnknown},
 	}
 	ResourceType = opmetrics.Label{
 		Name: ResourceTypeLabel,

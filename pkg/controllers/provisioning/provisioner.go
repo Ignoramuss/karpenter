@@ -92,6 +92,9 @@ type Provisioner struct {
 	clock                      clock.Clock
 	deviceAllocationController *deviceallocation.Controller
 	virtualPodCache            *virtualpods.Cache
+	// lastIgnoredPodsRefresh is only read/written from the singleton Reconcile
+	// goroutine, so it needs no lock.
+	lastIgnoredPodsRefresh time.Time
 }
 
 func NewProvisioner(kubeClient client.Client, recorder events.Recorder,
@@ -133,6 +136,14 @@ func (p *Provisioner) Reconcile(ctx context.Context) (result reconciler.Result, 
 
 	// Batch pods
 	if triggered := p.batcher.Wait(ctx); !triggered {
+		// Nothing triggers a batch once the last provisionable pod disappears, so without
+		// this refresh the ignored-pods gauge would hold its last non-zero value forever.
+		if p.clock.Since(p.lastIgnoredPodsRefresh) >= ignoredPodsRefreshInterval {
+			p.lastIgnoredPodsRefresh = p.clock.Now()
+			if _, err := p.GetPendingPods(ctx); err != nil {
+				return reconciler.Result{}, err
+			}
+		}
 		return reconciler.Result{RequeueAfter: singleton.RequeueImmediately}, nil
 	}
 	// We need to ensure that our internal cluster state mechanism is synced before we proceed
@@ -200,8 +211,10 @@ func (p *Provisioner) GetPendingPods(ctx context.Context) ([]*corev1.Pod, error)
 	if err != nil {
 		return nil, fmt.Errorf("listing pods, %w", err)
 	}
-	rejectedPods, pods := lo.FilterReject(pods, func(po *corev1.Pod, _ int) bool {
+	ignoredPodsByReason := map[string]int{}
+	_, pods = lo.FilterReject(pods, func(po *corev1.Pod, _ int) bool {
 		if err := p.Validate(ctx, po); err != nil {
+			ignoredPodsByReason[ignoredPodReason(err)]++
 			// Mark in memory that this pod is unschedulable
 			p.cluster.MarkPodSchedulingDecisions(ctx, map[*corev1.Pod]error{po: fmt.Errorf("ignoring pod, %w", err)}, nil, nil)
 			log.FromContext(ctx).WithValues("Pod", klog.KObj(po)).V(1).Info("ignoring pod", "error", err)
@@ -213,7 +226,11 @@ func (p *Provisioner) GetPendingPods(ctx context.Context) ([]*corev1.Pod, error)
 		}
 		return false
 	})
-	scheduler.IgnoredPodCount.Set(float64(len(rejectedPods)), nil)
+	// Zero-fill every reason so a series returns to zero once its pods are gone,
+	// rather than holding its last value; the sum across reasons is the total.
+	for _, reason := range metrics.IgnoredPodReason.Values {
+		scheduler.IgnoredPodCount.Set(float64(ignoredPodsByReason[reason.Name]), map[string]string{metrics.ReasonLabel: reason.Name})
+	}
 	p.consolidationWarnings(ctx, pods)
 	// Inject CapacityBuffer virtual pods AFTER the Validate filter so we don't
 	// run PVC topology checks on synthetic pods or pollute cluster state with
@@ -568,11 +585,47 @@ func (p *Provisioner) getDaemonSetPods(ctx context.Context) ([]*corev1.Pod, erro
 
 func (p *Provisioner) Validate(ctx context.Context, pod *corev1.Pod) error {
 	return multierr.Combine(
-		validateKarpenterManagedLabelCanExist(pod),
-		validateNodeSelector(ctx, pod),
-		validateAffinity(ctx, pod),
-		p.volumeTopology.ValidatePersistentVolumeClaims(ctx, pod),
+		ignoredWithReason(metrics.IgnoredReasonKarpenterOptOut, validateKarpenterManagedLabelCanExist(pod)),
+		ignoredWithReason(metrics.IgnoredReasonInvalidNodeSelector, validateNodeSelector(ctx, pod)),
+		ignoredWithReason(metrics.IgnoredReasonInvalidAffinity, validateAffinity(ctx, pod)),
+		ignoredWithReason(metrics.IgnoredReasonInvalidVolumeTopology, p.volumeTopology.ValidatePersistentVolumeClaims(ctx, pod)),
 	)
+}
+
+// ignoredPodsRefreshInterval bounds how often the idle Reconcile loop re-runs
+// GetPendingPods purely to refresh the ignored-pods gauge.
+const ignoredPodsRefreshInterval = 30 * time.Second
+
+// podIgnoredError tags a Validate rejection with its reason for the
+// ignored-pods gauge. The reason must be classified here, at rejection time:
+// cluster state only records that a pod errored, not why.
+type podIgnoredError struct {
+	reason string
+	err    error
+}
+
+func (e *podIgnoredError) Error() string { return e.err.Error() }
+func (e *podIgnoredError) Unwrap() error { return e.err }
+
+func ignoredWithReason(reason string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return &podIgnoredError{reason: reason, err: err}
+}
+
+// ignoredPodReason maps a Validate error to a metrics.IgnoredPodReason value.
+// Opt-out wins over any other failure: a pod that opts out of Karpenter-managed
+// capacity is non-actionable regardless of what else is wrong with it.
+func ignoredPodReason(err error) string {
+	if errors.Is(err, KarpenterManagedLabelDoesNotExistError) {
+		return metrics.IgnoredReasonKarpenterOptOut
+	}
+	ignoredErr := &podIgnoredError{}
+	if errors.As(err, &ignoredErr) {
+		return ignoredErr.reason
+	}
+	return metrics.IgnoredReasonUnknown
 }
 
 var KarpenterManagedLabelDoesNotExistError = serrors.Wrap(fmt.Errorf("configured to not run on a Karpenter provisioned node"), "requirement", fmt.Sprintf("%s %s", v1.NodePoolLabelKey, corev1.NodeSelectorOpDoesNotExist))
