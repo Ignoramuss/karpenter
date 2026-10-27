@@ -379,8 +379,10 @@ def _check_ablation(out: Path, doc: dict[str, Any]) -> None:
     assert (row["outcome"] == "higher").all() and np.allclose(row["diff_pct"], 5.0)
     nb = table.loc[(table["configuration"] == "no-eviction-budget") & (table["metric"] == "eviction_cost")]
     assert (nb["family"] == "descriptive").all() and np.allclose(nb["diff_pct"], 100.0)
+    # An arm identical to full has only zero differences: the exact test discards them, so it cannot reject and the
+    # outcome is inconclusive, not "no significant difference".
     same = tested.loc[tested["configuration"] == "no-randomness"]
-    assert (same["outcome"] == "no significant difference").all() and (same["p_wilcoxon"] == 1.0).all()
+    assert (same["outcome"] == "inconclusive").all() and (same["p_wilcoxon"] == 1.0).all()
     assert len(doc["tests"]) == 8 and len(doc["descriptive"]) == 24
 
 
@@ -395,7 +397,11 @@ def test_ablation_family_m8() -> None:
         assert len(tests) == 8 and set(tests["family"]) == {"ablation"} and (tests["m"] == 8).all()
         nop = tests.loc[tests["a"] == "no-potential"]
         assert np.allclose(nop["p_wilcoxon"], 2 / 1024) and np.allclose(nop["p_holm"], 8 * 2 / 1024), nop
-        assert (tests["holm_reachable"]).all()
+        # Reachable exactly where some difference is non-zero; arms whose steady-state cost equals full's on every
+        # seed in this fixture (no-eviction-budget, no-randomness) are not, since the exact test discards zeros.
+        varied = tests["n_nonzero"] > 0
+        assert set(tests.loc[~varied, "a"]) == {"no-eviction-budget", "no-randomness"}, tests
+        assert tests.loc[varied, "holm_reachable"].all() and not tests.loc[~varied, "holm_reachable"].any(), tests
 
 
 def test_partial_data() -> None:

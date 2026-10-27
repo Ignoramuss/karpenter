@@ -317,16 +317,16 @@ def cell_result(metric_row: Mapping[str, Any], better_if: str) -> str:
 def cell_verdict(results: Mapping[str, str]) -> str:
     """H6 for one (baseline, scenario) cell from its two tests' results (``cell_result``): "dominates" iff one metric
     is significantly better and the other not significantly worse, "dominated" iff a metric is significantly worse
-    and none significantly better, otherwise "inconclusive". A "not significantly worse" / "none significantly
-    better" resting on an unreachable test is inconclusive, never support."""
+    and none significantly better, otherwise "inconclusive". A "not significantly worse" resting on an unreachable
+    test is inconclusive, never support (G6); an unreachable test cannot be significantly better, so it never rescues
+    a cell that is significantly worse on the other metric."""
     better = [m for m, r in results.items() if r == "better"]
     worse = [m for m, r in results.items() if r == "worse"]
     if better and not worse:
         others = [results[m] for m in results if m not in better]
         return "inconclusive" if "inconclusive" in others else "dominates"
     if worse and not better:
-        others = [results[m] for m in results if m not in worse]
-        return "inconclusive" if "inconclusive" in others else "dominated"
+        return "dominated"
     return "inconclusive"
 
 

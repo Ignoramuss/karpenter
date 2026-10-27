@@ -269,7 +269,8 @@ def test_cell_verdicts() -> None:
     assert v({"savings": "no difference", "eviction_cost": "no difference"}) == "inconclusive"
     # "not significantly worse" resting on an unreachable test is no support.
     assert v({"savings": "better", "eviction_cost": "inconclusive"}) == "inconclusive"
-    assert v({"savings": "worse", "eviction_cost": "inconclusive"}) == "inconclusive"
+    # An unreachable test is never significantly better, so a significantly worse metric is dominated regardless.
+    assert v({"savings": "worse", "eviction_cost": "inconclusive"}) == "dominated"
     row = {"outcome": "higher"}
     assert ff.cell_result(row, "higher") == "better" and ff.cell_result(row, "lower") == "worse"
     assert ff.cell_result({"outcome": "inconclusive"}, "higher") == "inconclusive"

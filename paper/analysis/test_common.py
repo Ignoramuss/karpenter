@@ -104,9 +104,10 @@ def test_wilcoxon_floor_and_reachability() -> None:
     assert common.holm_reachable([2 / 512], 12).all() and not common.holm_reachable([2 / 256], 12).any()
     assert common.holm_reachable([2 / 1024] * 16, 16).all() and not common.holm_reachable([2 / 512] * 16, 16).any()
     assert not common.holm_reachable([math.nan], 1).any()
-    # The floor is that of the pair count (G6), not of the non-zero differences.
+    # The exact test discards zero differences, so the floor is that of the non-zero ones (5 here, not 6 pairs).
     e = common.paired_effect([1.0, 2.0, 3.0, 4.0, 5.0, 5.0], [0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
-    assert e["p_floor"] == common.wilcoxon_floor(6) and e["n_pairs"] == 6, e
+    assert e["p_floor"] == common.wilcoxon_floor(5) and e["n_pairs"] == 6 and e["n_nonzero"] == 5, e
+    assert e["p_wilcoxon"] == e["p_floor"]  # all five non-zero differences of one sign: the floor is attained
     assert common.paired_effect([], [])["p_floor"] == 1.0
     assert common.tost_floor(2) == 0.0 and common.tost_floor(1) == 1.0 and common.tost_floor(0) == 1.0
     assert common.sign_floor(10) == 1 / 1024 and common.sign_floor(0) == 1.0
@@ -562,6 +563,38 @@ def test_wrong_binary_invalidates_session_runs() -> None:
         runs = common.load_runs(exp / "runs", session_binary=alt).set_index("run_id")
         assert sorted(runs.index[runs["invalid_wrong_binary"]]) == ["exp1-n200__dirty", "exp1-n200__good",
                                                                     "exp1-n200__old"]
+
+
+def test_determinism_exclusion() -> None:
+    # A session-determinism.txt that reports FAIL, or a commit other than the session binary's, invalidates every
+    # session run ("nondeterminism"); PASS at the binary's commit leaves them valid; an absent file skips the check.
+    sha = "0123456789abcdef0123456789abcdef01234567"
+    with tempfile.TemporaryDirectory() as tmp:
+        exp = Path(tmp) / "experiments"
+        s = exp / "runs" / "session"
+        _mini_run(s, "exp1-n200__a", 101, manifest={"binary_revision": sha, "binary_modified": False})
+        _mini_run(exp / "runs" / "pilot", "pilot-exp1__a", 1)
+        (exp / "session-binary.txt").write_text(sha + "\n", encoding="utf-8")
+        with _captured() as log:
+            assert common.load_runs(exp / "runs")["valid"].all()
+        assert any("session-determinism.txt not found" in m for m in log), log
+        for text, valid in ((f"PASS {sha} 14/14", True), (f"FAIL {sha}", False), ("PASS " + "f" * 40, False)):
+            (exp / "session-determinism.txt").write_text(text + "\n", encoding="utf-8")
+            runs = common.load_runs(exp / "runs").set_index("run_id")
+            assert bool(runs.loc["exp1-n200__a", "valid"]) is valid, text
+            assert bool(runs.loc["exp1-n200__a", "invalid_nondeterminism"]) is (not valid), text
+            assert bool(runs.loc["pilot-exp1__a", "valid"])  # never a session run
+        assert "nondeterminism" in runs.loc["exp1-n200__a", "invalid_reason"]
+
+
+def test_session_configurations_cover_the_matrix() -> None:
+    # run_checks expands experiments/matrix/session.yaml into every configuration (seeds collapsed), so cut
+    # configurations with no finished run at all are still listed.
+    from paper.analysis import run_checks
+    configs = run_checks.session_configurations()
+    assert len(configs) == 174 and len(set(configs)) == 174
+    assert ("exp6-b5", "B0", "W2", 200.0, "most-allocated", "spread") in configs
+    assert ("exp7-b2-n1000", "B2", "W1", 1000.0, "least-allocated", "spread") in configs
 
 
 @contextlib.contextmanager

@@ -24,10 +24,12 @@ abandoned cells included. Outputs under ``out_root`` (nothing is written without
 
 from __future__ import annotations
 
+import itertools
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import yaml
 
 from paper.analysis import common
 
@@ -61,13 +63,74 @@ def validity_table(per_exp: pd.DataFrame, pending: pd.DataFrame) -> pd.DataFrame
     return report.drop(columns="_o").reset_index(drop=True)
 
 
-def cut_table(rows: pd.DataFrame, per_exp: pd.DataFrame) -> pd.DataFrame:
-    """The cut configurations (``common.completeness``) of the registry's runs, with the experiments using each."""
+SESSION_MATRIX_FILE = common.REPO_ROOT / "experiments" / "matrix" / "session.yaml"
+
+
+def _set_path(cfg: dict[str, Any], dotted: str, value: Any) -> None:
+    keys = dotted.split(".")
+    for k in keys[:-1]:
+        cfg = cfg.setdefault(k, {})
+    cfg[keys[-1]] = value
+
+
+def _merge(dst: dict[str, Any], src: dict[str, Any]) -> dict[str, Any]:
+    for k, v in src.items():
+        if isinstance(v, dict) and isinstance(dst.get(k), dict):
+            _merge(dst[k], v)
+        else:
+            dst[k] = v
+    return dst
+
+
+def session_configurations(matrix_file: Path = SESSION_MATRIX_FILE) -> list[tuple[Any, ...]]:
+    """Every configuration (``common.CONFIG_KEYS``) the session matrix defines, seeds collapsed: base, then each
+    group's ``set``, then the cartesian product of its ``vary`` lists, as the runner expands them (YAML anchors and
+    merge keys resolved by PyYAML; a plain string where an object is expected sets its name). Placement and
+    scale-down default to the simulator's (least-allocated, spread); an arm's label defaults to its name."""
+    if not Path(matrix_file).is_file():
+        return []
+    doc = yaml.safe_load(Path(matrix_file).read_text())
+    base = doc.get("base") or {}
+    out: dict[tuple[Any, ...], None] = {}
+    for g in doc.get("groups", []):
+        vary = {k: v for k, v in (g.get("vary") or {}).items() if k != "seed"}
+        paths = sorted(vary)
+        for combo in itertools.product(*[vary[p] for p in paths]) if paths else [()]:
+            cfg = _merge(_merge({}, yaml.safe_load(yaml.safe_dump(base))), yaml.safe_load(yaml.safe_dump(g.get("set") or {})))
+            for path, value in zip(paths, combo):
+                if isinstance(value, str) and path in ("arm", "scenario"):
+                    value = {"name": value}
+                _set_path(cfg, path, value)
+            arm, scen = cfg.get("arm") or {}, cfg.get("scenario") or {}
+            key = (g["name"], arm.get("label") or arm.get("name"), scen.get("name"), float(scen.get("nodes", 0)),
+                   cfg.get("placement") or "least-allocated", cfg.get("scaleDown") or "spread")
+            out[key] = None
+    return list(out)
+
+
+def cut_table(rows: pd.DataFrame, per_exp: pd.DataFrame, expected: list[tuple[Any, ...]] | None = None) -> pd.DataFrame:
+    """The cut configurations (``common.completeness``) of the registry's runs, with the experiments that select each
+    one, plus every configuration of ``expected`` (the session matrix's, when session runs are present) with no
+    finished run at all (n_finished 0)."""
     comp = common.completeness(rows)
+    keys = list(common.CONFIG_KEYS)
+    users: dict[tuple[Any, ...], list[str]] = {}
+    for values, exp in zip(per_exp.reindex(columns=keys).itertuples(index=False, name=None), per_exp["experiment"]):
+        users.setdefault(common._config_key(values), [])
+        if exp not in users[common._config_key(values)]:
+            users[common._config_key(values)].append(exp)
     cut = comp.loc[comp["cut"].astype(bool)].drop(columns="cut")
-    users = per_exp.groupby("group")["experiment"].agg(lambda s: ", ".join(dict.fromkeys(s))) if len(per_exp) \
-        else pd.Series(dtype=str)
-    cut = cut.assign(experiments=[users.get(g, "") for g in cut["group"]])
+    cut = cut.assign(experiments=[", ".join(users.get(common._config_key(v), []))
+                                  for v in cut.reindex(columns=keys).itertuples(index=False, name=None)])
+    if expected:
+        have = {common._config_key(v) for v in comp.reindex(columns=keys).itertuples(index=False, name=None)}
+        registry_groups = set(rows["group"]) | {g for k in common.EXPERIMENTS for g in common.experiment_groups(k)}
+        absent = [k for k in expected if k[0] in registry_groups and common._config_key(k) not in have]
+        if absent:
+            extra = pd.DataFrame([dict(zip(keys, k)) | {"n_finished": 0, "n_valid": 0, "n_invalid": 0,
+                                                        "min_seeds": common.min_seeds(), "experiments": ""}
+                                  for k in absent])
+            cut = pd.concat([cut, extra], ignore_index=True)
     return cut.reindex(columns=CUT_COLUMNS).reset_index(drop=True)
 
 
@@ -98,7 +161,8 @@ def main(runs_root: Path, out_root: Path) -> None:
     pending = pending.loc[pending["group"].isin(set(rows["group"]))]
     validity = validity_table(per_exp, pending)
     common.write_table(validity, out_root, "validity")
-    cut = cut_table(rows, per_exp)
+    has_session = bool(len(rows)) and any(common.is_session_run(Path(p)) for p in rows["path"])
+    cut = cut_table(rows, per_exp, session_configurations() if has_session else None)
     common.write_table(cut, out_root, "cut_configurations")
     dup = common.duplicate_consistency(rows)
     sets = common.duplicate_sets(rows)
@@ -109,7 +173,10 @@ def main(runs_root: Path, out_root: Path) -> None:
         "min_seeds": common.min_seeds(), "n_runs": int(len(rows)),
         "n_configurations": int(len(common.completeness(rows))), "n_cut_configurations": int(len(cut)),
         "n_pending_retry": int(len(pending)),
-        "validity_totals": {c: int(validity[c].sum()) for c in [*common.VALIDITY_COLUMNS[:-1], "n_pending_retry"]},
+        # Totals over distinct runs: a run several experiments use is counted once.
+        "validity_totals": {**{c: int(v) for c, v in common.validity_report(rows.assign(_all="all"), by=("_all",))
+                               .iloc[0][list(common.VALIDITY_COLUMNS[:-1])].items()},
+                            "n_pending_retry": int(len(pending))},
         "duplicates": {"n_sets": int(total["n_sets"]), "n_differ": int(total["n_differ"]),
                        "all_match": int(total["n_differ"]) == 0, "differing_sets": differing},
         "binary_check": binary_check(rows),

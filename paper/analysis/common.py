@@ -99,6 +99,9 @@ MAX_ATTEMPTS = 2
 # produce its runs (PREREGISTRATION.md, "What runs").
 SESSION_MATRIX = "session"
 SESSION_BINARY_FILE = "session-binary.txt"
+# experiments/session-determinism.txt records TestDeterminism at the Gate 3 commit: "PASS <sha> ..." or "FAIL <sha>".
+# A FAIL, or a SHA other than the session binary's, invalidates every session run (PREREGISTRATION.md, exclusion).
+SESSION_DETERMINISM_FILE = "session-determinism.txt"
 PAIR_KEYS: tuple[str, ...] = ("scenario", "nodes", "seed")
 HIST_BINS = 10
 HIST_COLUMNS = ("hist_cpu", "hist_mem")
@@ -129,7 +132,8 @@ CONFIG_COLUMNS = [
 ]
 # Why a run is invalid (PREREGISTRATION.md, "Exclusion"), one flag per reason, in this order; ``invalid_reason`` joins
 # the reasons that apply.
-INVALID_FLAGS = ("invalid_violation", "invalid_error", "invalid_timed_out", "invalid_abandoned", "invalid_wrong_binary")
+INVALID_FLAGS = ("invalid_violation", "invalid_error", "invalid_timed_out", "invalid_abandoned", "invalid_wrong_binary",
+                 "invalid_nondeterminism")
 TAIL_COLUMNS = ["valid", "invalid_reason", *INVALID_FLAGS, "n_set_aside", "config_id", "config_id_noseed", "path"]
 RUN_COLUMNS = ID_COLUMNS + SUMMARY_FIELDS + CONFIG_COLUMNS + TAIL_COLUMNS
 # Keys of manifest.json's config that the matrix runner sets but that do not change the simulation (with the arm's
@@ -143,7 +147,7 @@ def discover_runs(runs_root: Path) -> list[Path]:
     ``runs_root`` may be the top of the tree (``experiments/runs``, runs at ``<matrix>/<run_id>``) or one matrix
     (``experiments/runs/pilot``). Failed attempts the runner set aside (``<run_id>.failed-<n>``) are skipped.
     """
-    root = Path(runs_root)
+    root = Path(runs_root).resolve()  # resolved, so the session binary check sees the full experiments/runs path
     if not root.is_dir():
         return []
     found: set[Path] = set()
@@ -190,6 +194,7 @@ def load_runs(runs_root: Path, include_abandoned: bool = False, session_binary: 
     "abandoned", and no summary) are added as rows with ``invalid_abandoned`` set, identity columns from their
     cell.json and metrics NaN, so per-experiment invalid counts include them. Their ``path`` may hold no run files.
     """
+    runs_root = Path(runs_root).resolve()
     root = Path(runs_root)
     attempts = set_aside_attempts(root)
     records = []
@@ -235,6 +240,7 @@ def load_runs(runs_root: Path, include_abandoned: bool = False, session_binary: 
 def set_aside_attempts(runs_root: Path) -> dict[tuple[str, str], int]:
     """The failed attempts the matrix runner set aside under ``runs_root`` (a runs tree or one matrix), per (matrix,
     run_id): how many ``<run_id>.failed-<n>`` directories there are. Sorted by key."""
+    runs_root = Path(runs_root).resolve()
     root = Path(runs_root)
     out: dict[tuple[str, str], int] = {}
     if not root.is_dir():
@@ -263,13 +269,13 @@ def _set_aside_dirs(root: Path) -> dict[tuple[str, str], Path]:
 
 def is_session_run(run_dir: Path) -> bool:
     """Whether a run directory belongs to the session matrix: ``.../experiments/runs/session/<run_id>``."""
-    m = Path(run_dir).parent
+    m = Path(run_dir).resolve().parent
     return m.name == SESSION_MATRIX and m.parent.name == "runs" and m.parent.parent.name == "experiments"
 
 
 def session_binary_path(run_dir: Path) -> Path:
     """The file naming the session's binary for a session run: ``experiments/session-binary.txt`` of its tree."""
-    return Path(run_dir).parent.parent.parent / SESSION_BINARY_FILE
+    return Path(run_dir).resolve().parent.parent.parent / SESSION_BINARY_FILE
 
 
 def read_session_binary(path: Path) -> str | None:
@@ -287,9 +293,13 @@ def read_session_binary(path: Path) -> str | None:
 def _check_binaries(records: list[dict[str, Any]], session_binary: Path | None) -> None:
     """Set ``invalid_wrong_binary`` on session runs (``is_session_run``, or every run of a matrix named "session"
     when ``session_binary`` is given) whose manifest's binary_revision differs from the recorded SHA or whose
-    binary_modified is true. Skipped, with one warning per missing file, when the SHA file is absent."""
+    binary_modified is true, and ``invalid_nondeterminism`` on every session run when the session-determinism.txt
+    beside the SHA file reports a FAIL or another commit. Each check is skipped, with one warning per missing file,
+    when its file is absent."""
     shas: dict[Path, str | None] = {}
+    dets: dict[Path, tuple[str, str] | None] = {}
     skipped: dict[Path, int] = {}
+    det_skipped: dict[Path, int] = {}
     for rec in records:
         run_dir = Path(rec["path"])
         if session_binary is not None:
@@ -302,7 +312,12 @@ def _check_binaries(records: list[dict[str, Any]], session_binary: Path | None) 
             continue
         if path not in shas:
             shas[path] = read_session_binary(path)
-        sha = shas[path]
+            dets[path] = read_determinism(path.parent / SESSION_DETERMINISM_FILE)
+        sha, det = shas[path], dets[path]
+        if det is None:
+            det_skipped[path] = det_skipped.get(path, 0) + 1
+        elif det[0] != "PASS" or (sha is not None and det[1] != sha):
+            rec["invalid_nondeterminism"] = True
         if sha is None:
             skipped[path] = skipped.get(path, 0) + 1
             continue
@@ -315,6 +330,19 @@ def _check_binaries(records: list[dict[str, Any]], session_binary: Path | None) 
                                      + (", modified" if modified else ""))
     for path, n in sorted(skipped.items(), key=lambda t: t[0].as_posix()):
         logger.warning("%s/%s not found: binary check skipped for %d session run(s)", path.parent.name, path.name, n)
+    for path, n in sorted(det_skipped.items(), key=lambda t: t[0].as_posix()):
+        logger.warning("%s/%s not found: determinism exclusion not checked for %d session run(s)", path.parent.name,
+                       SESSION_DETERMINISM_FILE, n)
+
+
+def read_determinism(path: Path) -> tuple[str, str] | None:
+    """(status, sha) from a session-determinism.txt ("PASS <sha> ..." or "FAIL <sha> ..."), or None when the file is
+    absent or empty."""
+    try:
+        words = Path(path).read_text(encoding="utf-8").split()
+    except OSError:
+        return None
+    return (words[0].upper(), words[1].lower() if len(words) > 1 else "") if words else None
 
 
 def _read_json(path: Path) -> Any:
@@ -397,6 +425,8 @@ def _finish_validity(rec: dict[str, Any]) -> None:
         reasons.append(rec.pop("_abandoned_detail", "abandoned"))
     if rec.get("invalid_wrong_binary"):
         reasons.append(f"wrong binary ({rec.pop('_binary_detail', '')})")
+    if rec.get("invalid_nondeterminism"):
+        reasons.append("nondeterminism (TestDeterminism did not pass at the session commit)")
     rec.pop("_binary_detail", None)
     rec["valid"] = not any(bool(rec.get(f)) for f in INVALID_FLAGS)
     rec["invalid_reason"] = "; ".join(reasons)
@@ -468,6 +498,7 @@ def _run_record(run_dir: Path) -> dict[str, Any]:
                        run_dir.name, "; ".join(str(r) for r in summary.get("invalid_reasons") or []) or "no reason")
     rec["invalid_abandoned"] = False
     rec["invalid_wrong_binary"] = False
+    rec["invalid_nondeterminism"] = False
     mcfg = manifest.get("config") or None
     rec["config_id"] = config_fingerprint(mcfg) or math.nan
     rec["config_id_noseed"] = config_fingerprint(mcfg, drop_seed=True) or math.nan
@@ -572,6 +603,7 @@ def _abandoned_records(root: Path, finished: set[tuple[str, str]],
             "seed": cell.get("seed", math.nan), "placement": cell.get("placement") or "least-allocated",
             "scale_down": cell.get("scaleDown") or "spread", "invalid_violation": False, "invalid_error": False,
             "invalid_timed_out": False, "invalid_abandoned": True, "invalid_wrong_binary": False,
+            "invalid_nondeterminism": False,
             "_abandoned_detail": "abandoned" + (f": {entry['error']}" if entry.get("error") else ""),
             "n_set_aside": attempts.get(key, 0), "path": matrix_dir / run_id,
         })
@@ -594,6 +626,7 @@ def _latest_cell(matrix_dir: Path, run_id: str) -> dict[str, Any]:
 def pending_retries(runs_root: Path, runs: pd.DataFrame) -> pd.DataFrame:
     """Cells with a set-aside attempt that neither finished nor were abandoned (the runner retries them on its next
     invocation): matrix, run_id, group, n_set_aside. ``runs`` is ``load_runs(..., include_abandoned=True)``."""
+    runs_root = Path(runs_root).resolve()
     attempts = set_aside_attempts(runs_root)
     done = set() if runs.empty else {(m, Path(p).name) for m, p in zip(runs["matrix"], runs["path"])}
     rows = [{"matrix": m, "run_id": r, "group": r.split("__")[0], "n_set_aside": n}
@@ -1206,8 +1239,8 @@ def wilcoxon_paired(a: Any, b: Any) -> float:
 
 
 def wilcoxon_floor(n_pairs: Any) -> float:
-    """The smallest two-sided p-value an exact Wilcoxon signed-rank test can return with ``n_pairs`` pairs: 2 / 2^n
-    (every difference non-zero and of one sign), 1.0 without pairs, NaN when ``n_pairs`` is missing.
+    """The smallest two-sided p-value an exact Wilcoxon signed-rank test can return with ``n_pairs`` non-zero
+    differences (the test discards zeros): 2 / 2^n (all of one sign), 1.0 without any, NaN when missing.
 
     Below six pairs it exceeds 0.05; under Holm over m tests a test can be rejected on its own only when
     ``m * wilcoxon_floor(n) < alpha`` (10 pairs: m <= 25; 9 pairs: m <= 12; 8 pairs: m <= 6).
@@ -1323,15 +1356,18 @@ def paired_effect(a: Any, b: Any, n: int = N_BOOT, alpha: float = ALPHA, seed: i
     med, med_lo, med_hi = bootstrap_ci(d, "median", n, alpha, seed)
     pct, pct_lo, pct_hi = bootstrap_pct_ci(a, b, n, alpha, seed)
     finite = d[np.isfinite(d)]
-    return {"n_pairs": int(finite.size), "mean_a": float(a.mean()) if a.size else math.nan,
+    # The exact signed-rank test discards zero differences, so its attainable floor depends on the non-zero ones.
+    nonzero = int((finite != 0).sum())
+    return {"n_pairs": int(finite.size), "n_nonzero": nonzero, "mean_a": float(a.mean()) if a.size else math.nan,
             "mean_b": float(b.mean()) if b.size else math.nan, "mean_diff": md, "mean_diff_lo": md_lo,
             "mean_diff_hi": md_hi, "median_diff": med, "median_diff_lo": med_lo, "median_diff_hi": med_hi,
             "pct_diff": pct, "pct_diff_lo": pct_lo, "pct_diff_hi": pct_hi, "p_wilcoxon": wilcoxon_paired(a, b),
-            "p_floor": wilcoxon_floor(int(finite.size))}
+            "p_floor": wilcoxon_floor(nonzero)}
 
 
 COMPARISON_COLUMNS = [
-    "experiment", "family", "comparison", "test", "metric", "a", "b", "expect", "stratum", "n_pairs", "n_dropped",
+    "experiment", "family", "comparison", "test", "metric", "a", "b", "expect", "stratum", "n_pairs", "n_nonzero",
+    "n_dropped",
     "n_dropped_invalid", "n_undefined", "n_dropped_missing", "mean_a", "mean_b", "mean_diff", "mean_diff_lo",
     "mean_diff_hi", "median_diff", "median_diff_lo", "median_diff_hi", "pct_diff", "pct_diff_lo", "pct_diff_hi",
     "p_wilcoxon", "margin", "ci90_lo", "ci90_hi", "p_lower", "p_upper", "p_tost", "equivalent", "noninferior", "p",
@@ -1406,7 +1442,7 @@ def compare(runs: pd.DataFrame, comparison: Comparison, n: int = N_BOOT, alpha: 
         else:
             pw = row["p_wilcoxon"]
             row["p"] = pw if math.isfinite(pw) else 1.0
-            row["p_floor"] = wilcoxon_floor(row["n_pairs"])
+            row["p_floor"] = wilcoxon_floor(row.get("n_nonzero", row["n_pairs"]))
         rows.append(row)
     out = pd.DataFrame(rows)
     strata_cols = [b for b in c.by if b not in COMPARISON_COLUMNS]
@@ -1572,7 +1608,7 @@ def summarize(runs: pd.DataFrame, metrics: Sequence[str], by: Sequence[str] = ("
 
 
 VALIDITY_COLUMNS = ["n_runs", "n_valid", "n_invalid", "n_violation", "n_error", "n_timed_out", "n_abandoned",
-                    "n_wrong_binary", "n_retried", "n_set_aside", "n_succeeded_on_retry", "n_in_cut_configurations",
+                    "n_wrong_binary", "n_nondeterminism", "n_retried", "n_set_aside", "n_succeeded_on_retry", "n_in_cut_configurations",
                     "reasons"]
 
 
@@ -1612,7 +1648,8 @@ def validity_report(runs: pd.DataFrame, by: Sequence[str] = ("experiment", "grou
             n_invalid=int((~part["valid"].astype(bool)).sum()),
             n_violation=int(flag("invalid_violation").sum()), n_error=int(flag("invalid_error").sum()),
             n_timed_out=int(flag("invalid_timed_out").sum()), n_abandoned=int(flag("invalid_abandoned").sum()),
-            n_wrong_binary=int(flag("invalid_wrong_binary").sum()), n_retried=int((set_aside > 0).sum()),
+            n_wrong_binary=int(flag("invalid_wrong_binary").sum()),
+            n_nondeterminism=int(flag("invalid_nondeterminism").sum()), n_retried=int((set_aside > 0).sum()),
             n_set_aside=int(set_aside.sum()),
             n_succeeded_on_retry=int(((set_aside > 0) & ~flag("invalid_abandoned")).sum()),
             n_in_cut_configurations=int(cut.loc[part.index].sum()),

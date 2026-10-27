@@ -424,6 +424,42 @@ def test_h7_timeout_clause() -> None:
         assert h7["timeout_clause"] == "fails" and h7["tests_lower"] == 2 and h7["verdict"] == "not supported", h7
 
 
+def test_h7_timeout_clause_covers_every_scenario() -> None:
+    """The clause covers every valid random/entropy-greedy run at 1,000 nodes, W2 and W4 included, not only W1."""
+    with _synthetic() as (runs, out):
+        ds = sorted((runs / "session").glob("exp1-n1000__arm-random-entropy-greedy_scenario-w2_*"))
+        if not ds:  # the synthetic tree has no W2 cells at 1,000 nodes: add a complete W2 configuration (all seeds,
+            # so the completeness rule keeps it) copied from the W1 cells
+            for src in sorted((runs / "session").glob("exp1-n1000__arm-random-entropy-greedy_scenario-w1_*")):
+                dst = src.with_name(src.name.replace("scenario-w1", "scenario-w2"))
+                shutil.copytree(src, dst)
+                for name in ("summary.json", "cell.json", "manifest.json"):
+                    f = dst / name
+                    if f.exists():
+                        f.write_text(f.read_text().replace('"W1"', '"W2"'))
+                ds.append(dst)
+        s = json.loads((ds[0] / "summary.json").read_text())
+        s.update(wall_passes_over_1m=2, wall_pass_max_ms=70_000.0)
+        (ds[0] / "summary.json").write_text(json.dumps(s))
+        _run_main(runs, out)
+        h7 = json.loads((out / "tables" / "latency_optimality.json").read_text(encoding="utf-8"))["exp7"]["h7"]
+        assert h7["timeout_clause"] == "fails" and h7["verdict"] == "not supported", h7
+
+
+def test_h7_unreachable_tests_are_inconclusive() -> None:
+    """Five invalid seeds leave 5 pairs (floor 2/32 > 0.05): both H7 tests are unreachable, so H7 is inconclusive,
+    not "not supported" (G6)."""
+    with _synthetic() as (runs, out):
+        cells = sorted((runs / "session").glob("exp1-n1000__arm-random-entropy-greedy_scenario-w1_*"))
+        for d in cells[5:]:
+            s = json.loads((d / "summary.json").read_text())
+            s.update(pdb_violations=1, invalid=True)
+            (d / "summary.json").write_text(json.dumps(s))
+        _run_main(runs, out)
+        h7 = json.loads((out / "tables" / "latency_optimality.json").read_text(encoding="utf-8"))["exp7"]["h7"]
+        assert h7["verdict"] == "inconclusive", h7
+
+
 def main(argv: list[str] | None = None) -> int:
     args = sys.argv[1:] if argv is None else argv
     if len(args) == 2 and args[0] == "--write-synthetic":

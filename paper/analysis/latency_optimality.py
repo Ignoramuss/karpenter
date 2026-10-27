@@ -325,8 +325,22 @@ def figure4(table: pd.DataFrame, exp: dict[str, Any], out_root: Path) -> bool:
     return True
 
 
+def timeout_clause_runs(runs: pd.DataFrame, exp: dict[str, Any]) -> pd.DataFrame:
+    """The runs H7's timeout clause covers: every valid, non-cut run of the subject label (random/entropy-greedy) at
+    the tested size in the Exp 1 1,000-node group, across all of its scenarios (W1, W2, W4), not only Exp 7's W1."""
+    params = exp["params"]
+    groups = common.map_groups(params.get("timeout_clause_groups", ["exp1-n1000"]))
+    sel = runs.loc[runs["group"].isin(groups) & (runs["label"] == params["subject_label"])
+                   & (pd.to_numeric(runs["nodes"], errors="coerce") == float(params["tested_nodes"]))]
+    if sel.empty:
+        return sel
+    sel = sel.loc[~common.cut_mask(sel)]
+    return sel.loc[sel["valid"].astype(bool)]
+
+
 def exp7_headline(everything: pd.DataFrame, table: pd.DataFrame, tests: pd.DataFrame, exp: dict[str, Any],
-                  missing: list[dict[str, Any]], b2: tuple[bool, str]) -> dict[str, Any]:
+                  missing: list[dict[str, Any]], b2: tuple[bool, str],
+                  clause_runs: pd.DataFrame | None = None) -> dict[str, Any]:
     """Exp 7 headline: validity counts, the per-cell latency table, every test with its floor, Holm p and outcome,
     the timeout counts at the tested size, and the H7 verdict.
 
@@ -354,18 +368,29 @@ def exp7_headline(everything: pd.DataFrame, table: pd.DataFrame, tests: pd.DataF
                        "runs_unknown": int(at_size[f"runs_over_{name}_unknown"].sum())}
                 for name, _, _ in TIMEOUTS}
     h7 = tests.loc[tests["family"] == "H7"] if len(tests) else tests
-    if at_size.empty or not int(at_size["n_valid"].sum()):
+    # The clause covers every valid random/entropy-greedy run at 1,000 nodes (all Exp 1 scenarios), not only W1.
+    over = pd.to_numeric(clause_runs["wall_passes_over_1m"], errors="coerce") if clause_runs is not None and len(
+        clause_runs) else pd.Series(dtype=float)
+    timeouts["1m_all_scenarios"] = {"runs": int(len(over)), "runs_over": int((over > 0).sum()),
+                                    "runs_unknown": int(over.isna().sum())}
+    if over.empty:
         clause = "no data"
-    elif timeouts["1m"]["runs_over"]:
+    elif int((over > 0).sum()):
         clause = "fails"
-    elif timeouts["1m"]["runs_unknown"]:
+    elif int(over.isna().sum()):
         clause = "unknown"
     else:
         clause = "holds"
-    both = len(h7) == 2 and bool((h7["outcome"] == "lower").all())
-    if both and clause == "holds":
+    outcomes = h7["outcome"].tolist() if len(h7) else []
+    both = len(outcomes) == 2 and all(o == "lower" for o in outcomes)
+    uninformative = len(outcomes) < 2 or any(o in common.UNINFORMATIVE_OUTCOMES for o in outcomes)
+    if clause == "fails":
+        verdict = "not supported"
+    elif both and clause == "holds":
         verdict = "supported"
-    elif both and clause in ("unknown", "no data"):
+    elif (both and clause in ("unknown", "no data")) or (uninformative and not any(
+            o in ("higher", "no significant difference") for o in outcomes)):
+        # An unreachable or missing test cannot count against H7 either (G6): inconclusive, as in H2-H6.
         verdict = "inconclusive"
     else:
         verdict = "not supported"
@@ -407,7 +432,7 @@ def run_exp7(runs: pd.DataFrame, out_root: Path) -> dict[str, Any] | None:
     common.write_table(tests, out_root, "exp7_tests")
     figure4(table, exp, out_root)
     missing = common.missing_configurations(everything, [c for c in comps if c.family == "H7"])
-    return exp7_headline(everything, table, tests, exp, missing, b2)
+    return exp7_headline(everything, table, tests, exp, missing, b2, timeout_clause_runs(runs, exp))
 
 
 # --------------------------------------------------------------------------------------------------------------------

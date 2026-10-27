@@ -232,3 +232,24 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   resolved within the observed decision set; `experiments/parity/chunks/`). The run was stopped when the session
   started, so it would not perturb the decision-cost measurements; the remaining policy and catalog cells run as
   separate chunks after the session.
+- **Analysis alignment verified.** An independent verifier built synthetic run trees with hand-planted answers for
+  every experiment (and an independent H2 implementation) and found ten discrepancies between the aligned analysis
+  code and the preregistered rules; all are fixed, each with a regression test (code toward the text only):
+  1. H6: a cell significantly worse on one metric was "inconclusive" when the other test was unreachable; an
+     unreachable test cannot be significantly better, so the cell is "dominated".
+  2. H7: the timeout clause covered only W1; it now covers every valid random/entropy-greedy run at 1,000 nodes
+     (W1, W2, W4), as the text says.
+  3. H7: unreachable tests gave "not supported"; they now give "inconclusive", as in H2-H6.
+  4. Configurations with no finished run were missing from `cut_configurations`; `run_checks` now expands
+     `session.yaml` (174 configurations) and lists them with n_finished = 0.
+  5. The Wilcoxon floor counted zero differences, which the exact test discards; it now uses the non-zero ones, so
+     a test that cannot reject is marked unreachable (inconclusive).
+  6. Validity totals double-counted runs used by several experiments; totals are now over distinct runs.
+  7. Relative `--runs` paths skipped the binary check; run paths are resolved.
+  8. The cut table attributed configurations to every experiment using the group; now per configuration.
+  9. The nondeterminism exclusion is implemented: `experiments/session-determinism.txt` records TestDeterminism at
+     the session commit (PASS, `c78b5f9`, 14/14); a FAIL or another commit would invalidate every session run.
+  10. H4 wording: "supported iff ...; partially otherwise" is read as partially when at least one clause cell holds
+      and not supported when none does (inconclusive where a test is unreachable), matching H3 and H5's "partially
+      if some". The condition for "supported" is unchanged.
+  `make figures` stays byte-reproducible (two runs on the pilot: 40 identical files); all analysis tests pass.
