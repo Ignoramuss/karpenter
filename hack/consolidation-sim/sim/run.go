@@ -22,7 +22,8 @@ import (
 	"time"
 )
 
-// Run executes the simulation and writes the timeseries. The decision log streams to the writer given to New.
+// Run executes the simulation and writes the timeseries. The decision log streams to the writer given to New. Pod
+// sets for the offline lower bound are kept and written by WritePodSets.
 func (s *Sim) Run(timeseries io.Writer) (Summary, error) {
 	wallStart := time.Now() //nolint:forbidigo // wall time bounds the run; it never reaches decisions
 	if err := s.seed(); err != nil {
@@ -40,6 +41,12 @@ func (s *Sim) Run(timeseries io.Writer) (Summary, error) {
 		s.after(s.cfg.MetricsInterval.Duration, "sample", sampleTick)
 	}
 	s.at(s.start, "sample", sampleTick)
+	var podSetTick func()
+	podSetTick = func() {
+		s.m.recordPodSet()
+		s.after(podSetInterval, "podset", podSetTick)
+	}
+	s.at(s.start.Add(s.cfg.Warmup.Duration), "podset", podSetTick)
 	end := s.start.Add(s.cfg.Duration.Duration)
 	timedOut := false
 	for step := s.start; step.Before(end) && s.stopErr == nil; {
@@ -54,6 +61,7 @@ func (s *Sim) Run(timeseries io.Writer) (Summary, error) {
 		}
 	}
 	s.m.sample()
+	s.m.recordPodSet()
 	sum := s.m.summary(s)
 	sum.WallSeconds = time.Since(wallStart).Seconds()
 	sum.TimedOut = timedOut
@@ -74,3 +82,6 @@ func (s *Sim) Run(timeseries io.Writer) (Summary, error) {
 	}
 	return sum, nil
 }
+
+// WritePodSets writes the pod multisets recorded during Run, one JSON object per line.
+func (s *Sim) WritePodSets(w io.Writer) error { return s.m.writePodSets(w) }

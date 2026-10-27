@@ -25,6 +25,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"runtime/pprof"
 	"strings"
 	"time"
 
@@ -75,7 +76,18 @@ func runCmd(args []string) error {
 	placement := fs.String("placement", "", "placement model, overrides config")
 	scaleDown := fs.String("scale-down", "", "scale-down model, overrides config")
 	maxWall := fs.Duration("max-wall", 0, "wall-time limit for the run")
+	cpuProfile := fs.String("cpuprofile", "", "write a CPU profile here")
 	_ = fs.Parse(args)
+	if *cpuProfile != "" {
+		f, err := os.Create(*cpuProfile)
+		if err != nil {
+			return err
+		}
+		if err := pprof.StartCPUProfile(f); err != nil {
+			return err
+		}
+		defer pprof.StopCPUProfile()
+	}
 	var cfg sim.Config
 	if *config != "" {
 		raw, err := os.ReadFile(*config)
@@ -127,7 +139,8 @@ func runCmd(args []string) error {
 	return err
 }
 
-// RunCell runs one configuration into dir: manifest.json, decisions.jsonl, timeseries.csv and summary.json.
+// RunCell runs one configuration into dir: manifest.json, decisions.jsonl, timeseries.csv, podsets.jsonl and
+// summary.json.
 func RunCell(cfg sim.Config, dir string) (sim.Summary, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return sim.Summary{}, err
@@ -154,6 +167,14 @@ func RunCell(cfg sim.Config, dir string) (sim.Summary, error) {
 	defer ts.Close()
 	sum, runErr := s.Run(ts)
 	if err := bw.Flush(); err != nil {
+		return sum, err
+	}
+	ps, err := os.Create(filepath.Join(dir, "podsets.jsonl"))
+	if err != nil {
+		return sum, err
+	}
+	defer ps.Close()
+	if err := s.WritePodSets(ps); err != nil {
 		return sum, err
 	}
 	man.FinishedAt = time.Now().UTC()

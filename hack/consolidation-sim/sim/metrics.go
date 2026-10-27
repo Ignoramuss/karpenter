@@ -93,7 +93,8 @@ type collector struct {
 	plans       []*planRecord
 	sourcePlan  map[string]*planRecord
 
-	rows []string
+	rows    []string
+	podsets []string
 }
 
 func newCollector(s *Sim) *collector {
@@ -347,6 +348,39 @@ func (c *collector) sample() {
 		c.s.now().Sub(c.s.start).Minutes(), len(c.s.nodes), ready, c.totalPrice, running, pending, len(c.evictions), c.evictionCost, c.nodesRemoved,
 		div(cpuSum, r), div(memSum, r), div(domSum, r), div(bandCPU, r), div(bandDom, r), p1, div(p1, math.Log(math.Max(2, r))),
 		p2raw, div(p2raw, priceReady), p3raw, div(p3raw, priceReady), hist(histCPU), hist(histMem)))
+}
+
+// podSetInterval is how often the run records its pod multiset for the offline packing lower bound (B6, Exp 8).
+const podSetInterval = 30 * time.Minute
+
+// recordPodSet appends the multiset of running and pending pod shapes, {cpu millicores, memory MiB, count}, sorted,
+// and the run's cost at that instant: the input an offline bin-packing solver needs to bound the cheapest fleet.
+func (c *collector) recordPodSet() {
+	counts := map[Shape]int{}
+	for _, p := range c.s.pods {
+		if p.phase != podTerminating {
+			counts[p.shape]++
+		}
+	}
+	shapes := lo.Keys(counts)
+	sort.Slice(shapes, func(i, j int) bool {
+		if shapes[i].CPU != shapes[j].CPU {
+			return shapes[i].CPU < shapes[j].CPU
+		}
+		return shapes[i].Memory < shapes[j].Memory
+	})
+	parts := lo.Map(shapes, func(sh Shape, _ int) string { return fmt.Sprintf("[%d,%d,%d]", sh.CPU, sh.Memory, counts[sh]) })
+	c.podsets = append(c.podsets, fmt.Sprintf(`{"t_min":%.2f,"cost_per_hour":%.6f,"nodes":%d,"shapes":[%s]}`,
+		c.s.now().Sub(c.s.start).Minutes(), c.totalPrice, len(c.s.nodes), strings.Join(parts, ",")))
+}
+
+func (c *collector) writePodSets(w io.Writer) error {
+	for _, r := range c.podsets {
+		if _, err := fmt.Fprintln(w, r); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *collector) writeTimeseries(w io.Writer) error {

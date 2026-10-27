@@ -32,3 +32,17 @@ profiles:
             - maxSkew: 1
               topologyKey: topology.kubernetes.io/zone
               whenUnsatisfiable: DoNotSchedule
+  # Opt-in packing profile for the consolidation pipeline's performance specs (test/suites/performance): pods that
+  # set spec.schedulerName: most-allocated are scored by how full a node already is, the profile the Balanced
+  # consolidation RFC recommends so evicted pods land on fuller nodes instead of scattering.
+  - schedulerName: most-allocated
+    pluginConfig:
+      - name: NodeResourcesFit
+        args:
+          scoringStrategy:
+            type: MostAllocated
+            resources:
+              - name: cpu
+                weight: 1
+              - name: memory
+                weight: 1

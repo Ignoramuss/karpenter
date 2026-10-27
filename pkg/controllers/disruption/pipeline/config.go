@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"sigs.k8s.io/yaml"
@@ -198,11 +199,16 @@ func ParseConfig(raw []byte) (Config, error) {
 	return cfg, nil
 }
 
-// LoadConfig reads a config file; an empty path returns DefaultConfig.
+// LoadConfig reads a config file; an empty path returns DefaultConfig. A value that is itself a YAML or JSON
+// document (it starts with "{" or "pipeline:", or spans lines) is parsed inline, so the config can travel in an
+// environment variable.
 func LoadConfig(path string) (Config, error) {
 	if path == "" {
 		cfg := DefaultConfig()
 		return cfg, cfg.Validate()
+	}
+	if trimmed := strings.TrimSpace(path); strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "pipeline:") || strings.Contains(trimmed, "\n") {
+		return ParseConfig([]byte(path))
 	}
 	raw, err := os.ReadFile(path)
 	if err != nil {

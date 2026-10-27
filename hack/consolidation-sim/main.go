@@ -27,9 +27,17 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime/debug"
 )
 
+// gcPercent trades memory for CPU: a run allocates heavily (Karpenter deep-copies cluster state for every scheduling
+// simulation), and at the default GOGC=100 garbage collection took about a third of a run's CPU.
+const gcPercent = 400
+
 func main() {
+	if os.Getenv("GOGC") == "" {
+		debug.SetGCPercent(gcPercent)
+	}
 	if len(os.Args) < 2 {
 		usage()
 	}

@@ -82,6 +82,12 @@ type Env struct {
 	mu         sync.Mutex
 	nameCounts map[string]int
 	pods       *podIndex
+	// nodeClaims holds the latest stored copy of each NodeClaim by provider ID, for the status.providerID lists
+	// Karpenter issues per pod event (node.GetNodeClaims), which the fake client answers by JSON round-tripping every
+	// NodeClaim.
+	ncMu       sync.RWMutex
+	nodeClaims map[string]*v1.NodeClaim
+	ncProvider map[string]string // name -> provider ID
 	// OnWrite, when set, is called after every successful write and its state sync, with the object as written.
 	// The simulator uses it to observe NodeClaim creation and deletion without polling.
 	OnWrite func(ctx context.Context, verb string, obj client.Object)
@@ -105,6 +111,8 @@ func New(ctx context.Context, opts Options) *Env {
 		Recorder:      events.NewRecorder(&record.FakeRecorder{}),
 		nameCounts:    map[string]int{},
 		pods:          newPodIndex(),
+		nodeClaims:    map[string]*v1.NodeClaim{},
+		ncProvider:    map[string]string{},
 	}
 	// A plain object tracker: the default field-managed tracker rebuilds a REST mapper on every write, which
 	// dominated the spike's profile, and the simulator never uses server-side apply.
@@ -184,6 +192,16 @@ func (e *Env) generatedName(obj client.Object) string {
 func (e *Env) interceptors() interceptor.Funcs {
 	return interceptor.Funcs{
 		List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			if ncList, ok := list.(*v1.NodeClaimList); ok {
+				lo := &client.ListOptions{}
+				lo.ApplyOptions(opts)
+				if lo.FieldSelector != nil && lo.LabelSelector == nil && len(lo.FieldSelector.Requirements()) == 1 {
+					if pid, ok := lo.FieldSelector.RequiresExactMatch("status.providerID"); ok && pid != "" {
+						ncList.Items = e.nodeClaimsByProviderID(pid)
+						return nil
+					}
+				}
+			}
 			if podList, ok := list.(*corev1.PodList); ok {
 				lo := &client.ListOptions{}
 				lo.ApplyOptions(opts)
@@ -263,6 +281,7 @@ func (e *Env) sync(ctx context.Context, verb string, obj client.Object) {
 		_, _ = e.nodeInformer.Reconcile(ctx, req)
 	case *v1.NodeClaim:
 		_, _ = e.nodeClaimInformer.Reconcile(ctx, req)
+		e.indexNodeClaim(ctx, req.Name)
 	case *corev1.Pod:
 		// What informer.PodController.Reconcile does, plus keeping the pods-by-node index current, from one Get.
 		pod := &corev1.Pod{}
@@ -282,6 +301,32 @@ func (e *Env) sync(ctx context.Context, verb string, obj client.Object) {
 }
 
 func metaNow(clk *clocktesting.FakeClock) metav1.Time { return metav1.NewTime(clk.Now()) }
+
+func (e *Env) indexNodeClaim(ctx context.Context, name string) {
+	nc := &v1.NodeClaim{}
+	err := e.Client.Get(ctx, types.NamespacedName{Name: name}, nc)
+	e.ncMu.Lock()
+	defer e.ncMu.Unlock()
+	if old, ok := e.ncProvider[name]; ok {
+		delete(e.nodeClaims, old)
+		delete(e.ncProvider, name)
+	}
+	if err != nil || nc.Status.ProviderID == "" {
+		return
+	}
+	e.nodeClaims[nc.Status.ProviderID] = nc
+	e.ncProvider[name] = nc.Status.ProviderID
+}
+
+func (e *Env) nodeClaimsByProviderID(pid string) []v1.NodeClaim {
+	e.ncMu.RLock()
+	defer e.ncMu.RUnlock()
+	nc, ok := e.nodeClaims[pid]
+	if !ok {
+		return nil
+	}
+	return []v1.NodeClaim{*nc.DeepCopy()}
+}
 
 // Resync reconciles cluster state for one object without a write, for objects whose state depends on another
 // object that arrived later (a pod bound before its node was known, for example).
