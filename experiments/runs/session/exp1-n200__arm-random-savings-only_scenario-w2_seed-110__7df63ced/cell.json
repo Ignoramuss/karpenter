@@ -1,0 +1,47 @@
+{
+  "arm": {
+    "label": "random/savings-only",
+    "name": "pipeline",
+    "pipeline": {
+      "candidates": {
+        "name": "uniform-random",
+        "params": {
+          "sourceFraction": 0.25
+        }
+      },
+      "executor": {
+        "name": "shift-evict"
+      },
+      "moves": [
+        {
+          "name": "random-merge",
+          "params": {
+            "confirm": true
+          }
+        },
+        {
+          "name": "random-shift"
+        }
+      ],
+      "movesMode": "pooled",
+      "planner": {
+        "name": "savings-only"
+      },
+      "potential": {
+        "name": "util-entropy"
+      },
+      "search": {
+        "maxAttempts": 500,
+        "maxFullSimulations": 16
+      }
+    }
+  },
+  "duration": "3h",
+  "maxWall": "0s",
+  "runID": "exp1-n200__arm-random-savings-only_scenario-w2_seed-110__7df63ced",
+  "scenario": {
+    "name": "W2",
+    "nodes": 200
+  },
+  "seed": 110
+}
