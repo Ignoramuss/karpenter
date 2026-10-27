@@ -71,6 +71,7 @@ type FeatureGates struct {
 	TerminateFirstRepair      bool
 	PodDeletionCostManagement bool
 	PredictionEnabled         bool
+	ConsolidationPipeline     bool
 }
 
 // FeatureGate is the source-of-truth description of a feature gate. Declaring gates as FeatureGates keeps each gate's
@@ -157,6 +158,14 @@ var (
 			"predicted by a registered prediction source, and waits for that source to hydrate before scheduling. " +
 			"Requires a registered prediction source.",
 	}
+	ConsolidationPipelineFeatureGate = FeatureGate{
+		Name:    "ConsolidationPipeline",
+		Default: false,
+		Stage:   docs.Alpha,
+		Help: "Karpenter consolidates through the pluggable consolidation pipeline in place of multi-node and " +
+			"single-node consolidation, configured by --consolidation-pipeline-config. With no config the pipeline " +
+			"reproduces the default decisions.",
+	}
 )
 
 // KarpenterFeatureGates are the feature gates Karpenter supports, in the order --feature-gates lists them.
@@ -171,6 +180,7 @@ var KarpenterFeatureGates = []FeatureGate{
 	TerminateFirstRepairFeatureGate,
 	PodDeletionCostManagementFeatureGate,
 	PredictionEnabledFeatureGate,
+	ConsolidationPipelineFeatureGate,
 }
 
 // Options contains all CLI flags / env vars for karpenter-core. It adheres to the options.Injectable interface.
@@ -200,6 +210,7 @@ type Options struct {
 	IgnoreDRARequests                bool // NOTE: This flag will be removed once formal DRA support is GA in Karpenter.
 	LegacyNodeRepair                 bool // NOTE: This flag is planned for deprecation along with the legacy node repair controller.
 	FeatureGates                     FeatureGates
+	ConsolidationPipelineConfig      string
 	schedulerConfigRaw               string
 	SchedulerConfig                  *SchedulerConfiguration
 }
@@ -245,6 +256,7 @@ func (o *Options) AddFlags(fs *FlagSet) {
 	fs.BoolVarWithEnv(&o.IgnoreDRARequests, "ignore-dra-requests", "IGNORE_DRA_REQUESTS", true, "When set, Karpenter will ignore pods' DRA requests during scheduling simulations. NOTE: This flag will be removed once formal DRA support is GA in Karpenter.")
 	fs.BoolVarWithEnv(&o.LegacyNodeRepair, "legacy-node-repair", "LEGACY_NODE_REPAIR", false, "When set with the NodeRepair feature gate, Karpenter runs the legacy node repair controller instead of node repair as a disruption method. The legacy controller only replaces nodes: it does not support terminate-first repair, reboot, repair policy priority or termination grace periods, or the karpenter.sh/do-not-repair annotation. NOTE: The legacy node repair controller is planned for deprecation. If you use it because the new one does not work for you, please open an issue with your use case or problem.")
 	fs.StringVar(&o.FeatureGates.inputStr, "feature-gates", env.WithDefaultString("FEATURE_GATES", featureGatesDefault()), featureGatesHelp())
+	fs.StringVar(&o.ConsolidationPipelineConfig, "consolidation-pipeline-config", env.WithDefaultString("CONSOLIDATION_PIPELINE_CONFIG", ""), "Path to the consolidation pipeline config, used when the ConsolidationPipeline feature gate is enabled. Empty runs the pipeline's upstream adapters, which reproduce the default consolidation decisions.")
 	fs.StringVar(&o.schedulerConfigRaw, "scheduler-config", env.WithDefaultString("SCHEDULER_CONFIG", ""), "A YAML/JSON document configuring the parts of the cluster's kube-scheduler behavior that Karpenter must mirror during scheduling simulation, currently only podTopologySpread.defaultConstraints. Empty means no scheduler-config overrides.")
 }
 
@@ -298,6 +310,7 @@ func DefaultFeatureGates() FeatureGates {
 		TerminateFirstRepair:      TerminateFirstRepairFeatureGate.Default,
 		PodDeletionCostManagement: PodDeletionCostManagementFeatureGate.Default,
 		PredictionEnabled:         PredictionEnabledFeatureGate.Default,
+		ConsolidationPipeline:     ConsolidationPipelineFeatureGate.Default,
 	}
 }
 
@@ -340,6 +353,9 @@ func ParseFeatureGates(gateStr string) (FeatureGates, error) {
 	}
 	if val, ok := gateMap[PredictionEnabledFeatureGate.Name]; ok {
 		gates.PredictionEnabled = val
+	}
+	if val, ok := gateMap[ConsolidationPipelineFeatureGate.Name]; ok {
+		gates.ConsolidationPipeline = val
 	}
 
 	return gates, nil

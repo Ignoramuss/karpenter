@@ -1,0 +1,10 @@
+policy=Balanced catalog=assorted config=coarse states=1000 match=1000/1000 upstream_decided=846 upstream_nondeterministic=10
+policy=Balanced catalog=assorted config=fine states=1000 match=1000/1000 upstream_decided=846 upstream_nondeterministic=10
+policy=Balanced catalog=assorted config=fine-balanced-planner states=1000 match=1000/1000 upstream_decided=846 upstream_nondeterministic=10
+policy=Balanced catalog=kwok config=coarse states=1000 match=1000/1000 upstream_decided=882 upstream_nondeterministic=22
+policy=Balanced catalog=kwok config=fine states=1000 match=1000/1000 upstream_decided=882 upstream_nondeterministic=22
+policy=Balanced catalog=kwok config=fine-balanced-planner states=1000 match=1000/1000 upstream_decided=882 upstream_nondeterministic=22
+policy=WhenEmptyOrUnderutilized catalog=assorted config=coarse states=1000 match=1000/1000 upstream_decided=903 upstream_nondeterministic=10
+policy=WhenEmptyOrUnderutilized catalog=assorted config=fine states=1000 match=1000/1000 upstream_decided=903 upstream_nondeterministic=10
+policy=WhenEmptyOrUnderutilized catalog=kwok config=coarse states=1000 match=1000/1000 upstream_decided=925 upstream_nondeterministic=19
+policy=WhenEmptyOrUnderutilized catalog=kwok config=fine states=1000 match=1000/1000 upstream_decided=925 upstream_nondeterministic=19

@@ -72,3 +72,23 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   Balanced states (85/100) and correctly invisible on WhenEmptyOrUnderutilized states (100/100); skipping the
   `CanPass` pre-filter was not caught, and cannot be, because `CanPass` only skips candidates whose best case (a
   delete) already fails the threshold, so it changes compute, never decisions (an equivalent mutant).
+- **Push blocked.** `git push` to `origin` (Ignoramuss/karpenter) returns 403: the Claude GitHub App has no access to
+  that repository for the user's account. Commits are kept on the local branch `claude/new-session-03ukbe` and the
+  push is retried at every milestone. To fix: reconnect GitHub at https://claude.ai/connect-github and install the
+  Claude GitHub App on the repository.
+- **Gate 1, parity at 1,000 states.** `PARITY_STATES=1000 PARITY_SEED=1` over both policies and both catalogs: every
+  cell matched 1,000/1,000 for the coarse adapters, the fine (stage-split) adapters and, on Balanced states, the
+  `balanced` planner (`experiments/parity/parity-1000-seed1.summary.txt`, raw records gzipped alongside). Upstream
+  disagreed with itself on 10-22 multi-NodePool states per cell, all resolved within the observed decision set.
+  Wall time 21 minutes. The 10,000-state run is scheduled as a background chunk before the write-up.
+- **Shared-service properties.** `Delta == Value(Apply) - Value` holds for every potential and parameter variant on
+  40 synthetic states; `Apply` conserves pods and never exceeds capacity; on 40 live states Fast and Full agreed on
+  all 800 reference moves checked (0 resource disagreements, 0 topology disagreements: the generator's states carry
+  few topology constraints, so W5 runs report this count again); 39 command-to-move-to-command round trips kept the
+  decision, candidates and replacement options.
+- **Simulator determinism, first check.** Three sources of nondeterminism found and fixed on the way to byte-identical
+  outputs: Karpenter writes NodeClaims and taints from parallel goroutines (`workqueue.ParallelizeUntil`), so the
+  simulator buffers write hooks and schedules them in name order after each event; the fake client's `GenerateName`
+  counter handed out names in goroutine order, so NodeClaims are named from a hash of their canonicalized spec
+  (identical claims are interchangeable); and requirement lists come from map iteration, so the hash sorts them first.
+  After the fixes, four runs of W1/B2 (30 nodes, seed 7) produced identical decision logs, timeseries and summaries.

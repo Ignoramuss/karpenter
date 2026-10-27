@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/awslabs/operatorpkg/controller"
 	"github.com/awslabs/operatorpkg/object"
@@ -38,6 +39,7 @@ import (
 	"sigs.k8s.io/karpenter/pkg/cloudprovider"
 	"sigs.k8s.io/karpenter/pkg/controllers/capacitybuffer"
 	"sigs.k8s.io/karpenter/pkg/controllers/disruption"
+	"sigs.k8s.io/karpenter/pkg/controllers/disruption/pipeline"
 	"sigs.k8s.io/karpenter/pkg/controllers/dynamicresources/deviceallocation"
 	metricsnode "sigs.k8s.io/karpenter/pkg/controllers/metrics/node"
 	metricsnodepool "sigs.k8s.io/karpenter/pkg/controllers/metrics/nodepool"
@@ -126,7 +128,7 @@ func NewControllers(
 	clusterCost := cost.NewClusterCost(ctx, cloudProvider, kubeClient)
 	controllers := []controller.Controller{
 		p, evictionQueue, disruptionQueue,
-		disruption.NewController(ctx, clock, kubeClient, p, cloudProvider, recorder, cluster, disruptionQueue, clusterCost),
+		disruption.NewController(ctx, clock, kubeClient, p, cloudProvider, recorder, cluster, disruptionQueue, clusterCost, disruptionMethods(ctx, clock, kubeClient, p, cloudProvider, recorder, cluster, disruptionQueue, clusterCost)...),
 		provisioning.NewPodController(kubeClient, p, cluster),
 		provisioning.NewNodeController(kubeClient, p),
 		nodepoolhash.NewController(kubeClient, cloudProvider),
@@ -229,4 +231,18 @@ func NewControllers(
 	}
 
 	return controllers
+}
+
+// disruptionMethods replaces multi-node and single-node consolidation with the consolidation pipeline when the
+// ConsolidationPipeline feature gate is on, and otherwise leaves the controller's default methods in place.
+func disruptionMethods(ctx context.Context, clk clock.Clock, kubeClient client.Client, p *provisioning.Provisioner, cloudProvider cloudprovider.CloudProvider,
+	recorder events.Recorder, cluster *state.Cluster, queue *disruption.Queue, clusterCost *cost.ClusterCost) []option.Function[disruption.ControllerOptions] {
+	if !options.FromContext(ctx).FeatureGates.ConsolidationPipeline {
+		return nil
+	}
+	methods, err := pipeline.Methods(ctx, clk, kubeClient, p, cloudProvider, recorder, cluster, queue, clusterCost)
+	if err != nil {
+		panic(fmt.Sprintf("configuring the consolidation pipeline, %s", err))
+	}
+	return []option.Function[disruption.ControllerOptions]{disruption.WithMethods(methods...)}
 }

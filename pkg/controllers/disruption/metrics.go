@@ -46,13 +46,17 @@ var (
 		Name: "empty",
 		Help: "Consolidation that removes empty nodes.",
 	}
+	PipelineConsolidationType = opmetrics.Value{
+		Name: "pipeline",
+		Help: "Consolidation by the pluggable consolidation pipeline (ConsolidationPipeline feature gate).",
+	}
 )
 
 var (
 	ConsolidationType = opmetrics.Label{
 		Name:   ConsolidationTypeLabel,
 		Help:   "The consolidation algorithm that produced the decision.",
-		Values: []opmetrics.Value{MultiNodeConsolidationType, SingleNodeConsolidationType, EmptyConsolidationType},
+		Values: []opmetrics.Value{MultiNodeConsolidationType, SingleNodeConsolidationType, EmptyConsolidationType, PipelineConsolidationType},
 	}
 	// DecisionDim is the `decision` dimension for the voluntary-disruption decision
 	// counters, whose value is the command's action.
