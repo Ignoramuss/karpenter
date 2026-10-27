@@ -8,6 +8,7 @@ from __future__ import annotations
 import contextlib
 import gzip
 import json
+import logging
 import math
 import os
 import sys
@@ -99,13 +100,16 @@ def test_wilcoxon_floor_and_reachability() -> None:
     # The floor is what the exact test returns when every difference has the same sign.
     assert _close(common.wilcoxon_paired(np.arange(1.0, 11.0), np.zeros(10)), 2 / 1024)
     assert _close(common.wilcoxon_paired(np.arange(1.0, 6.0), np.zeros(5)), common.wilcoxon_floor(5))
-    # Holm over 16 tests: 10 pairs can reach significance on their own, 9 cannot (16 * 2/512 = 0.0625).
-    p = [0.5] * 16
-    assert common.holm_reachable([2 / 1024] * 16, p).all() and not common.holm_reachable([2 / 512] * 16, p).any()
-    assert not common.holm_reachable([math.nan], [math.nan]).any()
+    # Holm over m tests: reachable iff floor * m < 0.05. H6 (m = 12): 9 pairs can (12 * 2/512 = 0.047), 8 cannot.
+    assert common.holm_reachable([2 / 512], 12).all() and not common.holm_reachable([2 / 256], 12).any()
+    assert common.holm_reachable([2 / 1024] * 16, 16).all() and not common.holm_reachable([2 / 512] * 16, 16).any()
+    assert not common.holm_reachable([math.nan], 1).any()
+    # The floor is that of the pair count (G6), not of the non-zero differences.
     e = common.paired_effect([1.0, 2.0, 3.0, 4.0, 5.0, 5.0], [0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
-    assert e["p_floor"] == common.wilcoxon_floor(5), e  # the zero difference does not count
-    assert math.isnan(common.paired_effect([], [])["p_floor"])
+    assert e["p_floor"] == common.wilcoxon_floor(6) and e["n_pairs"] == 6, e
+    assert common.paired_effect([], [])["p_floor"] == 1.0
+    assert common.tost_floor(2) == 0.0 and common.tost_floor(1) == 1.0 and common.tost_floor(0) == 1.0
+    assert common.sign_floor(10) == 1 / 1024 and common.sign_floor(0) == 1.0
 
 
 def test_holm() -> None:
@@ -138,7 +142,8 @@ def test_paired_drops_invalid() -> None:
     a, b, keys, dropped = p  # unpacks as the four documented values
     assert list(keys["seed"]) == [1, 2]
     assert np.allclose(a, [11.0, 21.0]) and np.allclose(b, [10.0, 20.0])
-    assert dropped == 3 and p.dropped_missing == 1 and p.dropped_invalid == 2
+    # G4: the valid run with no value (seed 4) is undefined, counted apart from the invalid one (seed 3).
+    assert dropped == 3 and p.dropped_missing == 1 and p.dropped_invalid == 1 and p.dropped_undefined == 1
     assert list(keys.columns) == ["scenario", "nodes", "seed"]
     # Dict selectors and duplicate detection.
     q = common.paired(df, a={"label": "A", "placement": "least-allocated"}, b="B", metric="metric")
@@ -178,7 +183,10 @@ def test_evaluate() -> None:
                                                a="random/x", b="heuristic/x")])
     assert w.loc[1, "p_wilcoxon"] < 0.01 and w.loc[1, "significant"] and w["equivalent_holm"].isna().all()
     assert list(w["p_floor"]) == [2 / 1024] * 2 and list(w["holm_reachable"]) == [True, True], w
-    assert out["holm_reachable"].isna().all() and out["p_floor"].isna().all(), "no floor for t-based TOST rows"
+    # A t-based TOST with at least two pairs has no floor: 0, so it can always reach significance.
+    assert (out["p_floor"] == 0).all() and out["holm_reachable"].all() and (out["m"] == 2).all()
+    assert list(out["outcome"]) == ["equivalent", "higher beyond margin"], out["outcome"]
+    assert list(out["expect_met"]) == [None, None], "no expectation set"
     assert common.evaluate(df.iloc[0:0], [comp]).empty
 
 
@@ -280,12 +288,16 @@ def test_load_runs_synthetic() -> None:
         assert p["executor"] == "shift-evict" and p["potential"] == "util-entropy" and p["moves_mode"] == "pooled"
         assert p["pod_evictions_per_minute"] == 10 and p["max_full_simulations"] == 16
         assert p["duration_min"] == 180 and p["warmup_min"] == 10 and p["git_sha"] == "abc"
-        assert bool(p["git_dirty"]) and not bool(p["valid"]) and "timed_out" in p["invalid_reason"]
+        assert bool(p["git_dirty"]) and not bool(p["valid"]) and p["invalid_reason"] == "timed out"
+        assert bool(p["invalid_timed_out"]) and not bool(p["invalid_violation"]) and p["n_set_aside"] == 0
+        assert isinstance(p["config_id"], str) and isinstance(p["config_id_noseed"], str)
         assert p["evictions_by_merge"] == 10 and p["evictions_by_drain"] == 0 and p["commands_started"] == 3
         assert math.isnan(p["fidelity"])  # no tracked evictions: undefined, not zero
         assert math.isnan(p["wall_passes_over_1m"])  # field absent from this summary
         b = df.set_index("label").loc["B2"]
         assert bool(b["valid"]) and b["invalid_reason"] == "" and b["fidelity"] == 0.5
+        assert b["n_set_aside"] == 1, "its first attempt was set aside; the retry succeeded and is valid"
+        assert pd.isna(b["config_id"]), "no manifest: no configuration identity"
         assert b["commands_started"] == 0 and math.isnan(b["planner_lambda"]) and math.isnan(b["duration_min"])
         assert b["wall_passes_over_1m"] == 2
         with_abandoned = common.load_runs(root, include_abandoned=True)
@@ -293,8 +305,11 @@ def test_load_runs_synthetic() -> None:
         ab = with_abandoned.set_index("seed").loc[103]
         assert not bool(ab["valid"]) and ab["invalid_reason"] == "abandoned: exit status 2"
         assert ab["label"] == "random/x" and ab["scenario"] == "W2" and ab["group"] == "exp1-n200"
+        assert bool(ab["invalid_abandoned"])
         report = common.validity_report(with_abandoned)
         assert list(report["n_invalid"]) == [0, 2] and list(report["n_abandoned"]) == [0, 1]
+        assert list(report["n_timed_out"]) == [0, 1] and list(report["n_violation"]) == [0, 0]
+        assert list(report["n_retried"]) == [1, 1] and list(report["n_succeeded_on_retry"]) == [1, 0]
         # Per-run files.
         pdir = root / "session" / "exp1-n200__arm-x_scenario-w1_seed-101__aaaa"
         assert [d["cycle"] for d in common.load_decisions(pdir)] == [0, 1]
@@ -310,7 +325,11 @@ def test_load_runs_synthetic() -> None:
     empty = common.load_runs(Path(tempfile.gettempdir()) / "no-such-runs-root")
     assert empty.empty and all(c in empty.columns for c in common.RUN_COLUMNS)
     assert common.select_runs(empty, "exp1").empty
-    assert common.evaluate_experiment(empty, "exp1").empty
+    # Without runs, every preregistered test still has its row (no pairs, entering Holm with p 1).
+    none = common.evaluate_experiment(empty, "exp1")
+    assert len(none) == 18 and (none["n_pairs"] == 0).all() and (none["p"] == 1).all(), none
+    assert set(none["outcome"]) == {"no data"}
+    assert (none["m"] == none["family"].map({"H1": 12, "H1-P0-contrast": 6})).all()
 
 
 def test_load_runs_pilot() -> None:
@@ -342,7 +361,7 @@ def test_load_runs_pilot() -> None:
 
 def test_registry_and_group_map() -> None:
     assert set(common.EXPERIMENTS) == {"exp1", "realism", "exp2", "exp3", "exp4", "exp5", "exp6", "exp7", "exp8",
-                                       "abl"}
+                                       "abl", "b4"}
     exp1 = common.comparisons("exp1")
     assert [(c.a, c.b, c.family) for c in exp1] == [
         ("random/entropy-greedy", "heuristic/entropy-greedy", "H1"),
@@ -351,36 +370,64 @@ def test_registry_and_group_map() -> None:
     ]
     assert all(c.test == "tost" and c.margin == 0.03 and c.margin_type == "relative" for c in exp1)
     assert all(c.by == ("scenario", "nodes") for c in exp1)
-    assert len(common.comparisons("abl")) == 12
-    assert [c.a for c in common.comparisons("exp4")][2:5] == [f"anneal-online/t0={t}" for t in ("0.3", "1", "3")]
+    abl = common.comparisons("abl")
+    assert len(abl) == 4 and {c.metric for c in abl} == {"steady_cost_per_hour"} and {c.b for c in abl} == {"full"}
+    h4 = common.comparisons("exp4")
+    assert [(c.a, c.metric) for c in h4] == [("anneal-plan/t0=1/cooling=0.98", "steady_cost_per_hour")] + [
+        (f"anneal-online/t0={t}", "evictions") for t in ("0.3", "1", "3")]
     h7 = common.comparisons("exp7")
-    assert len(h7) == 4 and h7[0].where == {"nodes": [1000]} and h7[1].metric == "wall_pass_p95_ms"
+    assert [(c.family, c.b, c.metric) for c in h7] == [
+        ("H7", "heuristic/entropy-greedy", "cpu_pass_mean_ms"), ("H7", "heuristic/entropy-greedy", "cpu_pass_p95_ms"),
+        ("H7-B2", "B2", "cpu_pass_mean_ms"), ("H7-B2", "B2", "cpu_pass_p95_ms")]
+    assert all(c.where == {"nodes": [1000]} for c in h7)
     assert common.comparisons("exp5")[0].a == {"label": "random/entropy-greedy", "placement": "most-allocated"}
+    assert common.experiment("exp3")["params"]["budgets_pods_per_minute"] == {"lo": 18, "hi": 36}
+    assert "heuristic/anneal-plan" in common.experiment("exp8")["labels"]
+    # H6's lambda points are fixed per baseline, in the comparisons and in params.
+    h6 = {(c.b, c.a) for c in common.comparisons("exp6")}
+    assert h6 == {("B2", "random/entropy-greedy/lambda=0.05"), ("B3", "random/entropy-greedy/lambda=0.5"),
+                  ("B5", "random/entropy-greedy/lambda=0.1")}
+    # Every declared family has exactly its preregistered number of design tests (G6).
+    sizes: dict[str, int] = {}
+    for key in common.EXPERIMENTS:
+        for c in common.comparisons(key):
+            sizes[c.family] = sizes.get(c.family, 0) + len(common.design_strata(c))
+    assert sizes == {"H1": 12, "H1-P0-contrast": 6, "H1-realism": 4, "H3": 4, "H4": 8, "H5": 10, "H6": 12, "H7": 2,
+                     "H7-B2": 2, "ablation": 8, "B4": 6}, sizes
+    assert {f for f, v in common.FAMILIES.items() if v["m"] is None} == {"H2", "H2-cost", "H2-norm", "H2-w5",
+                                                                         "H2-w20"}
+    assert all(common.FAMILIES[f]["m"] == n for f, n in sizes.items())
     for key in common.EXPERIMENTS:  # every entry expands and names its metric
         common.comparisons(key)
         assert common.experiment(key)["primary_metric"]
-    # Session labels in the registry exist in the session matrix (guards against typos).
+    # Session groups and labels in the registry exist in the session matrix (guards against typos), and every
+    # session group is used by some experiment.
     matrix = (common.REPO_ROOT / "experiments" / "matrix" / "session.yaml").read_text(encoding="utf-8")
+    used = set()
     for key, e in common.EXPERIMENTS.items():
-        for g in e["groups"]:
+        for g in e["groups"] + list((e["params"] or {}).get("lp_groups", [])):
             assert f"- name: {g}\n" in matrix, (key, g)
+            used.add(g)
         for label in e["labels"] + e["baselines"]:
             assert f"label: {label}" in matrix or f"label: {label}," in matrix, (key, label)
+    import re
+    assert set(re.findall(r"^  - name: (\S+)$", matrix, flags=re.M)) == used
     with _group_map(None):
         assert common.experiment_groups("exp1") == common.experiment("exp1")["groups"]
         # Exp 7's select keeps only W1 entropy-greedy and B2 rows of the reused Exp 1 groups.
         df = pd.DataFrame({"group": ["exp1-n200", "exp1-n200", "exp1-n200", "exp7-n50"],
                            "label": ["random/entropy-greedy", "random/anneal-plan", "random/entropy-greedy", "B2"],
                            "scenario": ["W1", "W1", "W2", "W1"], "valid": [True] * 4})
-        assert common.select_runs(df, "exp7").index.tolist() == [0, 3]
+        assert common.select_runs(df, "exp7", include_cut=True).index.tolist() == [0, 3]
+        assert common.select_runs(df, "exp7").empty, "one run per configuration: every configuration is cut"
     with _group_map(json.dumps({"exp1-n200": "pilot-exp1", "exp1-baselines-n200": ["pilot-baselines"]})):
-        assert common.experiment_groups("exp1") == ["pilot-exp1", "exp1-n1000", "pilot-baselines",
+        assert common.experiment_groups("exp1") == ["pilot-exp1", "pilot-baselines", "exp1-n1000",
                                                     "exp1-baselines-n1000"]
         df = pd.DataFrame({"group": ["pilot-exp1", "pilot-baselines", "exp1-n200", "pilot-calibrate"],
                            "label": ["x", "B2", "y", "z"], "valid": [True, False, True, True],
                            "scenario": ["W1", "W1", "W1", "W1"]})
-        assert list(common.select_runs(df, "exp1")["group"]) == ["pilot-exp1", "pilot-baselines"]
-        assert list(common.select_runs(df, "exp1", valid_only=True)["group"]) == ["pilot-exp1"]
+        assert list(common.select_runs(df, "exp1", include_cut=True)["group"]) == ["pilot-exp1", "pilot-baselines"]
+        assert list(common.select_runs(df, "exp1", valid_only=True, include_cut=True)["group"]) == ["pilot-exp1"]
     with _group_map("[1, 2]"):
         try:
             common.group_map()
@@ -405,6 +452,309 @@ def _group_map(value: str | None) -> Iterator[None]:
             os.environ.pop(common.GROUP_MAP_ENV, None)
         else:
             os.environ[common.GROUP_MAP_ENV] = saved
+
+
+# --- preregistered run rules (G2-G6) --------------------------------------------------------------------------------
+
+
+def _mini_run(matrix: Path, run_id: str, seed: int, label: str = "random/x", scenario: str = "W1", nodes: int = 200,
+              summary: dict | None = None, manifest: dict | None = None, config: dict | None = None) -> Path:
+    """A finished run with a minimal summary and a manifest whose config is ``config`` (default: label, scenario,
+    seed)."""
+    d = matrix / run_id
+    s = {"run_id": run_id, "label": label, "scenario": scenario, "scenario_nodes": nodes, "seed": seed,
+         "placement": "least-allocated", "scale_down": "spread", "steady_cost_per_hour": 10.0, "evictions": 5,
+         "nodes_removed": 3, "final_nodes": 7, "pdb_violations": 0, "do_not_disrupt_violations": 0,
+         "invalid": False, "timed_out": False}
+    s.update(summary or {})
+    cfg = config if config is not None else {"seed": seed, "scenario": {"name": scenario, "nodes": nodes},
+                                             "arm": {"name": "pipeline", "label": label}}
+    m = {"run_id": run_id, "config": cfg}
+    m.update(manifest or {})
+    _write(d / "summary.json", s)
+    _write(d / "manifest.json", m)
+    return d
+
+
+def test_validity_reasons_counted_separately() -> None:
+    # G2: violation from the violation fields (not from invalid == true, which the simulator also sets for timeouts
+    # and errors), error, timed out; each reason counted on its own.
+    with tempfile.TemporaryDirectory() as tmp:
+        m = Path(tmp) / "pilot"
+        _mini_run(m, "g__a", 1)
+        _mini_run(m, "g__b", 2, summary={"pdb_violations": 2, "invalid": True,
+                                         "invalid_reasons": ["pdb or do-not-disrupt violation"]})
+        _mini_run(m, "g__c", 3, summary={"do_not_disrupt_violations": 1, "invalid": True})
+        _mini_run(m, "g__d", 4, summary={"error": "boom", "invalid": True, "invalid_reasons": ["simulation error"]})
+        _mini_run(m, "g__e", 5, summary={"timed_out": True, "invalid": True,
+                                         "invalid_reasons": ["exceeded max wall time"]})
+        _mini_run(m, "g__f", 6, summary={"invalid": True, "invalid_reasons": ["something else"]})  # no rule applies
+        _mini_run(m, "g__h", 7, summary={"pdb_violations": 1, "error": "also", "invalid": True})
+        runs = common.load_runs(Path(tmp)).set_index("run_id")
+        assert list(runs["valid"]) == [True, False, False, False, False, True, False], runs["valid"]
+        assert runs.loc["g__b", "invalid_reason"] == "violation (pdb 2, do-not-disrupt 0)"
+        assert runs.loc["g__h", "invalid_reason"] == "violation (pdb 1, do-not-disrupt 0); error: also"
+        report = common.validity_report(runs.reset_index(), by=("group",)).iloc[0]
+        assert (report["n_runs"], report["n_valid"], report["n_invalid"]) == (7, 2, 5)
+        assert (report["n_violation"], report["n_error"], report["n_timed_out"]) == (3, 2, 1), report
+        assert report["n_abandoned"] == 0 and report["n_wrong_binary"] == 0
+
+
+def test_set_aside_attempts_counted() -> None:
+    # G2: set-aside attempts (<run_id>.failed-<n>) are counted (n_retried); a cell that succeeds on retry is valid; a
+    # cell with two set-aside attempts and no summary is abandoned (the tree decides, as for the runner); one with a
+    # single set-aside attempt and no summary is waiting for its retry, not a finished run.
+    with tempfile.TemporaryDirectory() as tmp:
+        m = Path(tmp) / "session"
+        ok = _mini_run(m, "exp3__retried", 101)
+        _write(m / "exp3__retried.failed-1" / "cell.json", {"seed": 101})
+        for n in (1, 2):
+            _write(m / f"exp3__gone.failed-{n}" / "cell.json", {"seed": 102, "arm": {"label": "random/x"},
+                                                                 "scenario": {"name": "W1", "nodes": 200}})
+        _write(m / "exp3__waiting.failed-1" / "cell.json", {"seed": 103})
+        assert common.set_aside_attempts(Path(tmp)) == {("session", "exp3__gone"): 2, ("session", "exp3__retried"): 1,
+                                                        ("session", "exp3__waiting"): 1}
+        runs = common.load_runs(Path(tmp), include_abandoned=True).set_index("run_id")
+        assert sorted(runs.index) == ["exp3__gone", "exp3__retried"], runs.index
+        assert bool(runs.loc["exp3__retried", "valid"]) and runs.loc["exp3__retried", "n_set_aside"] == 1
+        assert bool(runs.loc["exp3__gone", "invalid_abandoned"]) and runs.loc["exp3__gone", "n_set_aside"] == 2
+        assert runs.loc["exp3__gone", "invalid_reason"] == "abandoned" and runs.loc["exp3__gone", "seed"] == 102
+        report = common.validity_report(runs.reset_index(), by=("group",)).iloc[0]
+        assert (report["n_retried"], report["n_set_aside"], report["n_succeeded_on_retry"]) == (2, 3, 1), report
+        assert (report["n_abandoned"], report["n_invalid"]) == (1, 1)
+        pending = common.pending_retries(Path(tmp), runs.reset_index())
+        assert pending.to_dict("records") == [{"matrix": "session", "run_id": "exp3__waiting", "group": "exp3",
+                                               "n_set_aside": 1}]
+        assert ok.exists()
+
+
+def test_wrong_binary_invalidates_session_runs() -> None:
+    # G2: under experiments/runs/session only, a run whose manifest binary_revision differs from
+    # experiments/session-binary.txt, or whose binary_modified is true, is invalid ("wrong binary"); without that file
+    # the check is skipped with a warning.
+    sha = "0123456789abcdef0123456789abcdef01234567"
+    with tempfile.TemporaryDirectory() as tmp:
+        exp = Path(tmp) / "experiments"
+        s, pil = exp / "runs" / "session", exp / "runs" / "pilot"
+        _mini_run(s, "exp1-n200__good", 101, manifest={"binary_revision": sha, "binary_modified": False})
+        _mini_run(s, "exp1-n200__other", 102, manifest={"binary_revision": "f" * 40, "binary_modified": False})
+        _mini_run(s, "exp1-n200__dirty", 103, manifest={"binary_revision": sha, "binary_modified": True})
+        _mini_run(s, "exp1-n200__old", 104)  # an older binary: no stamp at all
+        _mini_run(pil, "pilot-exp1__other", 1, manifest={"binary_revision": "f" * 40})  # not a session run
+        with _captured() as log:
+            runs = common.load_runs(exp / "runs").set_index("run_id")
+        assert runs["valid"].all(), "no session-binary.txt: nothing is flagged"
+        assert any("session-binary.txt not found: binary check skipped for 4 session run(s)" in m for m in log), log
+        (exp / "session-binary.txt").write_text(f"Gate 3 build\n{sha}\n", encoding="utf-8")
+        for root in (exp / "runs", s):  # the tree or the session matrix alone
+            runs = common.load_runs(root).set_index("run_id")
+            flagged = sorted(runs.index[runs["invalid_wrong_binary"]])
+            assert flagged == ["exp1-n200__dirty", "exp1-n200__old", "exp1-n200__other"], flagged
+            assert not runs.loc[flagged, "valid"].any() and bool(runs.loc["exp1-n200__good", "valid"])
+        assert runs.loc["exp1-n200__dirty", "invalid_reason"] == "wrong binary (revision 0123456789ab, modified)"
+        assert runs.loc["exp1-n200__old", "invalid_reason"] == "wrong binary (revision missing)"
+        assert bool(common.load_runs(exp / "runs").set_index("run_id").loc["pilot-exp1__other", "valid"])
+        report = common.validity_report(common.load_runs(exp / "runs"), by=("matrix",)).set_index("matrix")
+        assert report.loc["session", "n_wrong_binary"] == 3 and report.loc["pilot", "n_wrong_binary"] == 0
+        # The location can also be given explicitly (then every run of a matrix named "session" is checked).
+        alt = Path(tmp) / "elsewhere.txt"
+        alt.write_text("f" * 40 + "\n", encoding="utf-8")
+        runs = common.load_runs(exp / "runs", session_binary=alt).set_index("run_id")
+        assert sorted(runs.index[runs["invalid_wrong_binary"]]) == ["exp1-n200__dirty", "exp1-n200__good",
+                                                                    "exp1-n200__old"]
+
+
+@contextlib.contextmanager
+def _captured() -> Iterator[list[str]]:
+    messages: list[str] = []
+
+    class _Collect(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            messages.append(record.getMessage())
+
+    handler = _Collect()
+    common.logger.addHandler(handler)
+    try:
+        yield messages
+    finally:
+        common.logger.removeHandler(handler)
+
+
+@contextlib.contextmanager
+def _min_seeds(value: str | None) -> Iterator[None]:
+    saved = os.environ.get(common.MIN_SEEDS_ENV)
+    if value is None:
+        os.environ.pop(common.MIN_SEEDS_ENV, None)
+    else:
+        os.environ[common.MIN_SEEDS_ENV] = value
+    try:
+        yield
+    finally:
+        if saved is None:
+            os.environ.pop(common.MIN_SEEDS_ENV, None)
+        else:
+            os.environ[common.MIN_SEEDS_ENV] = saved
+
+
+def test_completeness_cuts_at_min_seeds() -> None:
+    # G3: a configuration (group, label, scenario, nodes, placement, scale_down) with fewer than MIN_SEEDS finished
+    # runs (valid or invalid; abandoned cells count) is cut from every selection and listed with its count.
+    with tempfile.TemporaryDirectory() as tmp, _min_seeds(None):
+        m = Path(tmp) / "session"
+        for seed in range(101, 111):
+            _mini_run(m, f"exp3__full_seed-{seed}", seed, label="merge-only/budget-lo", scenario="W2")
+        for seed in range(101, 110):  # 9 finished (one invalid) + 1 abandoned = 10
+            extra = {"pdb_violations": 1} if seed == 101 else {}
+            _mini_run(m, f"exp3__short_seed-{seed}", seed, label="merge+shift/budget-lo", scenario="W2", summary=extra)
+        for n in (1, 2):
+            _write(m / f"exp3__short_seed-110.failed-{n}" / "cell.json", {
+                "seed": 110, "arm": {"label": "merge+shift/budget-lo"}, "scenario": {"name": "W2", "nodes": 200}})
+        for seed in range(101, 110):  # 9 finished: cut
+            _mini_run(m, f"exp3__cut_seed-{seed}", seed, label="merge-only/budget-hi", scenario="W2")
+        runs = common.load_runs(Path(tmp), include_abandoned=True)
+        assert common.MIN_SEEDS == 10 and common.min_seeds() == 10
+        comp = common.completeness(runs).set_index("label")
+        assert comp.loc["merge-only/budget-lo", "n_finished"] == 10 and not comp.loc["merge-only/budget-lo", "cut"]
+        assert comp.loc["merge+shift/budget-lo", "n_finished"] == 10 and comp.loc["merge+shift/budget-lo",
+                                                                                  "n_invalid"] == 2
+        assert not comp.loc["merge+shift/budget-lo", "cut"], "an abandoned cell is a finished (invalid) run"
+        assert comp.loc["merge-only/budget-hi", "n_finished"] == 9 and comp.loc["merge-only/budget-hi", "cut"]
+        sel = common.select_runs(runs, "exp3")
+        assert set(sel["label"]) == {"merge-only/budget-lo", "merge+shift/budget-lo"} and len(sel) == 20
+        assert len(common.select_runs(runs, "exp3", include_cut=True)) == 29
+        # Cut arms leave their tests without pairs (p 1), and the report counts their runs.
+        tests = common.evaluate(sel, common.comparisons("exp3"))
+        hi = tests.loc[tests["comparison"].str.endswith("budget-hi") & (tests["scenario"] == "W2")].iloc[0]
+        assert hi["n_pairs"] == 0 and hi["p"] == 1 and hi["outcome"] == "no data"
+        everything = common.select_runs(runs, "exp3", include_cut=True)
+        report = common.validity_report(everything, by=("group",)).iloc[0]
+        assert report["n_in_cut_configurations"] == 9
+        # A run listed once per experiment that uses it still counts once toward its configuration's completeness.
+        twice = pd.concat([everything.assign(experiment="a"), everything.assign(experiment="b")], ignore_index=True)
+        report = common.validity_report(twice, by=("experiment",))
+        assert list(report["n_in_cut_configurations"]) == [9, 9], report
+        missing = common.missing_configurations(common.select_runs(runs, "exp3", include_cut=True),
+                                                common.comparisons("exp3"))
+        assert {"arm": "merge-only/budget-hi", "stratum": "scenario=W2, nodes=200", "n_finished": 9,
+                "min_seeds": 10} in missing
+        with _min_seeds("5"):
+            assert common.min_seeds() == 5 and not common.cut_mask(runs).any()
+            assert len(common.select_runs(runs, "exp3")) == 29
+        with _min_seeds("zero"):
+            try:
+                common.min_seeds()
+            except ValueError:
+                pass
+            else:
+                raise AssertionError("a malformed ANALYSIS_MIN_SEEDS must be rejected")
+
+
+def test_duplicate_consistency() -> None:
+    # G5: identical configurations (label and group ignored) on the same seed must match on steady_cost_per_hour,
+    # evictions, nodes_removed and final_nodes; the table counts the sets and those that differ.
+    with tempfile.TemporaryDirectory() as tmp:
+        m = Path(tmp) / "session"
+        for seed in (101, 102, 103):
+            cfg = {"seed": seed, "scenario": {"name": "W2", "nodes": 200}, "arm": {"name": "pipeline", "label": "x",
+                                                                                     "pipeline": {"k": 1}}}
+            _mini_run(m, f"exp1-n200__a_seed-{seed}", seed, label="random/entropy-greedy", scenario="W2",
+                      config=cfg)
+            other = json.loads(json.dumps(cfg))
+            other["arm"]["label"], other["runID"], other["maxWall"] = "random/entropy-greedy/lambda=0.1", "y", "9h"
+            _mini_run(m, f"exp6__b_seed-{seed}", seed, label="random/entropy-greedy/lambda=0.1", scenario="W2",
+                      config=other, summary={"evictions": 6} if seed == 103 else {})
+            different = json.loads(json.dumps(cfg))
+            different["arm"]["pipeline"]["k"] = 2
+            _mini_run(m, f"exp6__c_seed-{seed}", seed, label="random/entropy-greedy/lambda=2", scenario="W2",
+                      config=different)
+        runs = common.load_runs(Path(tmp))
+        sets = common.duplicate_sets(runs)
+        assert len(sets) == 3 and list(sets["seed"]) == [101, 102, 103] and list(sets["n_runs"]) == [2, 2, 2]
+        assert list(sets["consistent"]) == [True, True, False] and not sets.iloc[2]["match_evictions"]
+        assert sets.iloc[0]["groups"] == "exp1-n200 + exp6", sets.iloc[0]
+        table = common.duplicate_consistency(runs)
+        assert list(table["configuration"])[-1] == "all" and len(table) == 2
+        row, total = table.iloc[0], table.iloc[-1]
+        assert (row["n_sets"], row["n_differ"], row["differing_metrics"], row["differing_seeds"]) == (
+            3, 1, "evictions", "103"), row
+        assert (total["n_sets"], total["n_differ"]) == (3, 1)
+        none = common.duplicate_consistency(runs.loc[runs["group"] == "exp6"])
+        assert none["configuration"].tolist() == ["all"] and none.iloc[0]["n_sets"] == 0
+
+
+def test_run_checks_tables() -> None:
+    # The run-level tables: validity per experiment and group (every reason, set-aside attempts, pending retries),
+    # cut configurations with their counts, and the cross-group determinism check.
+    from paper.analysis import run_checks
+
+    with tempfile.TemporaryDirectory() as tmp, _min_seeds(None):
+        m = Path(tmp) / "session"
+        for seed in range(101, 111):
+            cfg = {"seed": seed, "scenario": {"name": "W2", "nodes": 200}, "arm": {"name": "pipeline", "label": "x"}}
+            _mini_run(m, f"exp1-n200__a_seed-{seed}", seed, label="random/entropy-greedy", scenario="W2", config=cfg)
+            _mini_run(m, f"exp6__b_seed-{seed}", seed, label="random/entropy-greedy/lambda=0.1", scenario="W2",
+                      config=cfg, summary={"final_nodes": 8} if seed == 110 else {})
+        for seed in range(101, 104):  # 3 of 10: cut
+            _mini_run(m, f"exp3__c_seed-{seed}", seed, label="merge-only/budget-lo", scenario="W2")
+        _write(m / "exp6__b_seed-101.failed-1" / "cell.json", {"seed": 101})  # retried, then succeeded
+        _write(m / "exp3__c_seed-104.failed-1" / "cell.json", {"seed": 104})  # waiting for its retry
+        out = Path(tmp) / "out"
+        with open(os.devnull, "w", encoding="utf-8") as devnull, contextlib.redirect_stdout(devnull):
+            run_checks.main(Path(tmp), out)
+        validity = pd.read_csv(out / "tables" / "validity.csv")
+        exp6 = validity.loc[(validity["experiment"] == "exp6") & (validity["group"] == "exp6")].iloc[0]
+        assert exp6["n_runs"] == 10 and exp6["n_retried"] == 1 and exp6["n_succeeded_on_retry"] == 1
+        exp3 = validity.loc[validity["experiment"] == "exp3"].iloc[0]
+        assert exp3["n_in_cut_configurations"] == 3 and exp3["n_pending_retry"] == 1, exp3
+        assert set(validity["experiment"]) >= {"exp1", "exp2", "exp3", "exp6"}
+        cut = pd.read_csv(out / "tables" / "cut_configurations.csv")
+        assert cut[["group", "label", "n_finished", "min_seeds"]].values.tolist() == [
+            ["exp3", "merge-only/budget-lo", 3, 10]] and cut.iloc[0]["experiments"] == "exp2, exp3", cut
+        dup = pd.read_csv(out / "tables" / "duplicate_consistency.csv")
+        assert dup.iloc[-1]["configuration"] == "all" and dup.iloc[-1]["n_sets"] == 10 and dup.iloc[-1]["n_differ"] == 1
+        doc = json.loads((out / "tables" / "run_checks.json").read_text())
+        assert doc["duplicates"]["n_differ"] == 1 and not doc["duplicates"]["all_match"]
+        assert [s["seed"] for s in doc["duplicates"]["differing_sets"]] == [110]
+        assert doc["n_cut_configurations"] == 1 and doc["min_seeds"] == 10 and doc["n_pending_retry"] == 1
+        assert doc["binary_check"] == {"n_session_runs": 0, "files": {}, "checked": False, "n_wrong_binary": 0}
+    with tempfile.TemporaryDirectory() as tmp:
+        with open(os.devnull, "w", encoding="utf-8") as devnull, contextlib.redirect_stdout(devnull):
+            run_checks.main(Path(tmp) / "none", Path(tmp) / "out")
+        assert not (Path(tmp) / "out").exists(), "nothing is written without runs"
+
+
+def test_holm_families_fixed_size() -> None:
+    # G6: a registry family is Holm-adjusted at its declared size m whatever has data (H1: a test without pairs enters
+    # with p 1 and m stays 12), only declared families exist, and a family of the wrong size is refused.
+    rng = np.random.default_rng(1)
+    rows = []
+    for seed in range(101, 111):
+        base = 50 + rng.normal(0, 2)
+        for label, f in (("heuristic/entropy-greedy", 1.0), ("random/entropy-greedy", 1.0 + rng.normal(0, 0.001))):
+            rows.append({"group": "exp1-n200", "scenario": "W1", "nodes": 200, "seed": seed, "label": label,
+                         "placement": "least-allocated", "scale_down": "spread", "valid": True,
+                         "steady_cost_per_hour": base * f})
+    df = pd.DataFrame(rows)
+    h1 = [c for c in common.comparisons("exp1") if c.family == "H1"]
+    out = common.evaluate(df, h1)
+    assert len(out) == 12 and (out["m"] == 12).all()
+    have = out.loc[out["n_pairs"] > 0]
+    assert len(have) == 1 and (out.loc[out["n_pairs"] == 0, "p_tost"] == 1).all()
+    assert _close(have.iloc[0]["p_holm"], min(1.0, 12 * have.iloc[0]["p_tost"])), have
+    assert bool(have.iloc[0]["equivalent_holm"]) and out["equivalent_holm"].sum() == 1
+    assert not out.loc[out["n_pairs"] == 0, "holm_reachable"].any(), "p_floor 1: a missing test cannot reject"
+    try:
+        common.evaluate(df, h1[:1])  # one comparison of H1 gives 6 rows, not the declared 12
+    except ValueError as err:
+        assert "declares m = 12" in str(err), err
+    else:
+        raise AssertionError("a family of the wrong size must be refused")
+    try:
+        common.family_size("H4-sweep")
+    except KeyError:
+        pass
+    else:
+        raise AssertionError("undeclared families do not exist")
 
 
 # --- output ------------------------------------------------------------------------------------------------------------

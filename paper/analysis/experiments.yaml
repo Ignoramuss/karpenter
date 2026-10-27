@@ -1,39 +1,74 @@
-# Experiment registry for the paper's analyses (docs/research/PLAN.md "Phase 4"; experiments/PREREGISTRATION.md).
-# paper/analysis/common.py loads this file into common.EXPERIMENTS; analysis modules select runs with
-# common.select_runs(runs, "<key>") and expand comparisons with common.comparisons("<key>").
+# Experiment registry for the paper's analyses (experiments/PREREGISTRATION.md, which governs; docs/research/PLAN.md
+# "Phase 4"). paper/analysis/common.py loads this file into common.EXPERIMENTS, common.FAMILIES and common.ANALYSIS;
+# analysis modules select runs with common.select_runs(runs, "<key>") and expand comparisons with
+# common.comparisons("<key>").
 #
-# Schema, per experiment key (exp1..exp8, abl):
+# analysis:            rules shared by every experiment
+#   min_seeds:         a configuration (group, label, scenario, nodes, placement, scale_down) with fewer finished runs
+#                      (valid or invalid; abandoned cells count) is cut: excluded from every test and verdict, listed
+#                      in tables/cut_configurations. The ANALYSIS_MIN_SEEDS environment variable overrides it (5 for
+#                      the pilot).
+# families:            the only Holm families (nothing else is Holm-adjusted together), each with its experiment and
+#                      its fixed size m: the number of tests in the family whatever has data (a test that cannot run
+#                      enters Holm with p = 1). m: null means "the tests with data" (H2). common.evaluate checks that
+#                      a family's rows number exactly m.
+#
+# Schema, per experiment key:
 #   title:             short description
 #   hypothesis:        H1..H7, or null for descriptive experiments
-#   groups:            session group names (experiments/matrix/session.yaml) whose runs belong to the experiment.
-#                      The ANALYSIS_GROUP_MAP environment variable (a JSON object, session group -> pilot group or
-#                      list of groups) remaps them, so the same analyses run on the pilot.
-#   scenarios, nodes:  the workloads and scenario.nodes values the experiment covers (descriptive: display order)
+#   groups:            session group names (experiments/matrix/session.yaml, in run order) whose runs belong to the
+#                      experiment. Each experiment uses its own groups' runs; identical configurations in other groups
+#                      are separate runs (a cross-group determinism check). The ANALYSIS_GROUP_MAP environment
+#                      variable (a JSON object, session group -> pilot group or list of groups) remaps them, so the
+#                      same analyses run on the pilot.
+#   scenarios, nodes:  the workloads and scenario.nodes values the experiment covers: the preregistered strata of its
+#                      comparisons (with params.placements / params.scale_downs where a comparison stratifies by them)
 #   select:            optional hard row filter {column: [allowed values]}, applied by select_runs after the groups
 #   labels:            the configuration labels under test, in display order
 #   baselines:         reference configuration labels (B0..B5) shown alongside, in display order
 #   primary_metric:    a load_runs column, or the name of a metric the owning module derives (documented in params)
-#   secondary_metrics: further load_runs columns the experiment reports
+#   secondary_metrics: further load_runs columns the experiment reports (descriptive)
 #   pair_keys:         columns that pair runs across arms (default [scenario, nodes, seed])
 #   comparisons:       list of paired comparisons, each:
 #       name:          display name ({placeholders} filled from foreach)
-#       family:        Holm family; p-values are adjusted within one family (default: the experiment key)
-#       test:          tost (equivalence, H1) or wilcoxon (two-sided signed-rank)
-#       metric:        load_runs column compared
+#       family:        Holm family (declared under families, for this experiment)
+#       test:          tost (equivalence: two one-sided paired t-tests) or wilcoxon (two-sided exact signed-rank)
+#       metric:        load_runs column compared (or one the owning module derives before testing)
 #       a, b:          arm selectors: a label string, or {column: value} filters (label, placement, scale_down, ...).
 #                      Differences are a - b; b is the reference (its mean is the denominator of percent effects).
-#       by:            columns that split the comparison into strata, one test per stratum (e.g. [scenario, nodes])
-#       where:         optional {column: [values]} filter applied before stratifying
+#       by:            columns that split the comparison into strata, one test per preregistered stratum
+#       where:         optional {column: [values]} filter applied to the runs and to the preregistered strata
 #       margin:        TOST equivalence margin; margin_type relative (fraction of b's mean over the pairs) or absolute
-#       expect:        expected direction of a - b for the verdict: lower, higher, not_higher, not_lower, equal
+#       expect:        expected direction of a - b: lower, higher (significant after Holm) or equal (equivalent)
 #       foreach:       optional {placeholder: [values]}; the comparison is repeated for every combination (cartesian
 #                      product, in the listed order) with {placeholder} substituted in every string field
 #   params:            experiment-specific settings the owning module reads
+analysis:
+  min_seeds: 10
+
+families:
+  H1: {experiment: exp1, m: 12}               # random vs heuristic, 2 planners x {W1, W2, W4} x {200, 1000}
+  H1-P0-contrast: {experiment: exp1, m: 6}    # savings-only pairs; reported, not in H1's verdict
+  H1-realism: {experiment: realism, m: 4}     # W5, W6 at 200 nodes; reported, not in H1's verdict
+  H2: {experiment: exp2, m: null}             # potential x scenario with data (<= 9): sign tests over seeds
+  H2-cost: {experiment: exp2, m: null}        # secondary: next-window cost decrease
+  H2-norm: {experiment: exp2, m: null}        # secondary: normalized potentials p*_norm
+  H2-w5: {experiment: exp2, m: null}          # secondary: 5-minute windows
+  H2-w20: {experiment: exp2, m: null}         # secondary: 20-minute windows
+  H3: {experiment: exp3, m: 4}
+  H4: {experiment: exp4, m: 8}                # 2 plan cost tests + 6 online eviction tests
+  H5: {experiment: exp5, m: 10}
+  H6: {experiment: exp6, m: 12}               # 3 baselines x {W2, W3} x {savings, eviction_cost}
+  H7: {experiment: exp7, m: 2}
+  H7-B2: {experiment: exp7, m: 2}             # secondary; absent if exp7-b2-n1000 is cut; never in H7's verdict
+  ablation: {experiment: abl, m: 8}
+  B4: {experiment: b4, m: 6}                  # secondary B4 parity TOSTs
+
 experiments:
   exp1:
     title: Random vs heuristic generation under three planners
     hypothesis: H1
-    groups: [exp1-n200, exp1-n1000, exp1-baselines-n200, exp1-baselines-n1000]
+    groups: [exp1-n200, exp1-baselines-n200, exp1-n1000, exp1-baselines-n1000]
     scenarios: [W1, W2, W4]
     nodes: [200, 1000]
     labels:
@@ -73,18 +108,18 @@ experiments:
         margin_type: relative
         expect: equal
     params:
-      # Exp 1 reports early (first hour after warmup) and late (last 20%) phases separately.
+      # Exp 1 reports early (first hour after warmup) and late (t >= 0.8 x horizon, the steady-state window) phases.
       warmup_min: 10
       early_window_min: [10, 70]
-      late_fraction: 0.2
-      # H1 holds if at least this many of the 12 H1 tests are equivalent after Holm and none has its 90% CI lower
-      # bound above +margin (random worse by more than the margin).
+      late_from_fraction: 0.8
+      # H1 is supported iff at least this many of the 12 H1 tests are equivalent after Holm and none is vetoed (its
+      # unadjusted 90% CI lower bound above +margin: random worse by more than the margin).
       h1_min_equivalent: 10
       h1_tests: 12
 
   realism:
     title: Exp 1's entropy-guided comparison on the constrained (W5) and trace (W6) workloads
-    hypothesis: null   # a realism check on H1 (threats to validity), reported beside Exp 1, outside H1's family
+    hypothesis: null   # a realism check on H1 (threats to validity), reported beside Exp 1, outside H1's verdict
     groups: [realism-w5, realism-w6]
     scenarios: [W5, W6]
     nodes: [200]
@@ -114,11 +149,12 @@ experiments:
   exp2:
     title: Potential drop as a lead indicator of node removals and cost decrease
     hypothesis: H2
+    # Every group with W2, W3 or W6 runs at 200 or 1,000 nodes, in run order (the first run of a duplicated
+    # configuration and seed is the one kept). b4 is left out: its arms re-run B2 and B3 (parity), not new policies.
     groups:
       - exp1-n200
       - exp1-baselines-n200
       - exp1-n1000
-      - exp1-baselines-n1000
       - exp6
       - exp6-baselines
       - exp6-b5
@@ -127,23 +163,31 @@ experiments:
       - exp3
       - abl
       - realism-w6
+      - exp1-baselines-n1000
     select: {scenario: [W2, W3, W6]}
     scenarios: [W2, W3, W6]
     nodes: [200, 1000]
     labels: []
     baselines: []
-    primary_metric: spearman_lead   # derived per run: Spearman of -dPhi (window w) with removals in window w+1
+    primary_metric: spearman_lead   # derived per run: Spearman of -dPhi (window w) with removals in the next window
     secondary_metrics: []
     pair_keys: [scenario, nodes, seed]
-    comparisons: []
+    comparisons: []   # sign tests over seeds, in timeseries_figures (families H2, H2-cost, H2-norm, H2-w5, H2-w20)
     params:
       potentials: {P1: p1_load_entropy, P2: p2_util_entropy, P3: p3_quadratic}
+      potentials_norm: {P1: p1_norm, P2: p2_norm, P3: p3_norm}
       outcomes: {removals: nodes_removed_cum, cost_decrease: cost_per_hour}
+      excluded_labels: [B0]
       window_min: 10
-      sensitivity_windows_min: [5, 20]
       warmup_min: 10
-      # Sign test that the share of positive per-run correlations exceeds one half; Holm over potentials x scenarios.
-      holm_family: potentials x scenarios
+      min_windows: 4
+      # (family, potential form, outcome, window): the primary family first.
+      analyses:
+        - {family: H2, form: raw, outcome: removals, window_min: 10}
+        - {family: H2-cost, form: raw, outcome: cost_decrease, window_min: 10}
+        - {family: H2-norm, form: norm, outcome: removals, window_min: 10}
+        - {family: H2-w5, form: raw, outcome: removals, window_min: 5}
+        - {family: H2-w20, form: raw, outcome: removals, window_min: 20}
 
   exp3:
     title: Merge-only vs merge plus shift at equal pod-eviction budgets
@@ -166,17 +210,10 @@ experiments:
         b: "merge-only/budget-{budget}"
         by: [scenario, nodes]
         expect: lower
-      # Descriptive check that the eviction budget held both arms to comparable disruption.
-      - name: "merge+shift vs merge-only, budget-{budget}, evictions"
-        family: H3-evictions
-        foreach: {budget: [lo, hi]}
-        test: wilcoxon
-        metric: evictions
-        a: "merge+shift/budget-{budget}"
-        b: "merge-only/budget-{budget}"
-        by: [scenario, nodes]
     params:
-      budgets_pods_per_minute: {lo: 10, hi: 20}
+      budgets_pods_per_minute: {lo: 18, hi: 36}
+      # Descriptive (no tests): merge+shift - merge-only on these, per scenario and budget.
+      descriptive_metrics: [steady_cost_per_hour, evictions, eviction_cost, final_nodes]
 
   exp4:
     title: Greedy vs plan-time vs online annealing
@@ -200,18 +237,16 @@ experiments:
     secondary_metrics: [evictions, eviction_cost, integrated_cost_post, final_nodes]
     pair_keys: [scenario, nodes, seed]
     comparisons:
-      # The preregistered anneal-plan configuration (the one Exp 1 uses) against greedy: cheaper or equal, and no more
-      # evictions.
-      - name: "anneal-plan default vs entropy-greedy, {metric}"
+      # Plan clause, test part: the preregistered anneal-plan (the one Exp 1 uses) significantly cheaper (2 tests).
+      - name: "anneal-plan default vs entropy-greedy, steady_cost_per_hour"
         family: H4
-        foreach: {metric: [steady_cost_per_hour, evictions]}
         test: wilcoxon
-        metric: "{metric}"
+        metric: steady_cost_per_hour
         a: anneal-plan/t0=1/cooling=0.98
         b: entropy-greedy
         by: [scenario, nodes]
-        expect: not_higher
-      # Online annealing pays disruption (more evictions) for little gain (cost not significantly lower).
+        expect: lower
+      # Online clause, test part: each anneal-online significantly more evictions (6 tests).
       - name: "anneal-online t0={t0} vs entropy-greedy, evictions"
         family: H4
         foreach: {t0: [0.3, 1, 3]}
@@ -221,19 +256,15 @@ experiments:
         b: entropy-greedy
         by: [scenario, nodes]
         expect: higher
-      - name: "anneal-online t0={t0} vs entropy-greedy, steady_cost_per_hour"
-        family: H4
-        foreach: {t0: [0.3, 1, 3]}
-        test: wilcoxon
-        metric: steady_cost_per_hour
-        a: "anneal-online/t0={t0}"
-        b: entropy-greedy
-        by: [scenario, nodes]
-        expect: not_lower
     params:
       default_anneal_label: anneal-plan/t0=1/cooling=0.98
       greedy_label: entropy-greedy
-      sweep: {t0: [0.3, 1, 3], cooling: [0.95, 0.98]}
+      online_labels: [anneal-online/t0=0.3, anneal-online/t0=1, anneal-online/t0=3]
+      # Plan clause, bootstrap part: paired 95% CI upper bound of 100 * mean(a - b) / mean(b) on evictions below this.
+      plan_evictions_max_pct: 10
+      # Online clause, bootstrap part: paired 95% CI lower bound of the same on steady_cost_per_hour above this.
+      online_cost_min_pct: -1
+      sweep: {t0: [0.3, 1, 3], cooling: [0.95, 0.98]}   # descriptive (no tests)
 
   exp5:
     title: Plan fidelity by placement model and scale-down model
@@ -264,6 +295,7 @@ experiments:
         a: {label: "{label}", scale_down: deletion-cost}
         b: {label: "{label}", scale_down: spread}
         by: [scenario, nodes, placement]
+        where: {placement: [least-allocated, most-allocated]}
         expect: higher
       - name: "steered vs unsteered, least-allocated"
         family: H5
@@ -277,6 +309,15 @@ experiments:
       placements: [least-allocated, most-allocated, plan-following]
       scale_downs: [spread, deletion-cost]
       oracle_placement: plan-following   # fidelity should be near 1 here
+      oracle_min_fidelity: 0.95          # else the run set is flagged as a simulator problem
+      # (a): the bootstrap 95% CI lower bound of the off-plan share (1 - fidelity) of this arm under least-allocated
+      # must exceed this under both scale-down models.
+      off_plan_label: random/entropy-greedy
+      off_plan_placement: least-allocated
+      off_plan_min_share: 0.05
+      # (b): the levers, for this arm: most-allocated (comparison "most- vs least-allocated, <arm>") and
+      # deletion-cost ("deletion-cost vs spread, <arm>"), each significantly higher in at least one stratum.
+      lever_label: random/entropy-greedy
 
   exp6:
     title: Savings vs disruption frontier from a lambda sweep, against upstream operating points
@@ -293,24 +334,53 @@ experiments:
       - random/entropy-greedy/lambda=2
       - random/entropy-greedy/lambda=5
     baselines: [B0, B2, B3, B5]
-    primary_metric: savings_vs_b0   # derived per seed: B0 integrated_cost_post minus the run's ($)
+    primary_metric: savings   # derived: B0's integrated_cost_post (same scenario, nodes, seed, placement) - the run's
     secondary_metrics: [eviction_cost, evictions, steady_cost_per_hour]
     pair_keys: [scenario, nodes, seed]
-    comparisons: []   # data-dependent: the matched lambda point is chosen per baseline and scenario (see params)
+    # The matched lambda per baseline is fixed in advance (no selection on results): B2 accepts any saving (0.05),
+    # Balanced at k = 2 is dE <= 0 with lambda/mu = 1/2 (B3: 0.5), B5 runs at the calibrated default (0.1).
+    comparisons:
+      - name: "lambda=0.05 vs B2, {metric}"
+        family: H6
+        foreach: {metric: [savings, eviction_cost]}
+        test: wilcoxon
+        metric: "{metric}"
+        a: random/entropy-greedy/lambda=0.05
+        b: B2
+        by: [scenario, nodes]
+      - name: "lambda=0.5 vs B3, {metric}"
+        family: H6
+        foreach: {metric: [savings, eviction_cost]}
+        test: wilcoxon
+        metric: "{metric}"
+        a: random/entropy-greedy/lambda=0.5
+        b: B3
+        by: [scenario, nodes]
+      - name: "lambda=0.1 vs B5, {metric}"
+        family: H6
+        foreach: {metric: [savings, eviction_cost]}
+        test: wilcoxon
+        metric: "{metric}"
+        a: random/entropy-greedy/lambda=0.1
+        b: B5
+        by: [scenario, nodes]
     params:
       sweep_param: planner_lambda
       zero_label: B0
       operating_points: [B2, B3, B5]
+      matched_lambda: {B2: 0.05, B3: 0.5, B5: 0.1}
+      # Placement each operating point runs (and pairs with B0) under: B5 and its B0 in exp6-b5.
+      placement_of: {B2: least-allocated, B3: least-allocated, B5: most-allocated}
+      sweep_placement: least-allocated
       savings_metric: integrated_cost_post
       disruption_metric: eviction_cost
-      # For each operating point and scenario: the lambda point with the highest mean savings among those with mean
-      # eviction cost at or below the baseline's; paired Wilcoxon on savings and on eviction cost, Holm within H6.
-      family: H6
+      better_if: {savings: higher, eviction_cost: lower}
+      min_dominating_cells: 3
 
   exp7:
-    title: Decision latency vs cluster size
+    title: Decision cost vs cluster size
     hypothesis: H7
-    groups: [exp7-n50, exp7-b2, exp7-b2-n1000, exp1-n200, exp1-n1000]
+    groups: [exp1-n200, exp1-n1000, exp7-n50, exp7-b2, exp7-b2-n1000]
     select:
       scenario: [W1]
       label: [B2, heuristic/entropy-greedy, random/entropy-greedy]
@@ -318,8 +388,12 @@ experiments:
     nodes: [50, 200, 1000]
     labels: [heuristic/entropy-greedy, random/entropy-greedy]
     baselines: [B2]
-    primary_metric: wall_pass_mean_ms
+    primary_metric: cpu_pass_mean_ms
     secondary_metrics:
+      - cpu_pass_p95_ms
+      - cpu_pass_max_ms
+      - cpu_pass_total_s
+      - wall_pass_mean_ms
       - wall_pass_p95_ms
       - wall_pass_max_ms
       - wall_passes_over_1m
@@ -330,20 +404,38 @@ experiments:
       - peak_nodes
     pair_keys: [scenario, nodes, seed]
     comparisons:
-      # Preregistered at 1,000 nodes; the other sizes are descriptive (plot against measured peak_nodes).
-      - name: "random/entropy-greedy vs {ref}, {metric}"
+      # Preregistered at 1,000 nodes on process CPU time per pass (validation waits excluded); other sizes and the
+      # wall-time metrics are descriptive.
+      - name: "random/entropy-greedy vs heuristic/entropy-greedy, {metric}"
         family: H7
-        foreach: {ref: [heuristic/entropy-greedy, B2], metric: [wall_pass_mean_ms, wall_pass_p95_ms]}
+        foreach: {metric: [cpu_pass_mean_ms, cpu_pass_p95_ms]}
         test: wilcoxon
         metric: "{metric}"
         a: random/entropy-greedy
-        b: "{ref}"
+        b: heuristic/entropy-greedy
+        by: [scenario, nodes]
+        where: {nodes: [1000]}
+        expect: lower
+      # Secondary: vs B2 (exp7-b2-n1000, 1-hour runs); absent when that group is cut.
+      - name: "random/entropy-greedy vs B2, {metric}"
+        family: H7-B2
+        foreach: {metric: [cpu_pass_mean_ms, cpu_pass_p95_ms]}
+        test: wilcoxon
+        metric: "{metric}"
+        a: random/entropy-greedy
+        b: B2
         by: [scenario, nodes]
         where: {nodes: [1000]}
         expect: lower
     params:
       size_column: peak_nodes
+      tested_nodes: 1000
+      subject_label: random/entropy-greedy
+      # Timeout clause: no valid subject run at the tested size has a pass over upstream's 1-minute limit.
+      timeout_column: wall_passes_over_1m
       timeout_columns: {multi_node_1m: wall_passes_over_1m, single_node_3m: wall_passes_over_3m}
+      b2_family: H7-B2
+      b2_group: exp7-b2-n1000
 
   exp8:
     title: Optimality gap to the offline packing lower bound (B6)
@@ -354,6 +446,7 @@ experiments:
     labels:
       - heuristic/savings-only
       - heuristic/entropy-greedy
+      - heuristic/anneal-plan
       - random/savings-only
       - random/entropy-greedy
       - random/anneal-plan
@@ -365,7 +458,7 @@ experiments:
     params:
       cp_sat_nodes: [50]
       # LP-relaxation bounds at the larger scales come from Exp 1's runs (remapped like any group).
-      lp_groups: [exp1-n200, exp1-n1000, exp1-baselines-n200, exp1-baselines-n1000]
+      lp_groups: [exp1-n200, exp1-baselines-n200, exp1-n1000, exp1-baselines-n1000]
       lp_nodes: [200, 1000]
       snapshot: last
 
@@ -378,18 +471,55 @@ experiments:
     labels: [full, no-potential, no-eviction-budget, no-annealing, no-randomness]
     baselines: []
     primary_metric: steady_cost_per_hour
-    secondary_metrics: [integrated_cost_post, evictions]
+    secondary_metrics: [integrated_cost_post, evictions, eviction_cost]
     pair_keys: [scenario, nodes, seed]
     comparisons:
-      - name: "{variant} vs full, {metric}"
+      # Family ablation, m = 8: each removed component vs full on steady-state cost; other metrics descriptive.
+      - name: "{variant} vs full, steady_cost_per_hour"
         family: ablation
         foreach:
           variant: [no-potential, no-eviction-budget, no-annealing, no-randomness]
-          metric: [steady_cost_per_hour, integrated_cost_post, evictions]
         test: wilcoxon
-        metric: "{metric}"
+        metric: steady_cost_per_hour
         a: "{variant}"
         b: full
         by: [scenario, nodes]
     params:
       reference_label: full
+      descriptive_metrics: [integrated_cost_post, evictions, eviction_cost]
+
+  b4:
+    title: B4 parity in the wild (fine upstream adapters, uncapped) against B2 and B3
+    hypothesis: null
+    groups: [b4, exp1-baselines-n200]
+    scenarios: [W1, W2, W4]
+    nodes: [200]
+    labels: [B4, B4-balanced]
+    baselines: [B2, B3]
+    primary_metric: exact_matches   # derived: seeds whose summaries match exactly on params.match_metrics
+    secondary_metrics: [steady_cost_per_hour, evictions, nodes_removed, final_nodes]
+    pair_keys: [scenario, nodes, seed]
+    comparisons:
+      - name: "B4 vs B2"
+        family: B4
+        test: tost
+        metric: steady_cost_per_hour
+        a: B4
+        b: B2
+        by: [scenario, nodes]
+        margin: 0.03
+        margin_type: relative
+        expect: equal
+      - name: "B4-balanced vs B3"
+        family: B4
+        test: tost
+        metric: steady_cost_per_hour
+        a: B4-balanced
+        b: B3
+        by: [scenario, nodes]
+        margin: 0.03
+        margin_type: relative
+        expect: equal
+    params:
+      pairs: {B4: B2, B4-balanced: B3}
+      match_metrics: [steady_cost_per_hour, evictions, nodes_removed, final_nodes]

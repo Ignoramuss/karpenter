@@ -6,8 +6,9 @@ repository root:
 In the synthetic runs the P2 and P3 potentials (raw and normalized alike) drop by a step at minutes 28 + 20k and the
 matching node removals (and cost drops) follow 5 minutes later, so with any of the 5, 10 and 20 minute windows a drop always lands in the
 window before its removals; P1 is noise unrelated to removals. The tests check that Exp 2 recovers that (P2 and P3
-support H2, P1 does not, the lead-lag peaks at +5 minutes), that the selection drops B0, invalid runs and duplicate
-configurations, and that outputs are byte-reproducible and nothing is written without runs.
+support H2, P1 does not, the lead-lag peaks at +5 minutes), that the unit of the sign test is the seed, that the
+selection drops B0, invalid runs, cut configurations and duplicate configurations, and that outputs are
+byte-reproducible and nothing is written without runs.
 """
 
 from __future__ import annotations
@@ -31,15 +32,15 @@ import pandas as pd
 from paper.analysis import common
 from paper.analysis import timeseries_figures as tf
 
-SEEDS = [101, 102, 103, 104, 105, 106]
+SEEDS = list(range(101, 111))
 DURATION = 180
 SLOTS = [28 + 20 * k for k in range(8)]  # potential drops; removals follow at +LEAD
 LEAD = 5
 TS_HEADER = ("t_min,nodes,ready_nodes,cost_per_hour,pods_running,pods_pending,evictions_cum,eviction_cost_cum,"
              "nodes_removed_cum,cpu_util_mean,mem_util_mean,dom_util_mean,band_share_cpu,band_share_dom,"
              "p1_load_entropy,p1_norm,p2_util_entropy,p2_norm,p3_quadratic,p3_norm,hist_cpu,hist_mem")
-OUTPUTS = ["tables/exp2_correlation.csv", "tables/exp2_correlation.md", "tables/exp2_potential_comparison.csv",
-           "tables/exp2_potential_comparison.md", "tables/exp2_leadlag.csv", "tables/exp2_leadlag.md",
+OUTPUTS = ["tables/exp2_correlation.csv", "tables/exp2_correlation.md", "tables/exp2_seeds.csv",
+           "tables/exp2_seeds.md", "tables/exp2_leadlag.csv", "tables/exp2_leadlag.md",
            "tables/timeseries_figures.json", "figures/out/fig1_utilization_histograms.png",
            "figures/out/fig1_utilization_histograms.pdf", "figures/out/fig2_potential_nodes_cost.png",
            "figures/out/fig2_potential_nodes_cost.pdf", "figures/out/fig2_potential_nodes_cost_w1.png",
@@ -112,7 +113,8 @@ def _write_run(matrix: Path, group: str, label: str, scenario: str, seed: int, n
     (d / "manifest.json").write_text(json.dumps({"run_id": run_id, "config": cfg, "seed": seed}))
     summary = {"run_id": run_id, "label": label, "arm": arm["name"], "scenario": scenario, "scenario_nodes": nodes,
                "seed": seed, "placement": "least-allocated", "scale_down": "spread", "sim_minutes": DURATION,
-               "invalid": invalid, "invalid_reasons": ["pdb violation"] if invalid else [], "timed_out": False}
+               "invalid": invalid, "invalid_reasons": ["pdb violation"] if invalid else [], "timed_out": False,
+               "pdb_violations": 1 if invalid else 0, "do_not_disrupt_violations": 0}
     (d / "summary.json").write_text(json.dumps(summary))
     rng = np.random.default_rng(zlib.crc32(run_id.encode()))
     (d / "timeseries.csv").write_text(_series(rng, scenario, nodes, events))
@@ -121,8 +123,9 @@ def _write_run(matrix: Path, group: str, label: str, scenario: str, seed: int, n
 
 def write_synthetic_tree(root: Path) -> None:
     """``root/session/<run_id>/``: Exp 1 W1/W2 arms and baselines at 200 nodes, a 1,000-node W2 arm, Exp 6 on W2
-    and W3 (its W2 lambda=0.5 runs duplicate Exp 1's random/entropy-greedy), B0 and B2 in exp6-baselines (B2 on W3
-    with no removals at all, so its correlations are undefined), and one invalid Exp 3 run."""
+    and W3 (its W2 lambda=0.5 runs duplicate Exp 1's random/entropy-greedy; one W3 lambda=2 run is invalid), B0 and
+    B2 in exp6-baselines (B2 on W3 with no removals at all, so its correlations are undefined), and a lone Exp 3 run
+    (its configuration has one finished run: cut)."""
     m = root / "session"
     for seed in SEEDS:
         for scenario in ("W1", "W2"):
@@ -133,7 +136,8 @@ def write_synthetic_tree(root: Path) -> None:
         _write_run(m, "exp1-n1000", "random/entropy-greedy", "W2", seed, nodes=1000)
         for scenario in ("W2", "W3"):
             _write_run(m, "exp6", "random/entropy-greedy/lambda=0.5", scenario, seed, max_wall="100m0s")
-            _write_run(m, "exp6", "random/entropy-greedy/lambda=2", scenario, seed)
+            _write_run(m, "exp6", "random/entropy-greedy/lambda=2", scenario, seed,
+                       invalid=scenario == "W3" and seed == SEEDS[0])
             _write_run(m, "exp6-baselines", "B0", scenario, seed, events=False)
         _write_run(m, "exp6-baselines", "B2", "W3", seed, events=False)
     _write_run(m, "exp3", "merge-only/budget-lo", "W2", 101, invalid=True)
@@ -214,12 +218,11 @@ def test_spearman_and_sign() -> None:
     assert math.isnan(tf.spearman([1, 2, 3, 4], [0, 0, 0, 0])), "a constant series has no correlation"
     assert math.isnan(tf.spearman([1, 2, 3], [1, 2, 3])), f"needs {tf.MIN_WINDOWS} windows"
     assert abs(tf.spearman([1, 2, 3, 4], [2, 4, 6, 9]) - 1.0) < 1e-12
-    s = tf.sign_test([0.5, 0.2, -0.1, 0.0, float("nan"), 0.3])
-    assert (s["n_positive"], s["n_negative"], s["n_zero"]) == (3, 1, 1)
-    assert abs(s["p_sign"] - 5 / 16) < 1e-12, s  # P(X >= 3), X ~ Bin(4, 1/2)
-    assert math.isnan(tf.sign_test([0.0, float("nan")])["p_sign"])
-    assert tf.signed_rank_direction([1, 2, -0.5]) == 1 and tf.signed_rank_direction([-3, 1]) == -1
-    assert tf.signed_rank_direction([0, 0]) == 0
+    # Over seeds every unit counts: zeros and undefined medians are non-positive, not dropped.
+    s = tf.seed_sign_test([0.5, 0.2, -0.1, 0.0, float("nan"), 0.3])
+    assert (s["n_seeds"], s["n_positive"], s["n_nonpositive"]) == (6, 3, 3)
+    assert abs(s["p_sign"] - 42 / 64) < 1e-12, s  # P(X >= 3), X ~ Bin(6, 1/2)
+    assert tf.seed_sign_test([])["p_sign"] == 1.0 and tf.seed_sign_test([])["p_floor"] == 1.0
 
 
 def test_cross_correlation() -> None:
@@ -234,15 +237,43 @@ def test_cross_correlation() -> None:
 
 def test_fingerprint() -> None:
     with tempfile.TemporaryDirectory() as tmp:
-        m = Path(tmp)
+        m = Path(tmp) / "session"
         a = _write_run(m, "exp1-n200", "random/entropy-greedy", "W2", 101)
         b = _write_run(m, "exp6", "random/entropy-greedy/lambda=0.5", "W2", 101, max_wall="100m0s")
         c = _write_run(m, "exp6", "random/entropy-greedy/lambda=2", "W2", 101)
         d = _write_run(m, "exp6", "random/entropy-greedy/lambda=0.5", "W2", 102)
-        fa, fb, fc, fd = (tf.config_fingerprint(m / r) for r in (a, b, c, d))
+        ids = common.load_runs(Path(tmp)).set_index("run_id")["config_id"]
+        fa, fb, fc, fd = (ids[r] for r in (a, b, c, d))
         assert fa == fb, "label, runID and maxWall do not change the simulation"
         assert fa != fc and fa != fd
-        assert tf.config_fingerprint(m / "missing") is None
+        assert common.config_fingerprint(None) is None
+
+
+def test_h2_seed_is_the_unit() -> None:
+    # H2's sign test runs over seeds, not runs: per (potential, scenario, seed) the median rho of the seed's runs with
+    # a defined rho, a seed with none counting as 0 (non-positive). Many positive runs on one seed are one success.
+    rows = []
+    rhos = {101: [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1], 102: [-0.5, -0.1, 0.2],
+            103: [math.nan, math.nan], 104: [0.0, 0.3, -0.3]}
+    for seed, values in rhos.items():
+        for i, rho in enumerate(values):
+            rows.append({"run_id": f"r{seed}-{i}", "group": "g", "label": f"l{i}", "scenario": "W2", "nodes": 200,
+                         "seed": seed, "family": "H2", "form": "raw", "window_min": 10, "outcome": "removals",
+                         "potential": "P2", "n_windows": 10, "rho": rho})
+    per_run = pd.DataFrame(rows, columns=tf.PER_RUN_COLUMNS)
+    seeds = tf.seed_table(per_run).set_index("seed")
+    assert list(seeds["median_rho"].round(6)) == [0.5, -0.1, 0.0, 0.0], seeds
+    assert list(seeds["n_defined"]) == [9, 3, 0, 3] and list(seeds["positive"]) == [True, False, False, False]
+    corr = tf.correlation_table(per_run, seeds.reset_index())
+    row = corr.loc[corr["potential"] == "P2"].iloc[0]
+    assert (row["n_runs"], row["n_undefined"], row["n_seeds"], row["n_seeds_without_defined"]) == (17, 2, 4, 1), row
+    # 1 of 4 seeds positive: P(X >= 1 | Bin(4, 1/2)) = 15/16, although 11 of 15 defined runs are positive.
+    assert (row["n_positive"], row["n_nonpositive"]) == (1, 3) and abs(row["p_sign"] - 15 / 16) < 1e-12, row
+    assert row["p_floor"] == 1 / 16 and row["m"] == 1 and not bool(row["holm_reachable"])
+    assert row["outcome_h2"] == "inconclusive" and not bool(row["supports_h2"])
+    test = tf.seed_sign_test([0.2] * 10)
+    assert test["p_sign"] == 1 / 1024 and test["p_floor"] == 1 / 1024 and test["n_positive"] == 10
+    assert tf.seed_sign_test([0.2, 0.0, float("nan")])["n_nonpositive"] == 2, "zeros and undefined are non-positive"
 
 
 # --- end to end -------------------------------------------------------------------------------------------------------
@@ -258,38 +289,42 @@ def test_synthetic_end_to_end() -> None:
         n_seeds = len(SEEDS)
         assert sel["n_excluded_label"] == 2 * n_seeds, sel  # B0 on W2 and W3
         assert sel["n_invalid"] == 1 and sel["n_duplicate_config"] == n_seeds, sel
+        assert sel["n_in_cut_configurations"] == 1, sel  # the lone Exp 3 run
         assert all("lambda=0.5" in d["run_id"] and "_w2_" in d["run_id"] for d in sel["duplicates"])
         # Exp 1 W2 (3 pipeline labels and B2, B3: every registry group's W2/W3 runs count) + 1,000 nodes + Exp 6 (W2
-        # lambda=2, W3 both points) + B2 on W3.
-        assert sel["n_used"] == n_seeds * (3 + 2 + 1 + 3 + 1), sel
+        # lambda=2, W3 both points, one invalid) + B2 on W3.
+        assert sel["n_used"] == n_seeds * (3 + 2 + 1 + 3 + 1) - 1, sel
 
         corr = pd.read_csv(out / "tables" / "exp2_correlation.csv")
+        assert set(corr["family"]) == {"H2", "H2-cost", "H2-norm", "H2-w5", "H2-w20"}, set(corr["family"])
+        for family, rows in corr.groupby("family"):
+            assert len(rows) == 6 and (rows["m"] == 6).all(), (family, rows["m"])  # 3 potentials x 2 scenarios
         prim = corr.loc[corr["role"] == "primary"].set_index(["potential", "scenario"])
-        assert len(prim) == 6 and set(prim["family"]) == {"H2/removals/w10"}
+        assert len(prim) == 6 and set(prim["family"]) == {"H2"}
+        assert (prim["n_seeds"] == n_seeds).all() and np.allclose(prim["p_floor"], 1 / 1024, rtol=1e-4)
+        assert prim["holm_reachable"].all()
         for p in ("P2", "P3"):
             for scenario in ("W2", "W3"):
                 r = prim.loc[(p, scenario)]
-                assert r["median_rho"] > 0.5 and bool(r["supports_h2"]), r
-        assert not prim.loc[("P1", "W2"), "supports_h2"]
-        # B2 on W3 removes nothing: its correlations are undefined and counted, not dropped silently.
-        assert prim.loc[("P2", "W3"), "n_undefined"] == n_seeds and prim.loc[("P2", "W3"), "n_runs"] == 2 * n_seeds
+                assert r["median_rho"] > 0.5 and bool(r["supports_h2"]) and r["n_positive"] == n_seeds, r
+                assert abs(r["p_sign"] - 1 / 1024) < 1e-6 and abs(r["p_holm"] - 6 / 1024) < 1e-6, r
+        assert not prim.loc[("P1", "W2"), "supports_h2"] and prim.loc[("P1", "W2"), "outcome_h2"] == "does not support"
+        # B2 on W3 removes nothing: its correlations are undefined and counted, not dropped silently; the seeds still
+        # have defined runs (the lambda points), so none counts as 0.
+        assert prim.loc[("P2", "W3"), "n_undefined"] == n_seeds and prim.loc[("P2", "W3"), "n_runs"] == 3 * n_seeds - 1
+        assert prim.loc[("P2", "W3"), "n_seeds_without_defined"] == 0
         assert prim.loc[("P2", "W2"), "nodes"] == "200, 1000"
         assert set(corr["window_min"]) == {5, 10, 20} and set(corr["outcome"]) == {"removals", "cost_decrease"}
-        cost = corr.loc[(corr["role"] == "secondary") & (corr["potential"] == "P2")]
-        assert (cost["median_rho"] > 0.5).all()
-        verdict = doc["exp2"]["verdicts"]["H2/removals/w10"]
+        cost = corr.loc[(corr["family"] == "H2-cost") & (corr["potential"] == "P2")]
+        assert len(cost) == 2 and (cost["median_rho"] > 0.5).all()
+        verdict = doc["exp2"]["h2"]["verdicts"]
         assert verdict["P2"]["verdict"] == "holds" and verdict["P1"]["verdict"] == "not supported", verdict
-
-        comp = pd.read_csv(out / "tables" / "exp2_potential_comparison.csv")
-        row = comp.loc[(comp["role"] == "primary") & (comp["scenario"] == "W2") & (comp["a"] == "P1")
-                       & (comp["b"] == "P2")].iloc[0]
-        assert row["favours"] == "P2" and bool(row["significant"]) and row["median_diff"] < 0, row
-        assert set(comp.loc[comp["form"] == "raw", "family"]) == {f"H2-compare/{o}/w{w}" for o in tf.OUTCOMES
-                                                                  for w in tf.WINDOWS}
-        assert set(comp.loc[comp["form"] == "norm", "family"]) == {f"H2-norm-compare/{o}/w{w}" for o in tf.OUTCOMES
-                                                                   for w in tf.WINDOWS}
-        norm = corr.loc[corr["family"] == "H2-norm/removals/w10"]
-        assert len(norm) == 6 and set(norm["role"]) == {"sensitivity"}, norm
+        assert set(doc["exp2"]["secondary"]) == {"H2-cost", "H2-norm", "H2-w5", "H2-w20"}
+        seeds = pd.read_csv(out / "tables" / "exp2_seeds.csv")
+        assert len(seeds) == 5 * 6 * n_seeds and set(seeds["family"]) == set(corr["family"])
+        norm = corr.loc[corr["family"] == "H2-norm"]
+        assert len(norm) == 6 and set(norm["role"]) == {"secondary"} and set(norm["form"]) == {"norm"}, norm
+        assert not (out / "tables" / "exp2_potential_comparison.csv").exists(), "no tests outside the families"
 
         ll = doc["exp2"]["leadlag"]
         for scenario in ("W2", "W3"):
@@ -359,7 +394,8 @@ def test_only_b0_or_invalid() -> None:
         out = Path(tmp) / "out"
         log = _run_main(Path(tmp) / "runs", out)
         doc = json.loads((out / "tables" / "timeseries_figures.json").read_text())
-        assert doc["exp2"]["selection"]["n_invalid"] == 1 and doc["exp2"]["selection"]["n_used"] == 0
+        sel = doc["exp2"]["selection"]
+        assert sel["n_in_cut_configurations"] == 1 and sel["n_invalid"] == 0 and sel["n_used"] == 0, sel
         assert "skipped exp2: no valid runs" in log, log
         assert not (out / "tables" / "exp2_correlation.csv").exists()
 
@@ -373,7 +409,8 @@ def test_empty_timeseries_counts_as_missing() -> None:
         bad = _write_run(m, "exp1-baselines-n200", "B2", "W2", 101)
         (m / bad / "timeseries.csv").write_text(TS_HEADER + "\n", encoding="utf-8")
         out = Path(tmp) / "out"
-        log = _run_main(Path(tmp) / "runs", out)
+        with _env(**{common.MIN_SEEDS_ENV: "1"}):
+            log = _run_main(Path(tmp) / "runs", out)
         doc = json.loads((out / "tables" / "timeseries_figures.json").read_text())
         assert doc["exp2"]["selection"]["missing_timeseries"] == [bad], doc["exp2"]["selection"]
         assert doc["fig2_potential_nodes_cost"]["arms"]["random/entropy-greedy"]["n_used"] == 1
@@ -386,7 +423,7 @@ def test_pilot_runs() -> None:
         print("  (no pilot runs; skipped)")
         return
     mapping = json.dumps({"exp1-n200": "pilot-exp1", "exp1-baselines-n200": "pilot-baselines"})
-    with tempfile.TemporaryDirectory() as tmp, _env(**{common.GROUP_MAP_ENV: mapping}):
+    with tempfile.TemporaryDirectory() as tmp, _env(**{common.GROUP_MAP_ENV: mapping, common.MIN_SEEDS_ENV: "5"}):
         common.apply_style()
         _, log = _quiet(lambda: tf.main(pilot, Path(tmp)))
         assert "Traceback" not in log
@@ -394,6 +431,9 @@ def test_pilot_runs() -> None:
             doc = json.loads((Path(tmp) / "tables" / "timeseries_figures.json").read_text())
             assert set(doc) <= {"exp2", "fig1_utilization_histograms", "fig2_potential_nodes_cost",
                                 "fig2_potential_nodes_cost_w1", "figure_runs_validity"}
+            # 5 pilot seeds: floor 1/32, so no sign test can reject after Holm over 3: inconclusive, never support.
+            corr = pd.read_csv(Path(tmp) / "tables" / "exp2_correlation.csv")
+            assert not corr["holm_reachable"].any() and not corr["supports_h2"].any()
 
 
 def main(argv: list[str] | None = None) -> int:

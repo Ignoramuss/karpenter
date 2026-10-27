@@ -14,9 +14,10 @@ A full run (no ``--only``) first deletes the previous outputs (``<out>/tables/*.
 an experiment that is skipped now (no runs, or a different ANALYSIS_GROUP_MAP) cannot leave stale numbers behind.
 ``--only`` runs leave other modules' files alone.
 
-Set ANALYSIS_GROUP_MAP to run the session analyses on other groups, e.g. the pilot::
+Set ANALYSIS_GROUP_MAP to run the session analyses on other groups, and ANALYSIS_MIN_SEEDS to lower the completeness
+threshold (MIN_SEEDS = 10 finished runs per configuration), e.g. on the pilot's 5 seeds::
 
-    ANALYSIS_GROUP_MAP='{"exp1-n200": "pilot-exp1", "exp1-baselines-n200": "pilot-baselines"}' \\
+    ANALYSIS_GROUP_MAP='{"exp1-n200": "pilot-exp1", "exp1-baselines-n200": "pilot-baselines"}' ANALYSIS_MIN_SEEDS=5 \\
         /opt/research-venv/bin/python paper/make_figures.py --out /tmp/pilot-paper
 """
 
@@ -39,7 +40,8 @@ os.environ.setdefault("SOURCE_DATE_EPOCH", "0")
 
 # Analysis modules under paper/analysis, run in this order.
 MODULES = (
-    "cost_experiments",  # Exp 1, 3, 4, ablations (figure 8)
+    "run_checks",  # validity by reason, cut configurations, cross-group determinism, binary check
+    "cost_experiments",  # Exp 1, realism, Exp 3, 4, ablations (figure 8), B4 parity
     "frontier_fidelity",  # Exp 5, 6 (figures 3 and 5)
     "timeseries_figures",  # Exp 2 (figures 1, 2 and 6)
     "latency_optimality",  # Exp 7, 8, the B6 lower bound (figures 4 and 7)

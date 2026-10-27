@@ -1,4 +1,5 @@
-"""Exp 1 (H1), Exp 3 (H3), Exp 4 (H4) and the ablations (figure 8): what each consolidation configuration costs.
+"""Exp 1 (H1), the realism check, Exp 3 (H3), Exp 4 (H4), the ablations (figure 8) and the B4 parity check: what each
+consolidation configuration costs.
 
 Run through ``paper/make_figures.py`` (``--only cost_experiments``) or on its own::
 
@@ -8,40 +9,42 @@ Outputs under ``out_root`` (each written only when its experiment has runs; othe
 
 - ``tables/exp1_h1``: the H1 equivalence tests. One row per paired comparison random/<planner> vs
   heuristic/<planner> on steady_cost_per_hour, per scenario and scale (family ``H1``: entropy-greedy and anneal-plan,
-  the 12 preregistered TOSTs; family ``H1-P0-contrast``: savings-only), then ``reference`` rows for B2 and B3.
+  the 12 preregistered TOSTs; family ``H1-P0-contrast``: savings-only, 6), then ``reference`` rows for B2 and B3.
 - ``tables/exp1_secondary``: per arm (scenario, nodes, label) and metric, the secondary metrics with bootstrap CIs, and
-  for random arms the paired difference against the heuristic arm with the same planner (descriptive).
+  for random arms the paired difference against the heuristic arm with the same planner (descriptive, no tests).
 - ``tables/exp1_phases``: per arm, mean cost_per_hour in the early phase (first hour after warmup) and the late phase
-  (the last 20% of samples, the simulator's steady-state window), with the same paired differences.
+  (samples with t >= 0.8 x horizon, the simulator's steady-state window), with the same paired differences.
+- ``tables/realism_h1`` and ``realism_secondary``: the same on W5 and W6 (family ``H1-realism``, 4 TOSTs).
 - ``tables/exp3_h3``: merge+shift vs merge-only per scenario and eviction budget on integrated_cost_post (family
-  ``H3``), evictions (``H3-evictions``) and eviction_cost (``H3-eviction-cost``).
-- ``tables/exp4_h4``: every anneal-plan and anneal-online configuration vs entropy-greedy on steady_cost_per_hour and
-  evictions (family ``H4``: the preregistered contrasts; ``H4-sweep``: the other anneal-plan configurations).
-- ``tables/exp4_sweep``: per configuration of the temperature/cooling sweep, cost, evictions and eviction cost.
-- ``tables/fig8_ablation`` and ``figures/out/fig8_ablation``: full vs each ablated variant, per scenario.
+  ``H3``, 4 tests); ``tables/exp3_secondary``: evictions, eviction cost and the rest, descriptive.
+- ``tables/exp4_h4``: the 8 tests of family ``H4``; ``tables/exp4_clauses``: the plan and online clauses (test plus
+  bootstrap bound) per scenario and configuration; ``tables/exp4_sweep``: the temperature/cooling sweep (descriptive).
+- ``tables/fig8_ablation`` and ``figures/out/fig8_ablation``: full vs each ablated variant, per scenario (family
+  ``ablation``: steady-state cost, 8 tests; the other metrics descriptive).
+- ``tables/b4_parity``: B4 vs B2 and B4-balanced vs B3 per scenario: seeds whose summaries match exactly, and the
+  6 TOSTs of family ``B4``.
 - ``tables/cost_experiments.json``: the headline verdicts per experiment, with validity counts.
 
-Statistical conventions (beyond ``experiments/PREREGISTRATION.md``):
+Statistical conventions (experiments/PREREGISTRATION.md governs; the shared rules are in ``common``):
 
+- Every Holm family has its preregistered size (a test that cannot run enters with p 1) and records each test's
+  attainable floor ``p_floor`` and ``holm_reachable`` (``p_floor * m < 0.05``). A non-significant test that could not
+  have been significant is "inconclusive", and a clause resting on it is never support.
+- Configurations with fewer than ``common.min_seeds()`` finished runs are cut (``common.select_runs``); while any
+  configuration a verdict needs is missing or cut, the verdict is "incomplete" (``verdict_on_available`` says what
+  the rule gives on the runs so far) and ``missing_configurations`` lists them.
 - Comparison tables (exp1_h1, exp3_h3, exp4_h4) give each arm's mean and median over the kept pairs, so they agree
   with the paired difference and the TOST margin; per-arm tables (exp1_secondary, exp1_phases, exp4_sweep,
   fig8_ablation) use every valid run of the arm.
 - The direction of a Wilcoxon result is the sign of W+ - W- (the signed-rank statistic the test is about), not the
   sign of the mean difference; the two only disagree when a few large differences outweigh many small ones.
-- ``outcome`` is a's position relative to b after Holm (lower / higher / no significant difference; for TOST
-  equivalent / higher or lower beyond margin / not shown equivalent); ``expect_met`` checks it against the
-  registry's ``expect``.
-- Rows exist for every preregistered stratum even before its runs do (``n_pairs`` 0, outcome "no data"), so
-  verdicts can say how much of the design is in.
-- ``p_floor`` is the smallest p-value the exact Wilcoxon test can give with the row's non-zero pairs and
-  ``holm_reachable`` whether that floor times the Holm family size is below 0.05. A "no significant difference" where
-  it is false says nothing (e.g. H4's 16 tests cannot reach significance once a seed drops to 9 pairs); H4's verdict
-  lists such clauses under ``underpowered``.
+- ``outcome`` is a's position relative to b after Holm (``common.comparison_outcome``); ``expect_met`` checks it
+  against the registry's ``expect``.
+- Rows exist for every preregistered stratum even before its runs do (``n_pairs`` 0, outcome "no data").
 """
 
 from __future__ import annotations
 
-import dataclasses
 import itertools
 import math
 import textwrap
@@ -53,43 +56,41 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.table import Table
-from scipy import stats
 
 from paper.analysis import common
 
 H1_METRIC = "steady_cost_per_hour"
 # Exp 1 secondary metrics: the brief's list, then the registry's remaining secondary metrics.
 EXP1_SECONDARY = ["integrated_cost_post", "evictions", "eviction_cost", "nodes_removed", "regret_evictions",
-                  "re_disruptions", "full_simulations_per_pass", "wall_pass_mean_ms"]
-EXP4_METRICS = ["steady_cost_per_hour", "evictions"]
+                  "re_disruptions", "full_simulations_per_pass", "wall_pass_mean_ms", "cpu_pass_mean_ms",
+                  "pending_pod_seconds", "mean_time_to_schedule_s"]
 EXP4_SWEEP_METRICS = ["steady_cost_per_hour", "evictions", "eviction_cost", "integrated_cost_post", "final_nodes"]
 ABL_METRICS = ["steady_cost_per_hour", "integrated_cost_post", "evictions", "eviction_cost"]
 ABL_HEADERS = {"steady_cost_per_hour": "Steady-state\ncost ($/hr)", "integrated_cost_post": "Cost after\nwarmup ($)",
                "evictions": "Pod\nevictions", "eviction_cost": "Eviction\ncost"}
 ABL_DECIMALS = {"steady_cost_per_hour": 2, "integrated_cost_post": 1, "evictions": 0, "eviction_cost": 0}
-FAMILY_ORDER = ["H1", "H1-P0-contrast", "H1-realism", "reference", "H3", "H3-evictions", "H3-eviction-cost", "H4", "H4-sweep",
-                "ablation", "ablation-eviction-cost"]
+FAMILY_ORDER = ["H1", "H1-P0-contrast", "H1-realism", "reference", "H3", "H4", "ablation", "descriptive", "B4"]
 MINUS = "−"
 
 ARM_STAT_COLUMNS = ["mean_a", "mean_a_lo", "mean_a_hi", "median_a", "median_a_lo", "median_a_hi",
                     "mean_b", "mean_b_lo", "mean_b_hi", "median_b", "median_b_lo", "median_b_hi"]
 EFFECT_COLUMNS = ["mean_diff", "mean_diff_lo", "mean_diff_hi", "median_diff", "median_diff_lo", "median_diff_hi",
-                  "pct_diff", "pct_diff_lo", "pct_diff_hi", "p_wilcoxon"]
-WILCOXON_EXTRA = ["p_floor"]
-PAIR_COUNT_COLUMNS = ["n_pairs", "n_dropped_invalid", "n_dropped_missing"]
+                  "pct_diff", "pct_diff_lo", "pct_diff_hi"]
+PAIR_COUNT_COLUMNS = ["n_pairs", "n_dropped_invalid", "n_undefined", "n_dropped_missing"]
+HOLM_COLUMNS = ["p", "p_floor", "m", "p_holm", "significant", "holm_reachable"]
 H1_COLUMNS = [
     "family", "comparison", "scenario", "nodes", "planner", "a", "b", *PAIR_COUNT_COLUMNS, "n_runs", "n_invalid",
     *ARM_STAT_COLUMNS, *EFFECT_COLUMNS, "margin", "margin_pct", "ci90_lo", "ci90_hi", "ci90_lo_pct", "ci90_hi_pct",
-    "p_lower", "p_upper", "p_tost", "p_tost_holm", "equivalent", "equivalent_holm", "p_upper_holm", "noninferior",
-    "noninferior_holm", "outcome",
+    "p_lower", "p_upper", "p_tost", "p_floor", "m", "p_tost_holm", "holm_reachable", "equivalent", "equivalent_holm",
+    "vetoed", "p_upper_holm", "noninferior", "noninferior_holm", "outcome",
 ]
 WILCOXON_COLUMNS = ["family", "comparison", "metric", "scenario", "nodes", "a", "b", "expect", *PAIR_COUNT_COLUMNS,
-                    *ARM_STAT_COLUMNS, *EFFECT_COLUMNS, *WILCOXON_EXTRA, "p_holm", "significant", "holm_reachable",
-                    "direction", "outcome", "expect_met"]
+                    *ARM_STAT_COLUMNS, *EFFECT_COLUMNS, "p_wilcoxon", *HOLM_COLUMNS[1:], "direction", "outcome",
+                    "expect_met"]
 ARM_TABLE_COLUMNS = ["scenario", "nodes", "label", "metric", "n_runs", "n_valid", "n_invalid", "mean", "mean_lo",
                      "mean_hi", "median", "median_lo", "median_hi", "ref", *PAIR_COUNT_COLUMNS, "diff_mean",
                      "diff_mean_lo", "diff_mean_hi", "diff_median", "diff_median_lo", "diff_median_hi", "diff_pct",
-                     "diff_pct_lo", "diff_pct_hi", "p_wilcoxon"]
+                     "diff_pct_lo", "diff_pct_hi"]
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -98,7 +99,8 @@ ARM_TABLE_COLUMNS = ["scenario", "nodes", "label", "metric", "n_runs", "n_valid"
 
 
 def main(runs_root: Path, out_root: Path) -> None:
-    """Write the Exp 1, 3, 4 and ablation tables, figure 8 and cost_experiments.json (see the module docstring).
+    """Write the Exp 1, realism, Exp 3, Exp 4, ablation and B4 tables, figure 8 and cost_experiments.json (see the
+    module docstring).
 
     Experiments without runs are skipped with a note and contribute nothing; the JSON holds one entry per experiment
     that has runs and is not written when none has.
@@ -106,15 +108,18 @@ def main(runs_root: Path, out_root: Path) -> None:
     runs = prepare_runs(common.load_runs(Path(runs_root), include_abandoned=True))
     headline: dict[str, Any] = {}
     for key, analyse in (("exp1", analyse_exp1), ("realism", analyse_realism), ("exp3", analyse_exp3),
-                         ("exp4", analyse_exp4), ("abl", analyse_ablation)):
-        sel = common.select_runs(runs, key)
-        if sel.empty:
+                         ("exp4", analyse_exp4), ("abl", analyse_ablation), ("b4", analyse_b4)):
+        everything = common.select_runs(runs, key, include_cut=True)
+        own = everything.loc[everything["label"].isin(common.experiment(key)["labels"])]
+        if own.empty:
             common.skipped(key)
             continue
-        common.logger.info("%s: %d runs (%d invalid or abandoned)", key, len(sel), int((~sel["valid"]).sum()))
+        sel = common.select_runs(runs, key)
+        common.logger.info("%s: %d runs (%d invalid or abandoned, %d in cut configurations)", key, len(everything),
+                           int((~everything["valid"]).sum()), len(everything) - len(sel))
         headline[key] = {"title": common.experiment(key)["title"],
                          "hypothesis": common.experiment(key)["hypothesis"],
-                         "validity": validity_summary(sel), **analyse(sel, Path(out_root))}
+                         "validity": validity_summary(everything), **analyse(sel, everything, Path(out_root))}
     if headline:
         common.write_json(headline, Path(out_root), "cost_experiments")
         common.logger.info("wrote cost_experiments.json (%s)", ", ".join(headline))
@@ -140,11 +145,19 @@ def prepare_runs(runs: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def validity_summary(sel: pd.DataFrame) -> dict[str, Any]:
-    """Invalid-run counts for an experiment (the preregistered exclusion report): totals and per group."""
-    valid = sel["valid"].astype(bool)
-    return {"n_runs": int(len(sel)), "n_valid": int(valid.sum()), "n_invalid": int((~valid).sum()),
-            "by_group": common.validity_report(sel, by=("group",))}
+def validity_summary(everything: pd.DataFrame) -> dict[str, Any]:
+    """Run counts for an experiment (the preregistered exclusion report), totals and per group: every reason counted
+    on its own, set-aside attempts, and runs in cut configurations (``common.validity_report``)."""
+    valid = everything["valid"].astype(bool)
+    report = common.validity_report(everything, by=("group",))
+    totals = {c: int(report[c].sum()) for c in common.VALIDITY_COLUMNS if c != "reasons"}
+    return {**totals, "n_valid": int(valid.sum()), "n_invalid": int((~valid).sum()), "by_group": report}
+
+
+def _verdict_block(rule: str, verdict: str, missing: list[dict[str, Any]], **extra: Any) -> dict[str, Any]:
+    """A verdict entry: "incomplete" while configurations are missing (with the rule's verdict on the runs so far)."""
+    return {"rule": rule, "verdict": "incomplete" if missing else verdict, "verdict_on_available": verdict,
+            "complete": not missing, "missing_configurations": missing, **extra}
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -152,181 +165,59 @@ def validity_summary(sel: pd.DataFrame) -> dict[str, Any]:
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def signed_rank_direction(a: Any, b: Any) -> int:
-    """Sign of W+ - W- for the paired differences a - b (zeros dropped, average ranks): -1, 0 or +1.
-
-    This is the side on which the two-sided Wilcoxon signed-rank test rejects, so it gives the direction of a
-    significant result.
-    """
-    d = np.asarray(a, dtype=float).ravel() - np.asarray(b, dtype=float).ravel()
-    d = d[np.isfinite(d) & (d != 0)]
-    if d.size == 0:
-        return 0
-    ranks = stats.rankdata(np.abs(d))
-    return int(np.sign(ranks[d > 0].sum() - ranks[d < 0].sum()))
-
-
-def _direction_name(sign: int) -> str:
-    return {-1: "lower", 0: "none", 1: "higher"}[sign]
-
-
-def _norm_key(values: Iterable[Any]) -> tuple[Any, ...]:
-    return tuple(float(v) if isinstance(v, (int, float, np.number)) and not isinstance(v, bool) else str(v)
-                 for v in values)
-
-
-def design_strata(key: str, comparison: common.Comparison) -> list[tuple[Any, ...]]:
-    """The preregistered strata of a comparison: the registry's scenarios x nodes (after ``where``), in registry
-    order. Empty when the comparison stratifies on anything else (then only strata with data are reported)."""
-    e = common.experiment(key)
-    axes = {"scenario": list(e["scenarios"]), "nodes": list(e["nodes"])}
-    if not comparison.by or any(b not in axes for b in comparison.by):
-        return []
-    lists = [[v for v in axes[b] if b not in comparison.where or v in comparison.where[b]] for b in comparison.by]
-    return list(itertools.product(*lists))
-
-
-def _stratum_rows(df: pd.DataFrame, values: Mapping[str, Any]) -> pd.DataFrame:
-    mask = pd.Series(True, index=df.index)
-    for col, v in values.items():
-        mask &= df[col] == v
-    return df.loc[mask]
-
-
 def _pair_extras(sel: pd.DataFrame, c: common.Comparison, stratum: Mapping[str, Any]) -> dict[str, Any]:
-    """Per-arm mean and median with 95% bootstrap CIs over the kept pairs, and the signed-rank direction."""
+    """Per-arm mean and median with 95% bootstrap CIs over the kept pairs."""
     part = sel
     for col, allowed in c.where.items():
         part = part.loc[part[col].isin(allowed)]
-    p = common.paired_lenient(_stratum_rows(part, stratum), c.keys, c.label_col, c.a, c.b, c.metric, log=False)
+    for col, v in stratum.items():
+        part = part.loc[part[col] == v]
+    p = common.paired_lenient(part, c.keys, c.label_col, c.a, c.b, c.metric, log=False)
     out: dict[str, Any] = {}
     for side, x in (("a", p.a), ("b", p.b)):
         for stat in ("mean", "median"):
             est, lo, hi = common.bootstrap_ci(x, stat)
             out.update({f"{stat}_{side}": est, f"{stat}_{side}_lo": lo, f"{stat}_{side}_hi": hi})
-    out["direction"] = _direction_name(signed_rank_direction(p.a, p.b))
     return out
 
 
-def _blank_row(c: common.Comparison, values: tuple[Any, ...]) -> dict[str, Any]:
-    """A comparison row for a preregistered stratum with no runs in either arm yet."""
-    row: dict[str, Any] = {col: math.nan for col in common.COMPARISON_COLUMNS}
-    row.update({"experiment": c.experiment, "family": c.family, "comparison": c.name, "test": c.test,
-                "metric": c.metric, "a": common.describe_arm(c.a), "b": common.describe_arm(c.b),
-                "expect": c.expect, "stratum": ", ".join(f"{k}={v}" for k, v in zip(c.by, values)),
-                "n_pairs": 0, "n_dropped": 0, "n_dropped_invalid": 0, "n_dropped_missing": 0})
-    row.update(dict(zip(c.by, values)))
-    return row
-
-
-def comparison_table(sel: pd.DataFrame, key: str, comps: Sequence[common.Comparison]) -> pd.DataFrame:
-    """Every comparison of ``comps`` per stratum (``common.compare``), with each preregistered stratum present, the
-    per-arm CIs and direction (``_pair_extras``), Holm within (experiment, family) and the outcome columns.
-
-    Columns: ``common.COMPARISON_COLUMNS`` plus the strata, the per-arm CIs, ``direction``, ``p_upper_holm`` and
-    ``noninferior_holm`` (TOST: Holm over the non-inferiority p-values of the family), ``margin_pct``,
-    ``ci90_lo_pct``/``ci90_hi_pct`` (percent of b's mean), ``outcome``, ``expect_met`` and ``order`` (the
-    comparison's position in ``comps``).
-    """
-    records: list[dict[str, Any]] = []
-    for order, c in enumerate(comps):
-        found = common.compare(sel, c).to_dict("records")
-        have = {_norm_key(r[b] for b in c.by) for r in found}
-        found += [_blank_row(c, s) for s in design_strata(key, c) if _norm_key(s) not in have]
-        for r in found:
-            r.update(_pair_extras(sel, c, {b: r[b] for b in c.by}))
-            r["order"] = order
-            records.append(r)
-    out = pd.DataFrame.from_records(records)
+def comparison_table(sel: pd.DataFrame, comps: Sequence[common.Comparison]) -> pd.DataFrame:
+    """Every comparison of ``comps`` per preregistered stratum (``common.evaluate``: fixed-size Holm families, floors,
+    reachability, outcome), with the per-arm CIs (``_pair_extras``), the TOST veto (``vetoed``: n >= 2 and the
+    unadjusted 90% CI lower bound above +margin), the margin and 90% CI as percent of b's mean, and ``order`` (the
+    comparison's position in ``comps``)."""
+    out = common.evaluate(sel, comps)
     if out.empty:
         return out
-    _add_holm(out)
-    out["outcome"] = [_outcome(r) for r in out.to_dict("records")]
-    out["expect_met"] = pd.Series([_expect_met(r) for r in out.to_dict("records")], dtype=object)
-    return out
-
-
-def _holm_by_family(df: pd.DataFrame, column: str, mask: pd.Series | None = None) -> np.ndarray:
-    """Holm-adjusted ``column`` within each (experiment, family), NaN outside ``mask``."""
-    out = np.full(len(df), math.nan)
-    p = pd.to_numeric(df[column], errors="coerce").to_numpy(dtype=float)
-    keep = np.ones(len(df), dtype=bool) if mask is None else mask.to_numpy(dtype=bool)
-    for _, idx in df.groupby(["experiment", "family"], sort=True, dropna=False).indices.items():
-        idx = np.asarray([i for i in idx if keep[i]], dtype=int)
-        if idx.size:
-            out[idx] = common.holm(p[idx])
-    return out
-
-
-def _add_holm(out: pd.DataFrame) -> None:
-    """Add p_holm and significant (as ``common.evaluate``), the TOST equivalence and non-inferiority after Holm, and
-    the margin and 90% CI as percent of the reference mean."""
-    alpha = common.ALPHA
-    out["p_holm"] = _holm_by_family(out, "p")
-    p_holm = out["p_holm"].to_numpy(dtype=float)
-    out["significant"] = np.isfinite(p_holm) & (p_holm < alpha)
-    tost = out["test"] == "tost"
-    # Whether a Wilcoxon test has enough non-zero pairs to reach significance after Holm in its family at all
-    # (common.holm_reachable); a "not significant" outcome of a test that cannot is uninformative.
-    reachable = np.zeros(len(out), dtype=bool)
-    p_all = pd.to_numeric(out["p"], errors="coerce").to_numpy(dtype=float)
-    floors = pd.to_numeric(out["p_floor"], errors="coerce").to_numpy(dtype=float)
-    for _, idx in out.groupby(["experiment", "family"], sort=True, dropna=False).indices.items():
-        reachable[idx] = common.holm_reachable(floors[idx], p_all[idx], alpha)
-    out["holm_reachable"] = pd.Series([None if t or not math.isfinite(p) else bool(r)
-                                       for r, t, p in zip(reachable, tost, p_all)], dtype=object)
-    out["p_upper_holm"] = _holm_by_family(out, "p_upper", tost)
-    p_up = out["p_upper_holm"].to_numpy(dtype=float)
-    # TOST verdict columns are None (not False) where no test could run, and absent for Wilcoxon rows.
-    tested = tost.to_numpy() & np.isfinite(pd.to_numeric(out["p_tost"], errors="coerce").to_numpy(dtype=float))
-    for col in ("equivalent", "noninferior"):
-        out[col] = pd.Series([bool(v) if t else None for v, t in zip(out[col], tested)], dtype=object)
-    out["equivalent_holm"] = pd.Series([bool(s) if t else None for s, t in zip(out["significant"], tested)],
-                                       dtype=object)
-    out["noninferior_holm"] = pd.Series([bool(q < alpha) if t else None for q, t in zip(p_up, tested)],
-                                        dtype=object)
+    by_name = {c.name + "|" + c.family: c for c in comps}
+    order = {c.name + "|" + c.family: i for i, c in enumerate(comps)}
+    extras = []
+    for r in out.to_dict("records"):
+        c = by_name[r["comparison"] + "|" + r["family"]]
+        extras.append(_pair_extras(sel, c, {b: r[b] for b in c.by}))
+    for col in ARM_STAT_COLUMNS:
+        out[col] = [e[col] for e in extras]
+    out["order"] = [order[n + "|" + f] for n, f in zip(out["comparison"], out["family"])]
+    n_pairs = pd.to_numeric(out["n_pairs"], errors="coerce").fillna(0).to_numpy()
+    lo, margin = (pd.to_numeric(out[c], errors="coerce").to_numpy(dtype=float) for c in ("ci90_lo", "margin"))
+    tost = (out["test"] == "tost").to_numpy()
+    with np.errstate(invalid="ignore"):
+        out["vetoed"] = pd.Series([bool(n >= 2 and v > mg) if t else None for n, v, mg, t in
+                                   zip(n_pairs, lo, margin, tost)], dtype=object)
     ref = pd.to_numeric(out["mean_b"], errors="coerce").to_numpy(dtype=float)
     with np.errstate(divide="ignore", invalid="ignore"):
         for col in ("margin", "ci90_lo", "ci90_hi"):
             pct = 100 * pd.to_numeric(out[col], errors="coerce").to_numpy(dtype=float) / np.abs(ref)
             out[f"{col}_pct"] = np.where(np.isfinite(pct), pct, math.nan)
+    return out
 
 
 def _finite(v: Any) -> bool:
     return isinstance(v, (int, float, np.number)) and not isinstance(v, bool) and math.isfinite(float(v))
 
 
-def _outcome(r: Mapping[str, Any]) -> str:
-    """a relative to b after Holm: see the module docstring."""
-    if not _finite(r["n_pairs"]) or r["n_pairs"] == 0:
-        return "no data"
-    if r["test"] == "tost":
-        if r["n_pairs"] < 2 or not _finite(r["p_tost"]):
-            return "insufficient data"
-        if r["equivalent_holm"]:
-            return "equivalent"
-        if r["ci90_lo"] > r["margin"]:
-            return "higher beyond margin"
-        if r["ci90_hi"] < -r["margin"]:
-            return "lower beyond margin"
-        return "not shown equivalent"
-    if not _finite(r["p_holm"]):
-        return "insufficient data"
-    if r["significant"] and r["direction"] in ("lower", "higher"):
-        return str(r["direction"])
-    return "no significant difference"
-
-
-def _expect_met(r: Mapping[str, Any]) -> bool | None:
-    """Whether ``outcome`` matches the registry's ``expect`` (None without an expectation or without data)."""
-    outcome, expect = r["outcome"], r.get("expect")
-    if outcome in ("no data", "insufficient data") or not isinstance(expect, str):
-        return None
-    return {"lower": outcome == "lower", "higher": outcome == "higher", "not_higher": outcome != "higher",
-            "not_lower": outcome != "lower", "equal": outcome == "equivalent"}.get(expect)
-
-
-COUNT_COLUMNS = ("nodes", "n_pairs", "n_dropped_invalid", "n_dropped_missing", "n_runs", "n_valid", "n_invalid")
+COUNT_COLUMNS = ("nodes", "n_pairs", "n_dropped_invalid", "n_undefined", "n_dropped_missing", "n_runs", "n_valid",
+                 "n_invalid", "m", "n_seeds", "n_paired", "n_match")
 
 
 def tidy(df: pd.DataFrame) -> pd.DataFrame:
@@ -362,6 +253,22 @@ def _sort(df: pd.DataFrame, keys: Sequence[tuple[str, Sequence[Any] | None]]) ->
     return tmp.sort_values(names, kind="stable").drop(columns=names).reset_index(drop=True)
 
 
+def _stratum_rows(df: pd.DataFrame, values: Mapping[str, Any]) -> pd.DataFrame:
+    mask = pd.Series(True, index=df.index)
+    for col, v in values.items():
+        mask &= df[col] == v
+    return df.loc[mask]
+
+
+def _row(table: pd.DataFrame, **match: Any) -> dict[str, Any] | None:
+    """The single row of ``table`` matching every column = value, as a dict (None when absent)."""
+    mask = pd.Series(True, index=table.index)
+    for col, v in match.items():
+        mask &= table[col] == v
+    hit = table.loc[mask]
+    return hit.iloc[0].to_dict() if len(hit) else None
+
+
 # --------------------------------------------------------------------------------------------------------------------
 # Per-arm tables
 # --------------------------------------------------------------------------------------------------------------------
@@ -373,7 +280,7 @@ def arm_table(df: pd.DataFrame, key: str, metrics: Sequence[str], refs: Mapping[
 
     Columns: n_runs, n_valid, n_invalid; mean and median with 95% bootstrap CIs over the arm's valid runs; and, for a
     label in ``refs``, the paired difference against ``refs[label]`` on the same seeds (mean and median with CIs,
-    percent of the reference mean with CI, two-sided Wilcoxon p; descriptive, not Holm-adjusted).
+    percent of the reference mean with CI). Descriptive: no tests.
     """
     e = common.experiment(key)
     labels = [*e["labels"], *e["baselines"]]
@@ -397,8 +304,8 @@ def arm_table(df: pd.DataFrame, key: str, metrics: Sequence[str], refs: Mapping[
                 p = common.paired_lenient(part, keys, "label", s["label"], ref, m,
                                           where=f"{key} {s['scenario']}/{s['nodes']} {m}")
                 eff = common.paired_effect(p.a, p.b)
-                rec.update(ref=ref, n_pairs=p.n, n_dropped_invalid=p.dropped_invalid,
-                           n_dropped_missing=p.dropped_missing, p_wilcoxon=eff["p_wilcoxon"])
+                rec.update(ref=ref, n_pairs=p.n, n_dropped_invalid=p.dropped_invalid, n_undefined=p.dropped_undefined,
+                           n_dropped_missing=p.dropped_missing)
                 for name in ("mean", "median", "pct"):
                     for suffix in ("", "_lo", "_hi"):
                         rec[f"diff_{name}{suffix}"] = eff[f"{name}_diff{suffix}"]
@@ -414,21 +321,27 @@ def generation_refs(labels: Sequence[str]) -> dict[str, str]:
 
 
 # --------------------------------------------------------------------------------------------------------------------
-# Exp 1 (H1)
+# Exp 1 (H1) and the realism check
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def analyse_exp1(sel: pd.DataFrame, out_root: Path) -> dict[str, Any]:
+def _tost_table(sel: pd.DataFrame, key: str) -> pd.DataFrame:
+    """An experiment's TOST comparisons (``comparison_table``) in the H1 table's columns, plus reference rows."""
+    e = common.experiment(key)
+    tests = comparison_table(sel, common.comparisons(key))
+    tests["planner"] = tests["a"].astype(str).str.split("/").str[-1]
+    tests = tests.rename(columns={"p_holm": "p_tost_holm"})
+    table = pd.concat([tests.reindex(columns=H1_COLUMNS), reference_rows(sel, e)], ignore_index=True)
+    planners = [lab.split("/", 1)[1] for lab in e["labels"] if lab.startswith("heuristic/")]
+    return tidy(_sort(table, [("family", FAMILY_ORDER), ("nodes", None), ("scenario", e["scenarios"]),
+                              ("planner", planners), ("a", e["baselines"])]))
+
+
+def analyse_exp1(sel: pd.DataFrame, everything: pd.DataFrame, out_root: Path) -> dict[str, Any]:
     """Write exp1_h1, exp1_secondary and exp1_phases; return the H1 verdict, the P0 contrast and the phase check."""
     e = common.experiment("exp1")
     params = e["params"]
-    tests = comparison_table(sel, "exp1", common.comparisons("exp1"))
-    tests["planner"] = tests["a"].astype(str).str.split("/").str[-1]
-    tests = tests.rename(columns={"p_holm": "p_tost_holm"})
-    h1 = pd.concat([tests.reindex(columns=H1_COLUMNS), reference_rows(sel, e)], ignore_index=True)
-    planners = [lab.split("/", 1)[1] for lab in e["labels"] if lab.startswith("heuristic/")]
-    h1 = tidy(_sort(h1, [("family", FAMILY_ORDER), ("nodes", None), ("scenario", e["scenarios"]),
-                         ("planner", planners), ("a", e["baselines"])]))
+    h1 = _tost_table(sel, "exp1")
     common.write_table(h1, out_root, "exp1_h1")
 
     refs = generation_refs(e["labels"])
@@ -441,31 +354,31 @@ def analyse_exp1(sel: pd.DataFrame, out_root: Path) -> dict[str, Any]:
     else:
         common.write_table(tidy(phases), out_root, "exp1_phases")
     common.logger.info("wrote exp1_h1, exp1_secondary%s", "" if phases.empty else ", exp1_phases")
-    h1_rows = h1.loc[h1["family"] == "H1"]
-    p0_rows = h1.loc[h1["family"] == "H1-P0-contrast"]
+    comps = common.comparisons("exp1")
+    h1_comps = [c for c in comps if c.family == "H1"]
+    missing = common.missing_configurations(everything, h1_comps)
     return {"tables": ["exp1_h1", "exp1_secondary"] + ([] if phases.empty else ["exp1_phases"]),
-            "h1": h1_verdict(h1_rows, int(params["h1_tests"]), int(params["h1_min_equivalent"])),
-            "p0_contrast": tost_counts(p0_rows) | {"tests": _tost_brief(p0_rows)},
+            "h1": h1_verdict(h1.loc[h1["family"] == "H1"], missing, int(params["h1_tests"]),
+                             int(params["h1_min_equivalent"])),
+            "p0_contrast": tost_counts(h1.loc[h1["family"] == "H1-P0-contrast"])
+            | {"tests": _tost_brief(h1.loc[h1["family"] == "H1-P0-contrast"])},
             "phases": check}
 
 
-def analyse_realism(sel: pd.DataFrame, out_root: Path) -> dict[str, Any]:
+def analyse_realism(sel: pd.DataFrame, everything: pd.DataFrame, out_root: Path) -> dict[str, Any]:
     """Write realism_h1 and realism_secondary: Exp 1's entropy-guided random vs heuristic TOSTs on W5 and W6, a
-    realism check reported beside H1 in its own Holm family (it does not enter H1's verdict)."""
+    realism check reported the same way as H1 in its own Holm family (it does not enter H1's verdict)."""
     e = common.experiment("realism")
-    tests = comparison_table(sel, "realism", common.comparisons("realism"))
-    tests["planner"] = tests["a"].astype(str).str.split("/").str[-1]
-    tests = tests.rename(columns={"p_holm": "p_tost_holm"})
-    table = pd.concat([tests.reindex(columns=H1_COLUMNS), reference_rows(sel, e)], ignore_index=True)
-    planners = [lab.split("/", 1)[1] for lab in e["labels"] if lab.startswith("heuristic/")]
-    table = tidy(_sort(table, [("family", FAMILY_ORDER), ("scenario", e["scenarios"]), ("planner", planners),
-                               ("a", e["baselines"])]))
+    table = _tost_table(sel, "realism")
     common.write_table(table, out_root, "realism_h1")
     refs = generation_refs(e["labels"])
     metrics = EXP1_SECONDARY + [m for m in e["secondary_metrics"] if m not in EXP1_SECONDARY]
     common.write_table(tidy(arm_table(sel, "realism", metrics, refs)), out_root, "realism_secondary")
     rows = table.loc[table["family"] == "H1-realism"]
-    return {"tables": ["realism_h1", "realism_secondary"], "tost": tost_counts(rows) | {"tests": _tost_brief(rows)}}
+    missing = common.missing_configurations(everything, common.comparisons("realism"))
+    return {"tables": ["realism_h1", "realism_secondary"],
+            "tost": tost_counts(rows) | {"complete": not missing, "missing_configurations": missing,
+                                         "tests": _tost_brief(rows)}}
 
 
 def reference_rows(sel: pd.DataFrame, e: Mapping[str, Any]) -> pd.DataFrame:
@@ -488,59 +401,65 @@ def reference_rows(sel: pd.DataFrame, e: Mapping[str, Any]) -> pd.DataFrame:
 
 
 def tost_counts(rows: pd.DataFrame) -> dict[str, int]:
-    """Counts over a family of TOST rows: tests with data, equivalent (raw and after Holm), non-inferior (raw and
-    after Holm), and random beyond the margin either way (90% CI entirely above +margin or below -margin)."""
-    tested = rows.loc[pd.to_numeric(rows["p_tost"], errors="coerce").notna()]
+    """Counts over a family of TOST rows: tests, tests with a TOST (at least two pairs; the rest enter Holm with
+    p 1), equivalent (raw and after Holm), vetoed (unadjusted 90% CI lower bound above +margin), non-inferior (raw
+    and after Holm), random better beyond the margin (90% CI entirely below -margin), and dropped pairs."""
+    n_pairs = pd.to_numeric(rows["n_pairs"], errors="coerce").fillna(0)
+    tested = rows.loc[n_pairs >= 2]
     return {
+        "n_tests": int(len(rows)),
         "n_tests_with_data": int(len(tested)),
         "n_equivalent": int((tested["equivalent"] == True).sum()),  # noqa: E712 - object column
-        "n_equivalent_holm": int((tested["equivalent_holm"] == True).sum()),  # noqa: E712
+        "n_equivalent_holm": int((rows["equivalent_holm"] == True).sum()),  # noqa: E712
+        "n_vetoed": int((rows["vetoed"] == True).sum()),  # noqa: E712
         "n_noninferior": int((tested["noninferior"] == True).sum()),  # noqa: E712
-        "n_noninferior_holm": int((tested["noninferior_holm"] == True).sum()),  # noqa: E712
-        "n_worse_beyond_margin": int((tested["ci90_lo"] > tested["margin"]).sum()),
-        "n_better_beyond_margin": int((tested["ci90_hi"] < -tested["margin"]).sum()),
+        "n_noninferior_holm": int((rows["noninferior_holm"] == True).sum()),  # noqa: E712
+        "n_better_beyond_margin": int((pd.to_numeric(tested["ci90_hi"], errors="coerce")
+                                       < -pd.to_numeric(tested["margin"], errors="coerce")).sum()),
         "n_pairs_dropped_invalid": int(pd.to_numeric(rows["n_dropped_invalid"], errors="coerce").fillna(0).sum()),
+        "n_undefined": int(pd.to_numeric(rows["n_undefined"], errors="coerce").fillna(0).sum()),
     }
 
 
 def _tost_brief(rows: pd.DataFrame) -> pd.DataFrame:
-    cols = ["scenario", "nodes", "planner", "n_pairs", "n_dropped_invalid", "mean_a", "mean_b", "pct_diff",
-            "pct_diff_lo", "pct_diff_hi", "margin_pct", "ci90_lo_pct", "ci90_hi_pct", "p_tost", "p_tost_holm",
-            "equivalent_holm", "noninferior", "noninferior_holm", "outcome"]
+    cols = ["scenario", "nodes", "planner", "n_pairs", "n_dropped_invalid", "n_undefined", "mean_a", "mean_b",
+            "pct_diff", "pct_diff_lo", "pct_diff_hi", "margin_pct", "ci90_lo_pct", "ci90_hi_pct", "p_tost",
+            "p_tost_holm", "equivalent_holm", "vetoed", "noninferior", "noninferior_holm", "outcome"]
     return rows.reindex(columns=cols).reset_index(drop=True)
 
 
-def h1_verdict(rows: pd.DataFrame, n_expected: int, min_equivalent: int) -> dict[str, Any]:
-    """The preregistered H1 decision: supported iff all ``n_expected`` TOSTs have data, at least ``min_equivalent``
-    are equivalent after Holm, and none has random worse by more than the margin (90% CI lower bound above +margin).
-    "incomplete" while tests lack data (Holm over fewer tests is anti-conservative, so counts are provisional)."""
+def h1_verdict(rows: pd.DataFrame, missing: list[dict[str, Any]], n_expected: int,
+               min_equivalent: int) -> dict[str, Any]:
+    """The preregistered H1 decision over the 12 tests of family H1 (Holm over 12 fixed; a test with fewer than two
+    valid pairs is not equivalent and enters Holm with p_TOST = 1): supported iff at least ``min_equivalent`` are
+    equivalent (Holm-adjusted p_TOST < 0.05) and none is vetoed (unadjusted 90% CI lower bound of the mean paired
+    difference above +margin); otherwise not supported. "incomplete" only while session runs are missing (an H1
+    configuration with fewer than MIN_SEEDS finished runs, or none)."""
     counts = tost_counts(rows)
-    if counts["n_tests_with_data"] < n_expected:
-        verdict = "incomplete"
-    elif counts["n_equivalent_holm"] >= min_equivalent and counts["n_worse_beyond_margin"] == 0:
-        verdict = "supported"
-    else:
-        verdict = "not supported"
-    return {"rule": f"supported iff >= {min_equivalent} of {n_expected} TOSTs (90% CI of the mean paired difference "
-                    "inside +-3% of the heuristic mean) are equivalent after Holm and none has its 90% CI lower "
-                    "bound above +margin",
-            "n_tests_expected": n_expected, "min_equivalent": min_equivalent, **counts, "verdict": verdict,
-            "tests": _tost_brief(rows)}
+    if len(rows) != n_expected:
+        raise ValueError(f"H1 has {len(rows)} tests, want {n_expected}")
+    ok = counts["n_equivalent_holm"] >= min_equivalent and counts["n_vetoed"] == 0
+    return _verdict_block(
+        f"supported iff >= {min_equivalent} of {n_expected} TOSTs are equivalent after Holm (90% CI of the mean "
+        "paired difference inside +-3% of the heuristic mean; Holm over the 12, p 1 for a test with < 2 pairs) and "
+        "none is vetoed (unadjusted 90% CI lower bound above +margin)",
+        "supported" if ok else "not supported", missing,
+        n_tests_expected=n_expected, min_equivalent=min_equivalent, **counts, tests=_tost_brief(rows))
 
 
-def run_phases(ts: pd.DataFrame, early: Sequence[float], late_fraction: float) -> dict[str, float]:
-    """Mean cost_per_hour of one run's timeseries in the early window [early[0], early[1]) and over the late window,
-    the last max(1, floor(n * late_fraction)) samples (the simulator's steady-state rule, so late equals the
+def run_phases(ts: pd.DataFrame, early: Sequence[float], late_from_min: float) -> dict[str, float]:
+    """Mean cost_per_hour of one run's timeseries in the early window [early[0], early[1]) and in the late window,
+    the samples with t >= ``late_from_min`` (0.8 x the horizon: the simulator's steady-state rule, so late equals the
     summary's steady_cost_per_hour). Also returns where the late window starts and the last sample time."""
     t = pd.to_numeric(ts["t_min"], errors="coerce").to_numpy(dtype=float)
     cost = pd.to_numeric(ts["cost_per_hour"], errors="coerce").to_numpy(dtype=float)
-    n = len(cost)
-    if n == 0:
+    if len(cost) == 0:
         return {"early": math.nan, "late": math.nan, "late_from": math.nan, "t_end": math.nan}
     in_early = (t >= early[0]) & (t < early[1])
-    k = max(1, int(math.floor(n * late_fraction + 1e-9)))
+    in_late = t + 1e-9 >= late_from_min
     return {"early": float(cost[in_early].mean()) if in_early.any() else math.nan,
-            "late": float(cost[n - k:].mean()), "late_from": float(t[n - k]), "t_end": float(t[-1])}
+            "late": float(cost[in_late].mean()) if in_late.any() else math.nan,
+            "late_from": float(t[in_late].min()) if in_late.any() else math.nan, "t_end": float(np.nanmax(t))}
 
 
 def phase_table(sel: pd.DataFrame, key: str, refs: Mapping[str, str]) -> tuple[pd.DataFrame, dict[str, Any]]:
@@ -548,12 +467,13 @@ def phase_table(sel: pd.DataFrame, key: str, refs: Mapping[str, str]) -> tuple[p
 
     One row per (scenario, nodes, label, phase) in ``arm_table``'s columns (``metric`` renamed ``phase``: early or
     late), plus ``t_from_min``/``t_to_min``: the registry's early window ([10, 70) min) and, for late, the earliest
-    start and the latest end of the runs' late windows. Only valid runs are read; invalid ones count in n_invalid.
+    start and the latest end of the runs' late windows (t >= 0.8 x the run's horizon, ``duration_min``, else its last
+    sample). Only valid runs are read; invalid ones count in n_invalid.
     """
     e = common.experiment(key)
-    params = e["params"]
-    early = [float(x) for x in params["early_window_min"]]
-    late_fraction = float(params["late_fraction"])
+    params = e.get("params") or {}
+    early = [float(x) for x in params.get("early_window_min", [10, 70])]
+    late_fraction = float(params.get("late_from_fraction", 0.8))
     labels = set(e["labels"]) | set(e["baselines"])
     recs = []
     for r in sel.sort_values(["matrix", "run_id"], kind="stable").to_dict("records"):
@@ -570,7 +490,9 @@ def phase_table(sel: pd.DataFrame, key: str, refs: Mapping[str, str]) -> tuple[p
             except (FileNotFoundError, ValueError, KeyError) as err:
                 common.logger.warning("%s: no usable timeseries (%s)", r["run_id"], type(err).__name__)
             else:
-                rec.update(run_phases(ts, early, late_fraction))
+                horizon = float(r["duration_min"]) if _finite(r.get("duration_min")) else float(
+                    pd.to_numeric(ts["t_min"], errors="coerce").max())
+                rec.update(run_phases(ts, early, late_fraction * horizon))
         recs.append(rec)
     per_run = pd.DataFrame(recs)
     if per_run.empty or per_run["early"].notna().sum() + per_run["late"].notna().sum() == 0:
@@ -591,10 +513,10 @@ def phase_table(sel: pd.DataFrame, key: str, refs: Mapping[str, str]) -> tuple[p
     table.insert(5, "t_to_min", t_to)
     gap = (per_run["late"] - pd.to_numeric(per_run["steady"], errors="coerce")).abs()
     max_gap = float(gap.max()) if gap.notna().any() else math.nan
-    if _finite(max_gap) and max_gap > 1e-6:
-        common.logger.warning("exp1_phases: late-phase mean differs from steady_cost_per_hour by up to %.3g",
-                              max_gap)
-    check = {"early_window_min": early, "late_fraction": late_fraction,
+    if _finite(max_gap) and max_gap > 1e-5:
+        common.logger.warning("exp1_phases: late-phase mean differs from steady_cost_per_hour by up to %.3g (runs "
+                              "from simulators before the time-based steady-state rule)", max_gap)
+    check = {"early_window_min": early, "late_from_fraction": late_fraction,
              "n_runs_read": int(per_run["late"].notna().sum()),
              "late_vs_steady_cost_max_abs_diff": max_gap}
     return table, check
@@ -605,69 +527,45 @@ def phase_table(sel: pd.DataFrame, key: str, refs: Mapping[str, str]) -> tuple[p
 # --------------------------------------------------------------------------------------------------------------------
 
 
-def exp3_comparisons() -> list[common.Comparison]:
-    """The registry's Exp 3 comparisons plus eviction_cost in its own Holm family (H3-eviction-cost)."""
-    comps = common.comparisons("exp3")
-    extra = [dataclasses.replace(c, name=c.name.replace(", evictions", ", eviction_cost"),
-                                 family="H3-eviction-cost", metric="eviction_cost")
-             for c in comps if c.family == "H3-evictions"]
-    return comps + extra
-
-
-def analyse_exp3(sel: pd.DataFrame, out_root: Path) -> dict[str, Any]:
-    """Write exp3_h3 and return H3's verdict: per scenario and budget, supported iff merge+shift has lower
-    integrated_cost_post, significant after Holm over the four H3 tests."""
+def analyse_exp3(sel: pd.DataFrame, everything: pd.DataFrame, out_root: Path) -> dict[str, Any]:
+    """Write exp3_h3 (family H3) and exp3_secondary (descriptive) and return H3's verdict: supported iff all four
+    tests are significant after Holm with merge+shift lower; partial if some are; otherwise inconclusive when a test
+    could not reach significance, else not supported."""
     e = common.experiment("exp3")
-    table = comparison_table(sel, "exp3", exp3_comparisons())
+    comps = common.comparisons("exp3")
+    table = comparison_table(sel, comps)
     table["budget"] = table["a"].astype(str).str.rsplit("budget-", n=1).str[-1]
     budgets = list(e["params"].get("budgets_pods_per_minute", {}))
-    table = tidy(_sort(table, [("family", FAMILY_ORDER), ("nodes", None), ("scenario", e["scenarios"]),
-                               ("budget", budgets)]))
+    table = tidy(_sort(table, [("nodes", None), ("scenario", e["scenarios"]), ("budget", budgets)]))
     cols = WILCOXON_COLUMNS[:5] + ["budget"] + WILCOXON_COLUMNS[5:]
     common.write_table(table.reindex(columns=cols), out_root, "exp3_h3")
-    common.logger.info("wrote exp3_h3")
-    h3 = table.loc[table["family"] == "H3"]
-    tested = h3.loc[~h3["outcome"].isin(["no data", "insufficient data"])]
-    n_supported = int((tested["expect_met"] == True).sum())  # noqa: E712
-    n_expected = len(h3)
-    verdict = (f"supported in {n_supported} of {n_expected} strata" if len(tested) == n_expected
-               else f"incomplete ({len(tested)} of {n_expected} tests have data; supported in {n_supported})")
-    brief = ["scenario", "nodes", "budget", "n_pairs", "n_dropped_invalid", "mean_a", "mean_b", "mean_diff",
-             "mean_diff_lo", "mean_diff_hi", "pct_diff", "pct_diff_lo", "pct_diff_hi", "p_wilcoxon", "p_holm",
-             "outcome", "expect_met"]
-    evictions = table.loc[table["family"] == "H3-evictions"]
-    return {"tables": ["exp3_h3"],
-            "h3": {"rule": "per scenario and budget: merge+shift lower on integrated_cost_post and significant "
-                           "(paired Wilcoxon, Holm over the four)",
-                   "n_tests_expected": n_expected, "n_tests_with_data": int(len(tested)),
-                   "n_supported": n_supported, "verdict": verdict, "tests": h3.reindex(columns=brief)},
-            "evictions": evictions.reindex(columns=brief[:3] + ["mean_a", "mean_b", "pct_diff", "p_holm",
-                                                                "outcome"])}
+    refs = {lab: lab.replace("merge+shift", "merge-only") for lab in e["labels"] if lab.startswith("merge+shift")}
+    metrics = [e["primary_metric"], *e["params"].get("descriptive_metrics", [])]
+    common.write_table(tidy(arm_table(sel, "exp3", metrics, refs)), out_root, "exp3_secondary")
+    common.logger.info("wrote exp3_h3, exp3_secondary")
+    n_lower = int((table["outcome"] == "lower").sum())
+    if n_lower == len(table):
+        verdict = "supported"
+    elif n_lower:
+        verdict = "partial"
+    elif (table["outcome"].isin(common.UNINFORMATIVE_OUTCOMES)).any():
+        verdict = "inconclusive"
+    else:
+        verdict = "not supported"
+    brief = ["scenario", "nodes", "budget", "n_pairs", "n_dropped_invalid", "n_undefined", "mean_a", "mean_b",
+             "mean_diff", "mean_diff_lo", "mean_diff_hi", "pct_diff", "pct_diff_lo", "pct_diff_hi", "p_wilcoxon",
+             "p_floor", "p_holm", "holm_reachable", "outcome", "expect_met"]
+    missing = common.missing_configurations(everything, comps)
+    return {"tables": ["exp3_h3", "exp3_secondary"],
+            "h3": _verdict_block("per scenario and budget: merge+shift lower on integrated_cost_post, significant "
+                                 "after Holm over the four (paired Wilcoxon); supported iff all four, partial if "
+                                 "some", verdict, missing, n_tests=int(len(table)), n_lower=n_lower,
+                                 tests=table.reindex(columns=brief))}
 
 
 # --------------------------------------------------------------------------------------------------------------------
 # Exp 4 (H4)
 # --------------------------------------------------------------------------------------------------------------------
-
-
-def exp4_comparisons() -> list[common.Comparison]:
-    """The registry's H4 family, plus every other anneal-plan configuration vs entropy-greedy on steady-state cost
-    and evictions in an exploratory family (H4-sweep), so the table covers every configuration."""
-    e = common.experiment("exp4")
-    params = e["params"]
-    comps = common.comparisons("exp4")
-    covered = {(common.describe_arm(c.a), c.metric) for c in comps}
-    template = comps[0] if comps else common.Comparison("exp4", "", "H4", "wilcoxon", H1_METRIC, "", "")
-    extra = []
-    for label in e["labels"]:
-        if label == params["greedy_label"]:
-            continue
-        for metric in EXP4_METRICS:
-            if (label, metric) not in covered:
-                extra.append(dataclasses.replace(
-                    template, name=f"{label} vs {params['greedy_label']}, {metric}", family="H4-sweep",
-                    metric=metric, a=label, b=params["greedy_label"], expect=None, where={}))
-    return comps + extra
 
 
 def config_params(sel: pd.DataFrame, labels: Sequence[str]) -> pd.DataFrame:
@@ -689,19 +587,75 @@ def config_params(sel: pd.DataFrame, labels: Sequence[str]) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["label", "planner", "t0", "cooling"])
 
 
-def analyse_exp4(sel: pd.DataFrame, out_root: Path) -> dict[str, Any]:
-    """Write exp4_h4 and exp4_sweep; return H4's verdict per scenario and overall."""
+CLAUSE_COLUMNS = ["clause", "scenario", "nodes", "configuration", "test_metric", "test_outcome", "test_p_holm",
+                  "test_holm_reachable", "bound_metric", "n_pairs", "pct_diff", "pct_diff_lo", "pct_diff_hi", "bound",
+                  "limit", "bound_ok", "state"]
+
+
+def _clause(kind: str, test: Mapping[str, Any] | None, want: str, bound_metric: str, pct: tuple[float, float, float],
+            n_pairs: int, bound_side: str, limit: float) -> dict[str, Any]:
+    """One H4 clause: its Wilcoxon test (in family H4) must come out ``want`` and the paired bootstrap 95% bound of the
+    percent difference in ``bound_metric`` must lie on the right side of ``limit`` (``bound_side`` "hi": the upper
+    bound below the limit; "lo": the lower bound above it). ``state``: "holds", "fails", or "inconclusive" when the
+    test is unreachable (could not have been significant after Holm), missing, or the bound undefined."""
+    est, lo, hi = pct
+    bound = hi if bound_side == "hi" else lo
+    bound_ok = None if not math.isfinite(bound) else bool(bound < limit if bound_side == "hi" else bound > limit)
+    outcome = test["outcome"] if test else "no data"
+    reachable = bool(test["holm_reachable"]) if test else False
+    if not reachable or outcome in common.UNINFORMATIVE_OUTCOMES:
+        state = "inconclusive"
+    elif outcome == want and bound_ok:
+        state = "holds"
+    elif outcome == want and bound_ok is None:
+        state = "inconclusive"
+    else:
+        state = "fails"
+    return {"clause": kind, "test_metric": test["metric"] if test else math.nan, "test_outcome": outcome,
+            "test_p_holm": test["p_holm"] if test else math.nan, "test_holm_reachable": reachable,
+            "bound_metric": bound_metric, "n_pairs": n_pairs, "pct_diff": est, "pct_diff_lo": lo, "pct_diff_hi": hi,
+            "bound": f"{'upper' if bound_side == 'hi' else 'lower'} 95% bound {'<' if bound_side == 'hi' else '>'}",
+            "limit": limit, "bound_ok": bound_ok, "state": state}
+
+
+def h4_clauses(sel: pd.DataFrame, tests: pd.DataFrame, e: Mapping[str, Any]) -> pd.DataFrame:
+    """The H4 clauses (``CLAUSE_COLUMNS``), per scenario: the plan clause (default anneal-plan vs entropy-greedy:
+    steady-state cost significantly lower, and the paired bootstrap 95% upper bound of the percent difference in
+    evictions below +``plan_evictions_max_pct``) and per anneal-online configuration the online clause (evictions
+    significantly higher, and the bootstrap 95% lower bound of the percent difference in steady-state cost above
+    ``online_cost_min_pct``)."""
+    params = e["params"]
+    keys = e.get("pair_keys") or common.PAIR_KEYS
+    greedy, default = params["greedy_label"], params["default_anneal_label"]
+    rows = []
+    for nodes, scenario in itertools.product(e["nodes"], e["scenarios"]):
+        part = _stratum_rows(sel, {"scenario": scenario, "nodes": nodes})
+        specs = [("plan", default, "steady_cost_per_hour", "lower", "evictions", "hi",
+                  float(params["plan_evictions_max_pct"]))]
+        specs += [("online", label, "evictions", "higher", "steady_cost_per_hour", "lo",
+                   float(params["online_cost_min_pct"])) for label in params["online_labels"]]
+        for kind, label, metric, want, bound_metric, side, limit in specs:
+            test = _row(tests, a=label, b=greedy, metric=metric, scenario=scenario, nodes=nodes)
+            p = common.paired_lenient(part, keys, "label", label, greedy, bound_metric, log=False)
+            rec = _clause(kind, test, want, bound_metric, common.bootstrap_pct_ci(p.a, p.b), p.n, side, limit)
+            rec.update(scenario=scenario, nodes=nodes, configuration=label)
+            rows.append(rec)
+    return pd.DataFrame(rows, columns=CLAUSE_COLUMNS)
+
+
+def analyse_exp4(sel: pd.DataFrame, everything: pd.DataFrame, out_root: Path) -> dict[str, Any]:
+    """Write exp4_h4, exp4_clauses and exp4_sweep; return H4's verdict."""
     e = common.experiment("exp4")
     params = e["params"]
     configs = config_params(sel, e["labels"])
-    table = comparison_table(sel, "exp4", exp4_comparisons())
-    table["p_holm_all"] = common.holm(pd.to_numeric(table["p"], errors="coerce").to_numpy(dtype=float))
+    comps = common.comparisons("exp4")
+    table = comparison_table(sel, comps)
     table = table.merge(configs.rename(columns={"label": "a"}), on="a", how="left")
-    table = tidy(_sort(table, [("family", FAMILY_ORDER), ("order", None), ("nodes", None),
-                               ("scenario", e["scenarios"])]))
+    table = tidy(_sort(table, [("order", None), ("nodes", None), ("scenario", e["scenarios"])]))
     cols = WILCOXON_COLUMNS[:7] + ["planner", "t0", "cooling"] + WILCOXON_COLUMNS[7:]
-    cols.insert(cols.index("p_holm") + 1, "p_holm_all")
     common.write_table(table.reindex(columns=cols), out_root, "exp4_h4")
+    clauses = h4_clauses(sel, table, e)
+    common.write_table(tidy(clauses), out_root, "exp4_clauses")
 
     sweep = common.summarize(sel.loc[sel["label"].isin(e["labels"])], EXP4_SWEEP_METRICS,
                              by=("scenario", "nodes", "label"))
@@ -711,130 +665,71 @@ def analyse_exp4(sel: pd.DataFrame, out_root: Path) -> dict[str, Any]:
         sweep.insert(4 + i, col, sweep.pop(col))
     sweep = tidy(_sort(sweep, [("nodes", None), ("scenario", e["scenarios"]), ("label", e["labels"])]))
     common.write_table(sweep, out_root, "exp4_sweep")
-    common.logger.info("wrote exp4_h4, exp4_sweep")
-    return {"tables": ["exp4_h4", "exp4_sweep"], "default_anneal_label": params["default_anneal_label"],
-            "h4": h4_verdict(table, e)}
+    common.logger.info("wrote exp4_h4, exp4_clauses, exp4_sweep")
+    missing = common.missing_configurations(everything, comps)
+    return {"tables": ["exp4_h4", "exp4_clauses", "exp4_sweep"], "default_anneal_label": params["default_anneal_label"],
+            "h4": h4_verdict(clauses, missing)}
 
 
-def h4_verdict(table: pd.DataFrame, e: Mapping[str, Any]) -> dict[str, Any]:
-    """H4 per scenario (preregistered, Holm within the H4 family): the default anneal-plan vs entropy-greedy has
-    cost lower or equal (not significantly higher) and evictions not significantly higher; each anneal-online
-    configuration has significantly more evictions and cost not significantly lower. "supported" iff every clause
-    holds in every scenario; "incomplete" while any H4 test lacks data."""
-    params = e["params"]
-    h4 = table.loc[table["family"] == "H4"]
-    default = params["default_anneal_label"]
-    online = [lab for lab in e["labels"] if lab.startswith("anneal-online/")]
+def h4_verdict(clauses: pd.DataFrame, missing: list[dict[str, Any]]) -> dict[str, Any]:
+    """H4: supported iff the plan clause holds in both scenarios and the online clause in all six cells; partial if
+    some clauses hold; otherwise inconclusive when a clause is (an unreachable test), else not supported."""
+    states = clauses["state"].tolist()
+    n_hold = states.count("holds")
+    if n_hold == len(states) and states:
+        verdict = "supported"
+    elif n_hold:
+        verdict = "partial"
+    elif "inconclusive" in states:
+        verdict = "inconclusive"
+    else:
+        verdict = "not supported"
 
-    def cell(a: str, metric: str, scenario: Any, nodes: Any) -> Mapping[str, Any] | None:
-        hit = h4.loc[(h4["a"] == a) & (h4["metric"] == metric) & (h4["scenario"] == scenario) & (h4["nodes"] == nodes)]
-        if hit.empty or hit.iloc[0]["outcome"] in ("no data", "insufficient data"):
-            return None
-        return hit.iloc[0].to_dict()
+    def summary(kind: str) -> dict[str, Any]:
+        part = clauses.loc[clauses["clause"] == kind]
+        s = part["state"].tolist()
+        return {"n": len(s), "n_holds": s.count("holds"), "n_fails": s.count("fails"),
+                "n_inconclusive": s.count("inconclusive")}
 
-    plan, onl, complete = [], [], True
-    for nodes in e["nodes"]:
-        for scenario in e["scenarios"]:
-            cost, ev = cell(default, "steady_cost_per_hour", scenario, nodes), cell(default, "evictions", scenario,
-                                                                                     nodes)
-            if cost is None or ev is None:
-                complete = False
-                plan.append({"scenario": scenario, "nodes": nodes, "holds": None})
-            else:
-                plan.append({"scenario": scenario, "nodes": nodes, "cost_pct_diff": cost["pct_diff"],
-                             "cost_outcome": cost["outcome"], "cost_not_higher": cost["outcome"] != "higher",
-                             "cost_significantly_lower": cost["outcome"] == "lower",
-                             "evictions_pct_diff": ev["pct_diff"], "evictions_outcome": ev["outcome"],
-                             "evictions_not_higher": ev["outcome"] != "higher",
-                             "holds": cost["outcome"] != "higher" and ev["outcome"] != "higher",
-                             "underpowered": _underpowered({"steady_cost_per_hour": cost, "evictions": ev})})
-            for label in online:
-                cost, ev = cell(label, "steady_cost_per_hour", scenario, nodes), cell(label, "evictions", scenario,
-                                                                                       nodes)
-                if cost is None or ev is None:
-                    complete = False
-                    onl.append({"scenario": scenario, "nodes": nodes, "config": label, "holds": None})
-                    continue
-                onl.append({"scenario": scenario, "nodes": nodes, "config": label,
-                            "evictions_pct_diff": ev["pct_diff"], "evictions_outcome": ev["outcome"],
-                            "evictions_higher": ev["outcome"] == "higher", "cost_pct_diff": cost["pct_diff"],
-                            "cost_outcome": cost["outcome"], "cost_not_lower": cost["outcome"] != "lower",
-                            "holds": ev["outcome"] == "higher" and cost["outcome"] != "lower",
-                            "underpowered": _underpowered({"steady_cost_per_hour": cost})})
-
-    def clause(items: list[dict[str, Any]]) -> str:
-        if not items or any(i["holds"] is None for i in items):
-            return "incomplete"
-        return "supported" if all(i["holds"] for i in items) else "not supported"
-
-    plan_v, online_v = clause(plan), clause(onl)
-    overall = ("incomplete" if not complete else
-               "supported" if plan_v == online_v == "supported" else "not supported")
-    weak = [f"{i.get('config', default)} {i['scenario']}/{i['nodes']}: {', '.join(i['underpowered'])}"
-            for i in plan + onl if i.get("underpowered")]
-    return {"rule": "anneal-plan default vs entropy-greedy: cost not significantly higher and evictions not "
-                    "significantly higher; each anneal-online vs entropy-greedy: evictions significantly higher and "
-                    "cost not significantly lower (paired Wilcoxon, Holm within H4)",
-            "plan_clause": plan_v, "online_clause": online_v, "verdict": overall,
-            "underpowered": weak,
-            "underpowered_note": "clauses that rest on a non-significant test that could not have been significant "
-                                 "after Holm with its number of non-zero pairs (holm_reachable false); such a 'not "
-                                 "higher' / 'not lower' is uninformative",
-            "plan": plan, "online": onl}
-
-
-def _underpowered(tests: Mapping[str, Mapping[str, Any]]) -> list[str]:
-    """The metrics among ``tests`` (metric -> comparison row) whose non-significant result could not have been
-    significant after Holm (``holm_reachable`` false), so a "not higher" / "not lower" clause resting on it is
-    uninformative."""
-    return [m for m, r in tests.items() if r.get("outcome") == "no significant difference"
-            and r.get("holm_reachable") is False]
+    return _verdict_block(
+        "plan clause per scenario: default anneal-plan vs entropy-greedy has significantly lower steady-state cost "
+        "(Wilcoxon, Holm within H4) and the paired bootstrap 95% upper bound of the percent difference in evictions "
+        "below +10%; online clause per anneal-online t0 and scenario: significantly more evictions (Wilcoxon, H4) and "
+        "the bootstrap 95% lower bound of the percent difference in steady-state cost above -1%; an unreachable test "
+        "makes its clause inconclusive. Supported iff every clause holds, partial if some do",
+        verdict, missing, plan_clause=summary("plan"), online_clause=summary("online"), clauses=clauses)
 
 
 # --------------------------------------------------------------------------------------------------------------------
 # Ablations (figure 8)
 # --------------------------------------------------------------------------------------------------------------------
 
-
-def ablation_comparisons() -> list[common.Comparison]:
-    """The registry's ablation family plus each variant vs full on eviction_cost in its own family."""
-    comps = common.comparisons("abl")
-    e = common.experiment("abl")
-    ref = e["params"]["reference_label"]
-    template = comps[0] if comps else common.Comparison("abl", "", "ablation", "wilcoxon", H1_METRIC, "", ref)
-    covered = {(common.describe_arm(c.a), c.metric) for c in comps}
-    extra = [dataclasses.replace(template, name=f"{v} vs {ref}, {m}", family="ablation-eviction-cost", metric=m,
-                                 a=v, b=ref, expect=None, where={})
-             for v in e["labels"] if v != ref for m in ABL_METRICS if (v, m) not in covered]
-    return comps + extra
-
-
 ABL_COLUMNS = ["scenario", "nodes", "configuration", "metric", "family", "n_runs", "n_valid", "n_invalid",
                "mean", "mean_lo", "mean_hi", "median", "median_lo", "median_hi", *PAIR_COUNT_COLUMNS,
                "diff_mean", "diff_mean_lo", "diff_mean_hi", "diff_median", "diff_median_lo", "diff_median_hi",
-               "diff_pct", "diff_pct_lo", "diff_pct_hi", "p_wilcoxon", "p_floor", "p_holm", "p_holm_all",
-               "significant", "holm_reachable", "direction", "outcome"]
+               "diff_pct", "diff_pct_lo", "diff_pct_hi", "p_wilcoxon", "p_floor", "m", "p_holm", "significant",
+               "holm_reachable", "direction", "outcome"]
 
 
 def ablation_table(sel: pd.DataFrame) -> pd.DataFrame:
     """Figure 8 as a long table: one row per (scenario, nodes, configuration, metric) of the design, full first.
 
     mean/median (95% bootstrap CIs) are over the configuration's valid runs; diff_* are the paired differences
-    variant - full on shared valid seeds (percent of full's mean over those seeds), with the Wilcoxon p, Holm within
-    the family (``ablation``: the preregistered steady-state cost, integrated cost and evictions; eviction cost in
-    ``ablation-eviction-cost``) and ``p_holm_all`` (Holm over all of the table's tests, a sensitivity check).
+    variant - full on shared valid seeds (percent of full's mean over those seeds). Steady-state cost rows of the
+    variants carry the test of family ``ablation`` (Wilcoxon, Holm over the 8); the other metrics are descriptive
+    (family "descriptive", no test); full's rows are the reference.
     """
     e = common.experiment("abl")
     ref = e["params"]["reference_label"]
-    tests = comparison_table(sel, "abl", ablation_comparisons())
-    tests["p_holm_all"] = common.holm(pd.to_numeric(tests["p"], errors="coerce").to_numpy(dtype=float))
+    keys = e.get("pair_keys") or common.PAIR_KEYS
+    tests = common.evaluate(sel, common.comparisons("abl"))
     summary = common.summarize(sel.loc[sel["label"].isin(e["labels"])], ABL_METRICS,
                                by=("scenario", "nodes", "label"))
     rows = []
     for nodes, scenario, label, metric in itertools.product(e["nodes"], e["scenarios"], e["labels"], ABL_METRICS):
         rec: dict[str, Any] = {c: math.nan for c in ABL_COLUMNS}
         rec.update(scenario=scenario, nodes=nodes, configuration=label, metric=metric, n_runs=0, n_valid=0,
-                   n_invalid=0, family="reference" if label == ref else "")
+                   n_invalid=0, family="reference" if label == ref else "descriptive")
         s = summary.loc[(summary["scenario"] == scenario) & (summary["nodes"] == nodes) & (summary["label"] == label)]
         if len(s):
             s0 = s.iloc[0]
@@ -842,33 +737,117 @@ def ablation_table(sel: pd.DataFrame) -> pd.DataFrame:
             for stat in ("mean", "median"):
                 for suffix in ("", "_lo", "_hi"):
                     rec[f"{stat}{suffix}"] = s0[f"{metric}_{stat}{suffix}"]
-        t = tests.loc[(tests["a"] == label) & (tests["b"] == ref) & (tests["metric"] == metric)
-                      & (tests["scenario"] == scenario) & (tests["nodes"] == nodes)]
-        if len(t):
-            t0 = t.iloc[0]
-            rec.update(family=t0["family"], **{c: t0[c] for c in PAIR_COUNT_COLUMNS},
-                       p_wilcoxon=t0["p_wilcoxon"], p_floor=t0["p_floor"], p_holm=t0["p_holm"],
-                       p_holm_all=t0["p_holm_all"], significant=bool(t0["significant"]),
-                       holm_reachable=t0["holm_reachable"], direction=t0["direction"], outcome=t0["outcome"])
+        if label != ref:
+            part = _stratum_rows(sel, {"scenario": scenario, "nodes": nodes})
+            p = common.paired_lenient(part, keys, "label", label, ref, metric, log=False)
+            eff = common.paired_effect(p.a, p.b)
+            rec.update(n_pairs=p.n, n_dropped_invalid=p.dropped_invalid, n_undefined=p.dropped_undefined,
+                       n_dropped_missing=p.dropped_missing)
             for name in ("mean", "median", "pct"):
                 for suffix in ("", "_lo", "_hi"):
-                    rec[f"diff_{name}{suffix}"] = t0[f"{name}_diff{suffix}"]
+                    rec[f"diff_{name}{suffix}"] = eff[f"{name}_diff{suffix}"]
+            t = _row(tests, a=label, b=ref, metric=metric, scenario=scenario, nodes=nodes) if len(tests) else None
+            if t is not None:
+                rec.update(family=t["family"], p_wilcoxon=t["p_wilcoxon"], p_floor=t["p_floor"], m=t["m"],
+                           p_holm=t["p_holm"], significant=bool(t["significant"]),
+                           holm_reachable=bool(t["holm_reachable"]), direction=t["direction"], outcome=t["outcome"])
         rows.append(rec)
     return pd.DataFrame(rows, columns=ABL_COLUMNS)
 
 
-def analyse_ablation(sel: pd.DataFrame, out_root: Path) -> dict[str, Any]:
-    """Write fig8_ablation (table and figure); return each variant's effect per scenario and metric."""
+def analyse_ablation(sel: pd.DataFrame, everything: pd.DataFrame, out_root: Path) -> dict[str, Any]:
+    """Write fig8_ablation (table and figure); return the ablation family's tests and the descriptive effects."""
     table = tidy(ablation_table(sel))
     common.write_table(table, out_root, "fig8_ablation")
     ablation_figure(table, out_root)
     common.logger.info("wrote fig8_ablation (table and figure)")
     effects = table.loc[table["family"] != "reference"]
-    cols = ["scenario", "nodes", "configuration", "metric", "family", "n_pairs", "n_dropped_invalid", "diff_mean",
-            "diff_pct", "diff_pct_lo", "diff_pct_hi", "p_wilcoxon", "p_holm", "significant", "outcome"]
+    cols = ["scenario", "nodes", "configuration", "metric", "family", "n_pairs", "n_dropped_invalid", "n_undefined",
+            "diff_mean", "diff_pct", "diff_pct_lo", "diff_pct_hi", "p_wilcoxon", "p_floor", "p_holm", "significant",
+            "holm_reachable", "outcome"]
+    missing = common.missing_configurations(everything, common.comparisons("abl"))
     return {"tables": ["fig8_ablation"], "figures": ["fig8_ablation"],
             "reference": common.experiment("abl")["params"]["reference_label"],
-            "effects": effects.reindex(columns=cols)}
+            "complete": not missing, "missing_configurations": missing,
+            "tests": effects.loc[effects["family"] == "ablation"].reindex(columns=cols),
+            "descriptive": effects.loc[effects["family"] == "descriptive"].reindex(columns=cols[:12])}
+
+
+# --------------------------------------------------------------------------------------------------------------------
+# B4 parity in the wild
+# --------------------------------------------------------------------------------------------------------------------
+
+B4_COLUMNS = ["pair", "scenario", "nodes", "a", "b", "n_seeds", "n_paired", "n_match",
+              *(f"n_match_{m}" for m in ("steady_cost_per_hour", "evictions", "nodes_removed", "final_nodes")),
+              "unmatched_seeds", "exact", *PAIR_COUNT_COLUMNS, "mean_a", "mean_b", "pct_diff", "pct_diff_lo",
+              "pct_diff_hi", "margin", "margin_pct", "ci90_lo", "ci90_hi", "p_tost", "p_floor", "m", "p_tost_holm",
+              "holm_reachable", "equivalent_holm", "outcome"]
+
+
+def b4_parity_table(sel: pd.DataFrame, tests: pd.DataFrame, e: Mapping[str, Any]) -> pd.DataFrame:
+    """Per (pair, scenario, nodes): the seeds of either arm (n_seeds), those with both runs valid (n_paired), those
+    whose summaries match exactly on every ``params.match_metrics`` (n_match; per metric too), the seeds that do
+    not (unmatched_seeds), ``exact`` (every seed matches), and the pair's TOST (family B4)."""
+    params = e["params"]
+    metrics = list(params["match_metrics"])
+    rows = []
+    for (a, b), nodes, scenario in itertools.product(params["pairs"].items(), e["nodes"], e["scenarios"]):
+        part = _stratum_rows(sel, {"scenario": scenario, "nodes": nodes})
+        ra, rb = (part.loc[part["label"] == lab] for lab in (a, b))
+        seeds = sorted({*ra["seed"].tolist(), *rb["seed"].tolist()}, key=float)
+        va = {s: r for s, r in zip(ra["seed"], ra.to_dict("records")) if r["valid"]}
+        vb = {s: r for s, r in zip(rb["seed"], rb.to_dict("records")) if r["valid"]}
+        paired_seeds = [s for s in seeds if s in va and s in vb]
+        match = {m: [s for s in paired_seeds if _exact(va[s][m], vb[s][m])] for m in metrics}
+        all_match = [s for s in paired_seeds if all(s in match[m] for m in metrics)]
+        rec: dict[str, Any] = {c: math.nan for c in B4_COLUMNS}
+        rec.update(pair=f"{a} vs {b}", scenario=scenario, nodes=nodes, a=a, b=b, n_seeds=len(seeds),
+                   n_paired=len(paired_seeds), n_match=len(all_match),
+                   unmatched_seeds=", ".join(str(int(s)) for s in seeds if s not in all_match),
+                   exact=bool(seeds) and len(all_match) == len(seeds))
+        for m in metrics:
+            rec[f"n_match_{m}"] = len(match[m])
+        t = _row(tests, a=a, b=b, scenario=scenario, nodes=nodes) if len(tests) else None
+        if t is not None:
+            for col in (*PAIR_COUNT_COLUMNS, "mean_a", "mean_b", "pct_diff", "pct_diff_lo", "pct_diff_hi", "margin",
+                        "margin_pct", "ci90_lo", "ci90_hi", "p_tost", "p_floor", "m", "holm_reachable",
+                        "equivalent_holm", "outcome"):
+                rec[col] = t[col]
+            rec["p_tost_holm"] = t["p_holm"]
+        rows.append(rec)
+    return pd.DataFrame(rows, columns=B4_COLUMNS)
+
+
+def _exact(x: Any, y: Any) -> bool:
+    """Exact equality of two summary values (both missing counts as equal)."""
+    a, b = common._num(x), common._num(y)
+    return (math.isnan(a) and math.isnan(b)) or a == b
+
+
+def analyse_b4(sel: pd.DataFrame, everything: pd.DataFrame, out_root: Path) -> dict[str, Any]:
+    """Write b4_parity and return B4's status: "exact" if every seed of every (pair, scenario) cell matches exactly
+    (and no configuration is missing), "equivalent" if all six TOSTs (family B4, Holm over 6) are equivalent after
+    Holm, otherwise "provisional"."""
+    e = common.experiment("b4")
+    comps = common.comparisons("b4")
+    tests = comparison_table(sel, comps)
+    table = tidy(b4_parity_table(sel, tests, e))
+    common.write_table(table, out_root, "b4_parity")
+    common.logger.info("wrote b4_parity")
+    missing = common.missing_configurations(everything, comps)
+    exact = bool(len(table)) and bool(table["exact"].astype(bool).all()) and not missing
+    equivalent = bool(len(tests)) and bool((tests["equivalent_holm"] == True).all())  # noqa: E712
+    status = "exact" if exact else ("equivalent" if equivalent else "provisional")
+    return {"tables": ["b4_parity"],
+            "b4": {"rule": "exact if every seed's summary matches exactly (steady_cost_per_hour, evictions, "
+                           "nodes_removed, final_nodes) in every pair and scenario; equivalent if all six TOSTs at "
+                           "the 3% margin pass after Holm (family B4); otherwise provisional",
+                   "status": status, "complete": not missing, "missing_configurations": missing,
+                   "n_seeds": int(pd.to_numeric(table["n_seeds"]).sum()) if len(table) else 0,
+                   "n_match": int(pd.to_numeric(table["n_match"]).sum()) if len(table) else 0,
+                   "n_equivalent_holm": int((tests["equivalent_holm"] == True).sum())  # noqa: E712
+                   if len(tests) else 0,
+                   "cells": table}}
 
 
 def _fmt(v: Any, decimals: int, signed: bool = False) -> str:
@@ -930,8 +909,8 @@ def _ablation_note(table: pd.DataFrame) -> str:
     return (f"Mean over valid runs per configuration ({n_text} seeds). Reference rows: 95% bootstrap CI of the mean. "
             "Variant rows: \u0394 is the mean paired difference vs full on shared seeds as % of full's mean "
             "(absolute when full's mean is 0), with its 95% bootstrap CI; * Holm-adjusted paired Wilcoxon p < 0.05 "
-            "(steady-state cost, cost after warmup and evictions: the preregistered ablation family; eviction cost: "
-            "its own family).")
+            "(steady-state cost only: the preregistered ablation family of 8 tests; the other metrics are "
+            "descriptive).")
 
 
 def ablation_figure(table: pd.DataFrame, out_root: Path, name: str = "fig8_ablation") -> None:
@@ -986,6 +965,8 @@ def ablation_figure(table: pd.DataFrame, out_root: Path, name: str = "fig8_ablat
         fig.text(0.005, 0.06 / height, "\n".join(note), ha="left", va="bottom", fontsize=note_pt,
                  color=common.NEUTRAL)
         common.save_figure(fig, out_root, name)
+
+
 
 
 if __name__ == "__main__":

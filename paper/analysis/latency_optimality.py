@@ -1,23 +1,28 @@
-"""Exp 7 (H7), decision latency vs cluster size, and Exp 8, the optimality gap to the offline packing bound (B6):
+"""Exp 7 (H7), decision cost vs cluster size, and Exp 8, the optimality gap to the offline packing bound (B6):
 figures 4 and 7.
 
-Exp 7 measures the wall time of a disruption pass for B2 (upstream WhenEmptyOrUnderutilized, prefix binary search),
-heuristic/entropy-greedy and random/entropy-greedy on W1 at 50, 200 and 1,000 nodes (experiments.yaml ``exp7``: groups
-exp7-n50, exp7-b2, exp7-b2-n1000, and Exp 1's exp1-n200 and exp1-n1000 cells). It tests H7 at 1,000 nodes: random vs
-heuristic and random vs B2 on mean and p95 pass latency, paired by seed, Wilcoxon, Holm within Exp 7.
+Exp 7 measures the decision cost of a disruption pass, as process CPU time (``cpu_pass_*``, the preregistered
+measure: co-running cells perturb it less) and wall time (``wall_pass_*``, descriptive), both excluding the
+validation waits during which a pass advances the simulated world, for B2 (upstream WhenEmptyOrUnderutilized, prefix
+binary search), heuristic/entropy-greedy and random/entropy-greedy on W1 at 50, 200 and 1,000 nodes (experiments.yaml
+``exp7``: Exp 1's exp1-n200 and exp1-n1000 cells, exp7-n50, exp7-b2, exp7-b2-n1000). It tests H7 at 1,000 nodes
+(family H7, m = 2): random vs heuristic on mean and p95 CPU time per pass, paired by seed, Wilcoxon, Holm over the 2;
+plus the timeout clause (no valid random/entropy-greedy run at 1,000 nodes with a pass over 1 minute of wall time).
+The secondary family H7-B2 (random vs B2 from exp7-b2-n1000, 1-hour runs) is absent when that group is cut and never
+enters the verdict.
 
 Exp 8 bounds each run's fleet cost from below with ``lower_bound`` (B6). At 50 nodes (groups exp8 and exp8-b5) every
 podsets.jsonl snapshot gets the CP-SAT bound and the LP bound; at 200 and 1,000 nodes (Exp 1's groups, ``exp8.params``)
-the final snapshot gets the LP bound. ``gap = cost_per_hour at the snapshot / bound - 1``.
+the final snapshot gets the LP bound. ``gap = cost_per_hour at the snapshot / bound - 1``. Descriptive.
 
 Outputs under ``out_root`` (nothing is written for an experiment without runs):
 
-- ``tables/exp7_latency.{csv,md}``: one row per (scenario, nodes, label): run counts, mean, p95 and max pass latency
-  (ms), full simulations per pass and measured nodes (mean peak_nodes), each with the mean and median and their 95%
-  bootstrap CIs over valid runs; passes over upstream's 1 and 3 minute timeouts and search timeouts (totals and runs
-  affected).
-- ``tables/exp7_tests.{csv,md}``: the preregistered H7 tests at 1,000 nodes (Holm within H7), with the paired effect,
-  the speedup (reference mean / random mean), the direction and the outcome.
+- ``tables/exp7_latency.{csv,md}``: one row per (scenario, nodes, label): run counts, mean, p95 and max CPU and wall
+  time per pass (ms), full simulations per pass and measured nodes (mean peak_nodes), each with the mean and median
+  and their 95% bootstrap CIs over valid runs; passes over upstream's 1 and 3 minute timeouts and search timeouts
+  (totals and runs affected).
+- ``tables/exp7_tests.{csv,md}``: the H7 tests (and H7-B2's when present) at 1,000 nodes with floors, Holm p, the
+  paired effect, the speedup (reference mean / random mean), the direction and the outcome.
 - ``tables/exp8_gap.{csv,md}``: one row per (nodes, scenario, label): which bound the row uses (cpsat at 50 nodes, lp
   at 200 and 1,000), the final-snapshot gap with CIs, the final gap against the LP bound, the mean gap over every
   snapshot (50 nodes), how many final bounds CP-SAT proved optimal and the bound's slack.
@@ -25,6 +30,8 @@ Outputs under ``out_root`` (nothing is written for an experiment without runs):
 - ``tables/latency_optimality.json``: the headline numbers, validity counts and the H7 verdict.
 - ``figures/out/fig4_latency.{png,pdf}`` and ``figures/out/fig7_optimality_gap.{png,pdf}``.
 - ``tables/cache/lower_bounds.json``: the bound cache (``lower_bound.BoundCache``), derived and safe to delete.
+
+Configurations with fewer than ``common.min_seeds()`` finished runs are cut from every table here.
 
 Run on its own with ``/opt/research-venv/bin/python -m paper.analysis.latency_optimality [--runs DIR] [--out DIR]``.
 """
@@ -41,7 +48,6 @@ import numpy as np
 import pandas as pd
 from matplotlib.lines import Line2D
 from matplotlib.ticker import FixedLocator, NullLocator
-from scipy import stats
 
 from paper.analysis import common
 from paper.analysis import lower_bound as lb
@@ -120,14 +126,10 @@ def _err(mean: Any, lo: Any, hi: Any) -> np.ndarray:
 
 
 def rank_direction(diffs: Any) -> int:
-    """The direction the signed-rank test sees in paired differences: +1 when the positive differences carry more
-    rank weight than the negative ones (W+ > W-), -1 for the reverse, 0 for a tie or no non-zero differences."""
-    d = _floats(diffs)
-    d = d[np.isfinite(d) & (d != 0)]
-    if d.size == 0:
-        return 0
-    ranks = stats.rankdata(np.abs(d))
-    return int(np.sign(ranks[d > 0].sum() - ranks[d < 0].sum()))
+    """The direction the signed-rank test sees in paired differences (``common.rank_direction``): +1 when the positive
+    differences carry more rank weight than the negative ones (W+ > W-), -1 for the reverse, 0 for a tie or no
+    non-zero differences."""
+    return common.rank_direction(_floats(diffs))
 
 
 def _validity(sel: pd.DataFrame) -> list[dict[str, Any]]:
@@ -144,21 +146,22 @@ def _counts(part: pd.DataFrame) -> dict[str, int]:
 # Exp 7: decision latency vs cluster size
 # --------------------------------------------------------------------------------------------------------------------
 
-LATENCY_METRICS = ("wall_pass_mean_ms", "wall_pass_p95_ms", "wall_pass_max_ms")
+CPU_METRICS = ("cpu_pass_mean_ms", "cpu_pass_p95_ms", "cpu_pass_max_ms")
+WALL_METRICS = ("wall_pass_mean_ms", "wall_pass_p95_ms", "wall_pass_max_ms")
+LATENCY_METRICS = (*CPU_METRICS, *WALL_METRICS)
 SIMS_PER_PASS = "full_simulations_per_pass"
 SIZE = "peak_nodes"
 # Upstream's consolidation timeouts: multi-node 1 minute, single-node 3 minutes (in ms), with the summary column that
 # counts passes over each.
 TIMEOUTS = (("1m", "wall_passes_over_1m", 60_000.0), ("3m", "wall_passes_over_3m", 180_000.0))
-EXPECT_SIGN = {"lower": -1, "higher": 1}
 LATENCY_COLUMNS = (["scenario", "nodes", "label", "n_runs", "n_valid", "n_invalid", "duration_min"]
                    + [c for m in (*LATENCY_METRICS, SIMS_PER_PASS, SIZE) for c in ci_names(m)]
-                   + ["disruption_passes_mean"]
+                   + ["disruption_passes_mean", "cpu_pass_total_s_mean"]
                    + [c for name, _, _ in TIMEOUTS for c in (f"passes_over_{name}_total", f"runs_over_{name}",
                                                              f"runs_over_{name}_unknown")]
                    + ["search_timeouts_total", "runs_with_search_timeouts"])
 TOST_COLUMNS = ("margin", "ci90_lo", "ci90_hi", "p_lower", "p_upper", "p_tost", "equivalent", "noninferior",
-                "equivalent_holm")
+                "equivalent_holm", "p_upper_holm", "noninferior_holm")
 
 
 def add_latency_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -185,7 +188,8 @@ def add_latency_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def latency_table(df: pd.DataFrame, exp: dict[str, Any]) -> pd.DataFrame:
-    """Exp 7 per-cell table (``LATENCY_COLUMNS``): one row per (scenario, nodes, label), statistics over valid runs.
+    """Exp 7 per-cell table (``LATENCY_COLUMNS``): one row per (scenario, nodes, label), statistics over valid runs
+    (runs from simulators without CPU-time fields have NaN there and leave those statistics).
     ``passes_over_<t>_total`` sums the known counts of passes over the timeout (``add_latency_columns``);
     ``runs_over_<t>`` counts valid runs with at least one such pass (a known count above 0, or an unknown count with
     the slowest pass over the limit); ``runs_over_<t>_unknown`` counts runs whose number of such passes is unknown."""
@@ -203,6 +207,9 @@ def latency_table(df: pd.DataFrame, exp: dict[str, Any]) -> pd.DataFrame:
             row.update(ci_columns(m, valid[m]))
         row["disruption_passes_mean"] = float(passes[np.isfinite(passes)].mean()) if np.isfinite(passes).any() \
             else math.nan
+        cpu_total = _floats(valid["cpu_pass_total_s"])
+        row["cpu_pass_total_s_mean"] = float(cpu_total[np.isfinite(cpu_total)].mean()) \
+            if np.isfinite(cpu_total).any() else math.nan
         for name, _, limit_ms in TIMEOUTS:
             over = _floats(valid[f"passes_over_{name}"])
             row[f"passes_over_{name}_total"] = float(np.nansum(over)) if len(over) else math.nan
@@ -219,71 +226,66 @@ def latency_table(df: pd.DataFrame, exp: dict[str, Any]) -> pd.DataFrame:
 
 def latency_tests(df: pd.DataFrame, comps: Sequence[common.Comparison]) -> pd.DataFrame:
     """The preregistered Exp 7 comparisons (``common.evaluate``: paired by scenario, nodes and seed, invalid seeds
-    dropped pair-wise, Holm within H7), without the TOST columns, plus ``speedup`` (mean_b / mean_a: how many times
-    faster a is), ``direction`` (of a - b as the signed-rank test sees it: lower, higher, none) and ``outcome``:
-    "as expected" (p_holm < 0.05 in the expected direction), "opposite", "not significant" or "no pairs"."""
+    dropped pair-wise, a run without the metric counted as undefined, Holm within H7 and within H7-B2 at their
+    fixed sizes), without the TOST columns, plus ``speedup`` (mean_b / mean_a: how many times cheaper a is)."""
     res = common.evaluate(df, comps)
     if res.empty:
         return res
-    by_name = {c.name: c for c in comps}
-    directions, outcomes = [], []
-    for _, row in res.iterrows():
-        c = by_name[row["comparison"]]
-        part = df
-        for col, allowed in c.where.items():
-            part = part.loc[part[col].isin(allowed)]
-        for col in c.by:
-            part = part.loc[part[col] == row[col]]
-        p = common.paired_lenient(part, c.keys, c.label_col, c.a, c.b, c.metric, log=False)
-        sign = rank_direction(p.a - p.b)
-        directions.append({1: "higher", -1: "lower", 0: "none"}[sign])
-        want = EXPECT_SIGN.get(c.expect or "")
-        if not row["n_pairs"]:
-            outcomes.append("no pairs")
-        elif not row["significant"]:
-            outcomes.append("not significant")
-        elif want is None:
-            outcomes.append("significant")
-        else:
-            outcomes.append("as expected" if sign == want else "opposite")
     res = res.drop(columns=[c for c in TOST_COLUMNS if c in res.columns])
     with np.errstate(divide="ignore", invalid="ignore"):
         res["speedup"] = _floats(res["mean_b"]) / _floats(res["mean_a"])
-    res["direction"] = directions
-    res["outcome"] = outcomes
     return res.reset_index(drop=True)
 
 
+def b2_family_present(everything: pd.DataFrame, exp: dict[str, Any]) -> tuple[bool, str]:
+    """Whether the secondary family H7-B2 is reported: its B2 configuration (``params.b2_group`` at the tested size)
+    has runs and is not cut. Returns (present, reason when absent)."""
+    params = exp["params"]
+    groups = common.map_groups([params["b2_group"]])
+    rows = everything.loc[everything["group"].isin(groups) & (everything["label"] == "B2")
+                          & (_floats(everything["nodes"]) == float(params["tested_nodes"]))]
+    if rows.empty:
+        return False, f"no {params['b2_group']} runs"
+    if bool(common.cut_mask(everything).loc[rows.index].any()):
+        return False, f"{params['b2_group']} is cut (fewer than {common.min_seeds()} finished runs)"
+    return True, ""
+
+
+def _panel_data(table: pd.DataFrame, metric: str) -> pd.DataFrame:
+    return table.loc[np.isfinite(_floats(table[f"{metric}_mean"])) & np.isfinite(_floats(table[f"{SIZE}_mean"]))]
+
+
 def figure4(table: pd.DataFrame, exp: dict[str, Any], out_root: Path) -> bool:
-    """Figure 4: decision latency vs measured cluster size, log-log. Left panel the mean pass latency, right the p95,
-    each point the mean over valid runs with 95% bootstrap CIs (vertical: latency; horizontal: mean peak nodes), one
-    series per configuration, with upstream's 60 s and 180 s consolidation timeouts as reference lines. Series are
-    dodged sideways by a few percent (multiplicatively) so configurations at the same size stay apart. One row of
-    panels per scenario. Returns False (writes nothing) when no cell has a latency."""
-    metrics = ("wall_pass_mean_ms", "wall_pass_p95_ms")
-    data = table.loc[np.isfinite(_floats(table["wall_pass_mean_ms_mean"]))
-                     & np.isfinite(_floats(table[f"{SIZE}_mean"]))]
-    if data.empty:
+    """Figure 4: decision cost vs measured cluster size, log-log. Columns: mean and p95 per pass; rows: process CPU
+    time (the preregistered measure) and wall time (descriptive), per scenario. Each point is the mean over valid
+    runs with 95% bootstrap CIs (vertical: cost; horizontal: mean peak nodes), one series per configuration, with
+    upstream's 60 s and 180 s consolidation timeouts as reference lines on the wall-time panels. Series are dodged
+    sideways by a few percent (multiplicatively) so configurations at the same size stay apart. A panel without data
+    (runs from simulators without CPU-time fields) says so. Returns False (writes nothing) when no cell has any."""
+    kinds = (("CPU", ("cpu_pass_mean_ms", "cpu_pass_p95_ms")), ("Wall", ("wall_pass_mean_ms", "wall_pass_p95_ms")))
+    metrics = [m for _, ms in kinds for m in ms]
+    if all(_panel_data(table, m).empty for m in metrics):
         common.skipped("fig4_latency", "no runs with pass latencies")
         return False
-    scenarios = _ordered(data["scenario"], exp["scenarios"])
-    labels = _ordered(data["label"], list(exp["labels"]) + list(exp["baselines"]))
+    scenarios = _ordered(table["scenario"], exp["scenarios"])
+    labels = _ordered(table["label"], list(exp["labels"]) + list(exp["baselines"]))
+    rows = [(kind, scenario, ms) for scenario in scenarios for kind, ms in kinds]
     width, height = common.FIGSIZE["double"]
-    fig, axes = plt.subplots(len(scenarios), len(metrics), sharex=True, sharey=True, squeeze=False,
-                             figsize=(width, 0.5 + (height - 0.5) * len(scenarios)))
-    lows = [v for m in metrics for v in _floats(data[f"{m}_mean_lo"]) if np.isfinite(v) and v > 0]
+    fig, axes = plt.subplots(len(rows), 2, sharex=True, squeeze=False,
+                             figsize=(width, 0.5 + (height - 0.5) * len(rows)))
+    lows = [v for m in metrics for v in _floats(table[f"{m}_mean_lo"]) if np.isfinite(v) and v > 0]
     y_lo = 10 ** math.floor(math.log10(min(lows) / 2)) if lows else 1.0
+    highs = [v for m in metrics for v in _floats(table[f"{m}_mean_hi"]) if np.isfinite(v) and v > 0]
     # Room above the 180 s line, and above every interval should a configuration be slower than that.
-    highs = [v for m in metrics for v in _floats(data[f"{m}_mean_hi"]) if np.isfinite(v) and v > 0]
     y_hi = max(6e5, 10 ** math.ceil(math.log10(2 * max(highs)))) if highs else 6e5
-    sizes = sorted({float(n) for n in data["nodes"]})
+    sizes = sorted({float(n) for n in table["nodes"]})
     handles: dict[str, Any] = {}
-    for i, scenario in enumerate(scenarios):
-        for j, metric in enumerate(metrics):
+    for i, (kind, scenario, ms) in enumerate(rows):
+        for j, metric in enumerate(ms):
             ax = axes[i][j]
-            part = data.loc[data["scenario"] == scenario]
+            data = _panel_data(table.loc[table["scenario"] == scenario], metric)
             for k, label in enumerate(labels):
-                r = part.loc[part["label"] == label].sort_values(f"{SIZE}_mean")
+                r = data.loc[data["label"] == label].sort_values(f"{SIZE}_mean")
                 if r.empty:
                     continue
                 st = common.style_for(label, k)
@@ -294,11 +296,15 @@ def figure4(table: pd.DataFrame, exp: dict[str, Any], out_root: Path) -> bool:
                                 linestyle=st["linestyle"], marker=st["marker"], markersize=4, capsize=2,
                                 elinewidth=0.8, linewidth=1.2, label=label)
                 handles.setdefault(label, h)
-            for (name, _, limit_ms), text in zip(TIMEOUTS, ("60 s: upstream multi-node timeout",
-                                                            "180 s: upstream single-node timeout")):
-                ax.axhline(limit_ms, color=common.NEUTRAL, linewidth=0.8, linestyle=":", zorder=1)
-                ax.annotate(text, xy=(0.02, limit_ms), xycoords=("axes fraction", "data"), xytext=(0, 2),
-                            textcoords="offset points", fontsize=7, color=common.NEUTRAL, va="bottom")
+            if kind == "Wall":
+                for (_, _, limit_ms), text in zip(TIMEOUTS, ("60 s: upstream multi-node timeout",
+                                                             "180 s: upstream single-node timeout")):
+                    ax.axhline(limit_ms, color=common.NEUTRAL, linewidth=0.8, linestyle=":", zorder=1)
+                    ax.annotate(text, xy=(0.02, limit_ms), xycoords=("axes fraction", "data"), xytext=(0, 2),
+                                textcoords="offset points", fontsize=7, color=common.NEUTRAL, va="bottom")
+            if data.empty:
+                ax.text(0.5, 0.5, "no data", transform=ax.transAxes, ha="center", va="center",
+                        color=common.NEUTRAL, fontsize=8)
             ax.set_xscale("log")
             ax.set_yscale("log")
             ax.set_ylim(y_lo, y_hi)
@@ -306,77 +312,102 @@ def figure4(table: pd.DataFrame, exp: dict[str, Any], out_root: Path) -> bool:
             ax.xaxis.set_minor_locator(NullLocator())
             ax.set_xticklabels([_fmt_nodes(n) for n in sizes])
             ax.set_xlim(min(sizes) / 1.5, max(sizes) * 1.5)
-            title = "Mean pass latency" if metric == "wall_pass_mean_ms" else "p95 pass latency"
+            stat = "Mean" if metric.endswith("mean_ms") else "p95"
+            title = f"{stat} {'CPU' if kind == 'CPU' else 'wall'} time per pass"
             ax.set_title(title if len(scenarios) == 1 else f"{title}, {scenario}")
-            if i == len(scenarios) - 1:
+            if i == len(rows) - 1:
                 ax.set_xlabel("Measured nodes (mean peak)")
             if j == 0:
-                ax.set_ylabel("Pass latency (ms)")
+                ax.set_ylabel(f"{kind} time (ms)")
     legend = [handles[label] for label in labels if label in handles]
     fig.legend(handles=legend, loc="outside lower center", ncol=min(len(legend), 3))
     common.save_figure(fig, out_root, "fig4_latency")
     return True
 
 
-def exp7_headline(sel: pd.DataFrame, table: pd.DataFrame, tests: pd.DataFrame, exp: dict[str, Any]) -> dict[str, Any]:
-    """Exp 7 headline: validity counts, the per-cell latency table, every test with its Holm p and outcome, the
-    timeout counts at the tested size, and the H7 verdict.
+def exp7_headline(everything: pd.DataFrame, table: pd.DataFrame, tests: pd.DataFrame, exp: dict[str, Any],
+                  missing: list[dict[str, Any]], b2: tuple[bool, str]) -> dict[str, Any]:
+    """Exp 7 headline: validity counts, the per-cell latency table, every test with its floor, Holm p and outcome,
+    the timeout counts at the tested size, and the H7 verdict.
 
-    The verdict ("supported", "not supported", "incomplete") follows PREREGISTRATION.md: H7 is supported when all four
-    tests at 1,000 nodes are significant after Holm with random/entropy-greedy lower, and no valid random/entropy-greedy
-    run at 1,000 nodes has a pass over upstream's 1-minute timeout (hence none over 3 minutes either). "incomplete"
-    when a test is missing or has no pairs, or when no run is known to exceed the limit but some run's count cannot be
-    told."""
-    cols = ["scenario", "nodes", "label", "n_runs", "n_valid", "n_invalid", "wall_pass_mean_ms_mean",
-            "wall_pass_mean_ms_mean_lo", "wall_pass_mean_ms_mean_hi", "wall_pass_p95_ms_mean",
-            "wall_pass_p95_ms_mean_lo", "wall_pass_p95_ms_mean_hi", "wall_pass_max_ms_mean",
+    H7 (PREREGISTRATION.md) is supported iff both H7 tests at 1,000 nodes (CPU time per pass, mean and p95) are
+    significant after Holm with random/entropy-greedy lower and the timeout clause holds: no valid
+    random/entropy-greedy run at 1,000 nodes has a pass over 1 minute of wall time (``wall_passes_over_1m`` > 0);
+    otherwise not supported; "incomplete" while an H7 configuration is missing or cut. The clause is "unknown" (and
+    the verdict "inconclusive") when no run exceeds the limit but some run's count cannot be told. H7-B2 is reported
+    when present and never enters the verdict."""
+    params = exp["params"]
+    cols = ["scenario", "nodes", "label", "n_runs", "n_valid", "n_invalid", "cpu_pass_mean_ms_mean",
+            "cpu_pass_mean_ms_mean_lo", "cpu_pass_mean_ms_mean_hi", "cpu_pass_p95_ms_mean", "cpu_pass_p95_ms_mean_lo",
+            "cpu_pass_p95_ms_mean_hi", "wall_pass_mean_ms_mean", "wall_pass_mean_ms_mean_lo",
+            "wall_pass_mean_ms_mean_hi", "wall_pass_p95_ms_mean", "wall_pass_max_ms_mean",
             "full_simulations_per_pass_mean", "peak_nodes_mean", "passes_over_1m_total", "passes_over_3m_total",
             "runs_over_1m", "runs_over_1m_unknown", "runs_over_3m", "runs_over_3m_unknown", "search_timeouts_total"]
-    test_cols = ["comparison", "metric", "a", "b", "stratum", "n_pairs", "n_dropped", "n_dropped_invalid",
-                 "n_dropped_missing", "mean_a", "mean_b", "mean_diff", "mean_diff_lo", "mean_diff_hi", "pct_diff",
-                 "pct_diff_lo", "pct_diff_hi", "speedup", "p_wilcoxon", "p_holm", "direction", "outcome"]
-    comps = common.comparisons(EXP7)
-    tested_nodes = sorted({float(n) for c in comps for n in c.where.get("nodes", [])})
-    subject = sorted({c.a for c in comps if isinstance(c.a, str)})
-    at_size = table.loc[table["nodes"].astype(float).isin(tested_nodes) & table["label"].isin(subject)]
+    test_cols = ["family", "comparison", "metric", "a", "b", "stratum", "n_pairs", "n_dropped", "n_dropped_invalid",
+                 "n_undefined", "n_dropped_missing", "mean_a", "mean_b", "mean_diff", "mean_diff_lo", "mean_diff_hi",
+                 "pct_diff", "pct_diff_lo", "pct_diff_hi", "speedup", "p_wilcoxon", "p_floor", "m", "p_holm",
+                 "holm_reachable", "direction", "outcome", "expect_met"]
+    tested, subject = float(params["tested_nodes"]), params["subject_label"]
+    at_size = table.loc[(table["nodes"].astype(float) == tested) & (table["label"] == subject)]
     timeouts = {name: {"passes_total": float(at_size[f"passes_over_{name}_total"].sum()) if len(at_size) else None,
                        "runs_over": int(at_size[f"runs_over_{name}"].sum()),
                        "runs_unknown": int(at_size[f"runs_over_{name}_unknown"].sum())}
                 for name, _, _ in TIMEOUTS}
-    outcomes = tests["outcome"].tolist() if len(tests) else []
-    n_expected = len(comps)
-    if len(outcomes) < n_expected or "no pairs" in outcomes or at_size.empty:
-        verdict = "incomplete"
-    elif all(o == "as expected" for o in outcomes) and timeouts["1m"]["runs_over"] == 0:
-        verdict = "incomplete" if timeouts["1m"]["runs_unknown"] else "supported"
+    h7 = tests.loc[tests["family"] == "H7"] if len(tests) else tests
+    if at_size.empty or not int(at_size["n_valid"].sum()):
+        clause = "no data"
+    elif timeouts["1m"]["runs_over"]:
+        clause = "fails"
+    elif timeouts["1m"]["runs_unknown"]:
+        clause = "unknown"
+    else:
+        clause = "holds"
+    both = len(h7) == 2 and bool((h7["outcome"] == "lower").all())
+    if both and clause == "holds":
+        verdict = "supported"
+    elif both and clause in ("unknown", "no data"):
+        verdict = "inconclusive"
     else:
         verdict = "not supported"
+    present, reason = b2
+    b2_tests = tests.loc[tests["family"] == params["b2_family"]] if len(tests) else tests
     return {
-        "hypothesis": exp["hypothesis"], "validity": _validity(sel), "cells": table[cols],
-        "tests": tests[test_cols] if len(tests) else [], "tested_nodes": tested_nodes, "subject": subject,
+        "hypothesis": exp["hypothesis"], "validity": _validity(everything), "cells": table[cols],
+        "tests": tests[test_cols] if len(tests) else [], "tested_nodes": tested, "subject": subject,
         "timeouts_at_tested_nodes": timeouts,
-        "outcome_counts": {o: outcomes.count(o) for o in sorted(set(outcomes))}, "n_tests": len(outcomes),
-        "verdict": verdict,
+        "h7": {"rule": "both H7 tests (random vs heuristic entropy-greedy at 1,000 nodes, W1, on CPU time per pass, "
+                       "mean and p95; Wilcoxon, Holm over 2) significant with random lower, and no valid "
+                       "random/entropy-greedy run at 1,000 nodes with wall_passes_over_1m > 0",
+               "tests_lower": int((h7["outcome"] == "lower").sum()) if len(h7) else 0,
+               "timeout_clause": clause, "verdict": "incomplete" if missing else verdict,
+               "verdict_on_available": verdict, "complete": not missing, "missing_configurations": missing},
+        "h7_b2": ({"status": "present", "tests": b2_tests[test_cols],
+                   "tests_lower": int((b2_tests["outcome"] == "lower").sum())} if present
+                  else {"status": "absent", "reason": reason}),
     }
 
 
 def run_exp7(runs: pd.DataFrame, out_root: Path) -> dict[str, Any] | None:
     """Exp 7 tables (exp7_latency, exp7_tests) and figure 4; returns the JSON headline, or None when skipped."""
     exp = common.experiment(EXP7)
-    sel = common.select_runs(runs, EXP7)
-    if sel.empty:
+    params = exp["params"]
+    everything = common.select_runs(runs, EXP7, include_cut=True)
+    if everything.empty:
         common.skipped(EXP7)
         return None
+    sel = common.select_runs(runs, EXP7)
     df = add_latency_columns(sel)
     table = latency_table(df, exp)
     common.write_table(table, out_root, "exp7_latency")
-    tests = latency_tests(df, common.comparisons(EXP7))
-    if len(tests):
-        common.write_table(tests, out_root, "exp7_tests")
-    else:
-        common.skipped("exp7_tests", "no runs at the tested size")
+    b2 = b2_family_present(everything, exp)
+    comps = [c for c in common.comparisons(EXP7) if b2[0] or c.family != params["b2_family"]]
+    if not b2[0]:
+        common.skipped(params["b2_family"], b2[1])
+    tests = latency_tests(df, comps)
+    common.write_table(tests, out_root, "exp7_tests")
     figure4(table, exp, out_root)
-    return exp7_headline(sel, table, tests, exp)
+    missing = common.missing_configurations(everything, [c for c in comps if c.family == "H7"])
+    return exp7_headline(everything, table, tests, exp, missing, b2)
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -607,15 +638,19 @@ def run_exp8(runs: pd.DataFrame, out_root: Path) -> dict[str, Any] | None:
     scenarios. Either part may be missing; with neither, the experiment is skipped."""
     exp = common.experiment(EXP8)
     params = exp["params"]
+    everything = common.select_runs(runs, EXP8, include_cut=True)
     sel = common.select_runs(runs, EXP8)
     sel = sel.loc[sel["nodes"].astype(float).isin(_cpsat_nodes(exp))] if len(sel) else sel
-    lp_sel = runs.iloc[0:0]
+    everything = everything.loc[everything["nodes"].astype(float).isin(_cpsat_nodes(exp))] if len(everything) \
+        else everything
+    lp_sel = lp_everything = runs.iloc[0:0]
     if len(runs):
         mask = (runs["group"].isin(common.map_groups(params.get("lp_groups", [])))
                 & runs["nodes"].astype(float).isin([float(n) for n in params.get("lp_nodes", [])])
                 & runs["scenario"].isin(exp["scenarios"]))
-        lp_sel = runs.loc[mask].copy()
-    if sel.empty and lp_sel.empty:
+        lp_everything = runs.loc[mask].copy()
+        lp_sel = runs.loc[mask & ~common.cut_mask(runs)].copy()
+    if everything.empty and lp_everything.empty:
         common.skipped(EXP8)
         return None
     if sel.empty:
@@ -641,7 +676,7 @@ def run_exp8(runs: pd.DataFrame, out_root: Path) -> dict[str, Any] | None:
     else:
         common.skipped("exp8_gap_snapshots", "no runs at the CP-SAT scale")
     figure7(table, exp, label_order, out_root)
-    return exp8_headline(sel, lp_sel, table, snaps_cp, entries)
+    return exp8_headline(everything, lp_everything, table, snaps_cp, entries)
 
 
 # --------------------------------------------------------------------------------------------------------------------

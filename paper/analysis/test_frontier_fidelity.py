@@ -10,6 +10,7 @@ repository root:
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import io
 import json
 import math
@@ -112,14 +113,21 @@ def lam_savings(lam: float) -> float:
     return 20 + 15 * math.sqrt(math.log2(lam / 0.05))
 
 
+B0_MA_EXTRA = 50.0  # the most-allocated B0 fleet costs this much more ($) than the least-allocated one
+B5_SAVINGS = 60.0  # B5's savings against its own (most-allocated) B0
+
+
 def write_synthetic_tree(root: Path) -> None:
     """A small session-like runs tree under ``root/session`` with known Exp 6 and Exp 5 effects.
 
-    Exp 6 (W2, W3): B0 at about $300; the sweep per ``lam_savings``/``lam_disruption``; B2 at (760, $40) is dominated
-    by lambda 0.5; B3 shadows lambda 0.2 within noise (matches); B5 at (150, $30) beats every lambda point's
-    disruption and the lowest one's savings (dominated). W2 lambda 0.5 seed 103 is invalid; W3 lambda 1 seed 110 was
-    abandoned. Exp 5 (W2): fidelity 0.45 / 0.75 / 0.99 by placement, +0.1 under deletion-cost, -0.05 for B2, +0.25
-    for the steered executor; B2 plan-following deletion-cost seed 110 tracked no evicted pods.
+    Exp 6 (W2, W3): B0 at about $300 under least-allocated placement (exp6-baselines) and $50 more under
+    most-allocated (exp6-b5); the sweep per ``lam_savings``/``lam_disruption``. Against the preregistered lambda
+    points: B2 saves $10 at eviction cost 760, so lambda 0.05 (savings 20, eviction cost 200) dominates it; B3
+    shadows lambda 0.5 within noise (inconclusive); B5 (most-allocated) saves $60 against its own B0 at eviction cost
+    150, so lambda 0.1 (35, 350) is worse on both and B5 dominates it (dominated). W2 lambda 0.5 seed 103 is invalid;
+    W3 lambda 1 seed 110 was abandoned; W3 most-allocated B0 seed 104 is invalid, so B5's savings there are
+    undefined. Exp 5 (W2): fidelity 0.45 / 0.75 / 0.99 by placement, +0.1 under deletion-cost (capped at 1), -0.03
+    for B2, +0.25 for the steered executor; B2 most-allocated deletion-cost seed 110 tracked no evicted pods.
     """
     rng = np.random.default_rng(0)
     matrix = Path(root) / "session"
@@ -128,8 +136,12 @@ def write_synthetic_tree(root: Path) -> None:
     for scenario in ("W2", "W3"):
         for seed in SEEDS:
             b0 = 300 + rng.normal(0, 10)
+            b0_ma = b0 + B0_MA_EXTRA + rng.normal(0, 1)
             _write_run(matrix, "exp6-baselines", "B0", "B0-none", scenario, seed, "least-allocated", "spread", None,
                        index, integrated_cost_post=b0)
+            bad_b0 = scenario == "W3" and seed == 104
+            _write_run(matrix, "exp6-b5", "B0", "B0-none", scenario, seed, "most-allocated", "spread", None, index,
+                       integrated_cost_post=b0_ma, pdb_violations=1 if bad_b0 else 0, invalid=bad_b0)
             costs: dict[float, tuple[float, float]] = {}
             for lam in LAMBDAS:
                 cost = b0 - lam_savings(lam) + rng.normal(0, 0.5)
@@ -143,19 +155,19 @@ def write_synthetic_tree(root: Path) -> None:
                            invalid=bad, invalid_reasons=["pdb or do-not-disrupt violation"] if bad else [],
                            pdb_violations=1 if bad else 0)
             sign = 1 if seed % 2 else -1
-            cost3, ev3 = costs[0.2]
+            cost3, ev3 = costs[0.5]
             for label, arm, cost, ev, group, placement in (
-                    ("B2", "B2-when-empty-or-underutilized", b0 - 40 + rng.normal(0, 0.5), 760 + rng.normal(0, 5),
+                    ("B2", "B2-when-empty-or-underutilized", b0 - 10 + rng.normal(0, 0.5), 760 + rng.normal(0, 5),
                      "exp6-baselines", "least-allocated"),
                     ("B3", "B3-balanced", cost3 + 0.3 * sign, ev3 + 3 * sign + 0.5, "exp6-baselines",
                      "least-allocated"),
-                    ("B5", "B5-descheduler", b0 - 30 + rng.normal(0, 0.5), 150 + rng.normal(0, 5), "exp6-b5",
-                     "most-allocated")):
+                    ("B5", "B5-descheduler", b0_ma - B5_SAVINGS + rng.normal(0, 0.5), 150 + rng.normal(0, 5),
+                     "exp6-b5", "most-allocated")):
                 _write_run(matrix, group, label, arm, scenario, seed, placement, "spread", None, index,
                            integrated_cost_post=cost, eviction_cost=ev, evictions=int(round(ev)))
     base = {"least-allocated": 0.45, "most-allocated": 0.75, "plan-following": 0.99}
     arms = [("exp5", "random/entropy-greedy", "pipeline", 0.0, list(base)),
-            ("exp5", "B2", "B2-when-empty-or-underutilized", -0.05, list(base)),
+            ("exp5", "B2", "B2-when-empty-or-underutilized", -0.03, list(base)),
             ("exp5-steered", "random/entropy-greedy/steered", "pipeline", 0.25, ["least-allocated"])]
     for group, label, arm, shift, placements in arms:
         for placement in placements:
@@ -163,7 +175,7 @@ def write_synthetic_tree(root: Path) -> None:
                 for seed in SEEDS:
                     f = base[placement] + shift + (0.1 if scale_down == "deletion-cost" else 0.0)
                     f = float(np.clip(f + rng.normal(0, 0.02), 0, 1))
-                    tracked = 0 if (label == "B2" and placement == "plan-following" and scale_down == "deletion-cost"
+                    tracked = 0 if (label == "B2" and placement == "most-allocated" and scale_down == "deletion-cost"
                                     and seed == 110) else 400 + seed
                     hits = int(round(f * tracked))
                     pred = -80 + rng.normal(0, 5)
@@ -206,25 +218,85 @@ def test_pareto_flags() -> None:
     assert ff.pareto_flags([5, 5], [1, 1]) == [True, True], "identical points do not dominate each other"
 
 
-def test_select_matched() -> None:
-    sweep = pd.DataFrame({"label": ["a", "b", "c"], "lambda": [0.1, 1.0, 2.0], "savings_mean": [10.0, 30.0, 40.0],
-                          "eviction_cost_mean": [100.0, 300.0, 500.0]})
-    pick, rule = ff.select_matched(sweep, 350.0)
-    assert pick["label"] == "b" and rule.startswith("highest"), (pick["label"], rule)
-    pick, rule = ff.select_matched(sweep, 50.0)
-    assert pick["label"] == "a" and rule.startswith("lowest"), (pick["label"], rule)
-    assert ff.select_matched(sweep.iloc[0:0], 50.0) == (None, "")
+def test_h6_fixed_lambda_mapping() -> None:
+    # H6's matched lambda per baseline is fixed in advance (B2: 0.05, B3: 0.5, B5: 0.1), never chosen from results.
+    exp = common.experiment("exp6")
+    comps = common.comparisons("exp6")
+    assert ff._check_matched(exp, comps) == {"B2": "random/entropy-greedy/lambda=0.05",
+                                             "B3": "random/entropy-greedy/lambda=0.5",
+                                             "B5": "random/entropy-greedy/lambda=0.1"}
+    bad = [dataclasses.replace(c, a="random/entropy-greedy/lambda=2") if c.b == "B3" else c for c in comps]
+    try:
+        ff._check_matched(exp, bad)
+    except ValueError as err:
+        assert "B3" in str(err)
+    else:
+        raise AssertionError("a pairing other than the registry's must be refused")
+    assert not hasattr(ff, "select_matched"), "no data-dependent selection of the matched point"
 
 
 def test_helpers() -> None:
     assert ff.rank_direction([1, 2, -0.5]) == 1 and ff.rank_direction([-3, 1]) == -1 and ff.rank_direction([0]) == 0
-    d = np.arange(1, 11, dtype=float)
-    assert ff.wilcoxon_one_sided(d, "greater") < 0.01 < 0.99 < ff.wilcoxon_one_sided(d, "less")
-    assert ff.wilcoxon_one_sided([0, 0], "less") == 1.0 and math.isnan(ff.wilcoxon_one_sided([], "less"))
     est, lo, hi = ff.ratio_of_sums_ci([1, 2, 3], [2, 4, 6])
     assert est == lo == hi == 0.5
     assert all(math.isnan(v) for v in ff.ratio_of_sums_ci([], []))
     assert ff._wrap_label("random/entropy-greedy/steered", 14) == "random/\nentropy-greedy/\nsteered"
+
+
+def test_savings_pair_by_placement() -> None:
+    # B5 runs under most-allocated placement and pairs with the most-allocated B0; everything else with the
+    # least-allocated B0 on the same scenario, nodes and seed.
+    rows = []
+    for seed in (1, 2):
+        for label, placement, cost in (("B0", "least-allocated", 100.0), ("B0", "most-allocated", 150.0),
+                                       ("B5", "most-allocated", 90.0), ("B2", "least-allocated", 80.0)):
+            rows.append({"label": label, "placement": placement, "scenario": "W2", "nodes": 200, "seed": seed,
+                         "valid": not (label == "B0" and placement == "most-allocated" and seed == 2),
+                         "integrated_cost_post": cost})
+    df = ff.add_savings(pd.DataFrame(rows), ["scenario", "nodes", "seed", "placement"], "B0", "integrated_cost_post")
+    s = df.set_index(["label", "seed"])["savings"]
+    assert s[("B5", 1)] == 60.0 and s[("B2", 1)] == 20.0, s
+    assert math.isnan(s[("B5", 2)]) and bool(df.set_index(["label", "seed"]).loc[("B5", 2), "b0_invalid"])
+
+
+def test_cell_verdicts() -> None:
+    v = ff.cell_verdict
+    assert v({"savings": "better", "eviction_cost": "no difference"}) == "dominates"
+    assert v({"savings": "better", "eviction_cost": "better"}) == "dominates"
+    assert v({"savings": "no difference", "eviction_cost": "worse"}) == "dominated"
+    assert v({"savings": "worse", "eviction_cost": "worse"}) == "dominated"
+    assert v({"savings": "better", "eviction_cost": "worse"}) == "inconclusive"
+    assert v({"savings": "no difference", "eviction_cost": "no difference"}) == "inconclusive"
+    # "not significantly worse" resting on an unreachable test is no support.
+    assert v({"savings": "better", "eviction_cost": "inconclusive"}) == "inconclusive"
+    assert v({"savings": "worse", "eviction_cost": "inconclusive"}) == "inconclusive"
+    row = {"outcome": "higher"}
+    assert ff.cell_result(row, "higher") == "better" and ff.cell_result(row, "lower") == "worse"
+    assert ff.cell_result({"outcome": "inconclusive"}, "higher") == "inconclusive"
+    assert ff.cell_result({"outcome": "no significant difference"}, "lower") == "no difference"
+
+
+def test_h6_verdict_rule() -> None:
+    # Supported iff no cell is dominated and at least 3 of 6 dominate; not supported if any is dominated; otherwise
+    # inconclusive; "incomplete" while configurations are missing.
+    exp = common.experiment("exp6")
+    frontier = pd.DataFrame(columns=ff.FRONTIER_COLUMNS)
+
+    def head(verdicts: list[str], missing: list | None = None) -> dict:
+        rows = []
+        for (s, b), verdict in zip([(s, b) for s in ("W2", "W3") for b in ("B2", "B3", "B5")], verdicts):
+            for metric in ("savings", "eviction_cost"):
+                rows.append({c: math.nan for c in ff.DOMINANCE_COLUMNS} | {
+                    "scenario": s, "nodes": 200, "baseline": b, "matched_label": "x", "matched_lambda": 0.1,
+                    "metric": metric, "verdict": verdict, "family": "H6"})
+        return ff.exp6_headline(pd.DataFrame(columns=common.RUN_COLUMNS), frontier, pd.DataFrame(rows), exp,
+                                missing or [])
+
+    assert head(["dominates"] * 3 + ["inconclusive"] * 3)["verdict"] == "supported"
+    assert head(["dominates"] * 2 + ["inconclusive"] * 4)["verdict"] == "inconclusive"
+    assert head(["dominates"] * 5 + ["dominated"])["verdict"] == "not supported"
+    h = head(["dominates"] * 6, missing=[{"arm": "B5"}])
+    assert h["verdict"] == "incomplete" and h["verdict_on_available"] == "supported" and not h["complete"]
 
 
 def test_synthetic_end_to_end() -> None:
@@ -233,37 +305,47 @@ def test_synthetic_end_to_end() -> None:
         for rel in OUTPUTS:
             assert (out / rel).is_file(), f"missing {rel}"
         frontier = pd.read_csv(out / "tables/exp6_frontier.csv")
-        w2 = frontier.loc[frontier["scenario"] == "W2"].set_index("label")
-        assert list(w2.index) == ["B0", *[f"random/entropy-greedy/lambda={x:g}" for x in LAMBDAS], "B2", "B3", "B5"]
-        assert w2.loc["B0", "savings_mean"] == 0 and w2.loc["B0", "n_used"] == 10
+        w2 = frontier.loc[frontier["scenario"] == "W2"]
+        assert list(zip(w2["label"], w2["placement"])) == [
+            ("B0", "least-allocated"), ("B0", "most-allocated"),
+            *[(f"random/entropy-greedy/lambda={x:g}", "least-allocated") for x in LAMBDAS],
+            ("B2", "least-allocated"), ("B3", "least-allocated"), ("B5", "most-allocated")]
+        w2 = w2.set_index("label")
+        assert (w2.loc["B0", "savings_mean"] == 0).all() and (w2.loc["B0", "n_used"] == 10).all()
         lam05 = w2.loc["random/entropy-greedy/lambda=0.5"]
         assert lam05["n_invalid"] == 1 and lam05["n_used"] == 9 and lam05["lambda"] == 0.5
         assert abs(lam05["savings_mean"] - lam_savings(0.5)) < 1.0
         assert lam05["savings_mean_lo"] < lam05["savings_mean"] < lam05["savings_mean_hi"]
-        w3 = frontier.loc[frontier["scenario"] == "W3"].set_index("label")
-        assert w3.loc["random/entropy-greedy/lambda=1", "n_runs"] == 10, "abandoned cells are counted"
-        assert w3.loc["random/entropy-greedy/lambda=1", "n_invalid"] == 1
-        assert bool(w2.loc["B0", "pareto"]) and not bool(w2.loc["B2", "pareto"])
+        # B5's savings are against the most-allocated B0 (they would be about $50 more against least-allocated).
+        assert abs(w2.loc["B5", "savings_mean"] - B5_SAVINGS) < 1.0, w2.loc["B5"]
+        w3 = frontier.loc[frontier["scenario"] == "W3"].set_index(["label", "placement"])
+        assert w3.loc[("random/entropy-greedy/lambda=1", "least-allocated"), "n_runs"] == 10, "abandoned counted"
+        assert w3.loc[("random/entropy-greedy/lambda=1", "least-allocated"), "n_invalid"] == 1
+        assert w3.loc[("B5", "most-allocated"), "n_used"] == 9 and w3.loc[("B5", "most-allocated"), "n_excluded"] == 1
+        assert w3.loc[("B0", "most-allocated"), "n_invalid"] == 1
+        assert bool(frontier.loc[(frontier["label"] == "B0") & (frontier["scenario"] == "W2")]["pareto"].iloc[0])
 
         dom = pd.read_csv(out / "tables/exp6_dominance.csv")
-        assert len(dom) == 2 * 3 * 3, len(dom)
+        assert len(dom) == 12 and set(dom["family"]) == {"H6"} and (dom["m"] == 12).all(), dom
+        assert set(dom["metric"]) == {"savings", "eviction_cost"}
         verdicts = dom.groupby(["scenario", "baseline"])["verdict"].first().to_dict()
         assert verdicts == {(s, b): v for s in ("W2", "W3") for b, v in
-                            (("B2", "dominates"), ("B3", "matches"), ("B5", "dominated"))}, verdicts
-        matched = dom.groupby(["scenario", "baseline"])["matched_lambda"].first().to_dict()
-        assert matched[("W2", "B2")] == 0.5 and matched[("W2", "B3")] == 0.2 and matched[("W2", "B5")] == 0.05
+                            (("B2", "dominates"), ("B3", "inconclusive"), ("B5", "dominated"))}, verdicts
+        matched = dom.groupby("baseline")["matched_lambda"].unique().to_dict()
+        assert {b: list(v) for b, v in matched.items()} == {"B2": [0.05], "B3": [0.5], "B5": [0.1]}, matched
         r = dom.loc[(dom["scenario"] == "W2") & (dom["baseline"] == "B2") & (dom["metric"] == "savings")].iloc[0]
-        assert r["n_pairs"] == 9 and r["n_dropped"] == 1 and r["n_dropped_invalid"] == 1, r
-        assert abs(r["mean_diff"] - (lam_savings(0.5) - 40)) < 1.0 and r["outcome"] == "better"
-        assert r["p_holm"] >= r["p_wilcoxon"] and r["family"] == "H6"
-        assert set(dom.loc[dom["metric"] == "evictions", "family"]) == {"H6-evictions"}
-        b5 = dom.loc[(dom["baseline"] == "B5") & (dom["metric"] == "savings")]
-        assert set(b5["selection"]) == {"lowest disruption (none at or below baseline)"}
-        assert set(b5["outcome"]) == {"worse"}
+        assert r["n_pairs"] == 10 and abs(r["mean_diff"] - (lam_savings(0.05) - 10)) < 1.0 and r["result"] == "better"
+        assert r["p_holm"] >= r["p_wilcoxon"] and abs(r["p_floor"] - 2 / 1024) < 1e-8 and bool(r["holm_reachable"])
+        r = dom.loc[(dom["scenario"] == "W2") & (dom["baseline"] == "B3") & (dom["metric"] == "savings")].iloc[0]
+        assert r["n_pairs"] == 9 and r["n_dropped_invalid"] == 1 and r["result"] == "no difference", r
+        r = dom.loc[(dom["scenario"] == "W3") & (dom["baseline"] == "B5") & (dom["metric"] == "savings")].iloc[0]
+        assert r["n_pairs"] == 9 and r["n_undefined"] == 1 and r["n_b0_invalid"] == 1 and r["result"] == "worse", r
+        b5 = dom.loc[dom["baseline"] == "B5"]
+        assert set(b5["result"]) == {"worse"}
 
         cells = pd.read_csv(out / "tables/exp5_fidelity.csv")
         assert len(cells) == 2 * 3 * 2 + 2, len(cells)
-        c = cells.loc[(cells["label"] == "B2") & (cells["placement"] == "plan-following")
+        c = cells.loc[(cells["label"] == "B2") & (cells["placement"] == "most-allocated")
                       & (cells["scale_down"] == "deletion-cost")].iloc[0]
         assert c["n_valid"] == 10 and c["n_fidelity"] == 9, "a run with no tracked evictions has no fidelity"
         least = cells.loc[(cells["label"] == "random/entropy-greedy") & (cells["placement"] == "least-allocated")
@@ -274,24 +356,27 @@ def test_synthetic_end_to_end() -> None:
         assert least["n_ratio"] == 10 and least["delta_p2_ratio_of_sums_lo"] <= least["delta_p2_ratio_of_sums_hi"]
 
         tests = pd.read_csv(out / "tables/exp5_tests.csv")
-        assert len(tests) == 4 + 6 + 2, len(tests)
-        assert set(tests["family"]) == {"H5"} and "p_tost" not in tests.columns
-        most = tests.loc[tests["comparison"].str.startswith("most-")]
-        assert set(most["outcome"]) == {"as expected"} and set(most["direction"]) == {"higher"}
-        steered = tests.loc[tests["comparison"].str.startswith("steered")]
-        assert set(steered["outcome"]) == {"as expected"}
-        dc = tests.loc[tests["comparison"].str.startswith("deletion-cost") & (tests["placement"] != "plan-following")]
-        assert set(dc["outcome"]) == {"as expected"}, dc[["comparison", "placement", "outcome"]]
+        assert len(tests) == 10 and set(tests["family"]) == {"H5"} and (tests["m"] == 10).all(), len(tests)
+        assert "p_tost" not in tests.columns and "plan-following" not in set(tests["placement"].dropna())
+        assert set(tests["outcome"]) == {"higher"}, tests[["comparison", "stratum", "outcome"]]
+        undefined = tests.loc[tests["n_undefined"] > 0, ["comparison", "stratum"]].values.tolist()
+        assert undefined == [["most- vs least-allocated, B2", "scenario=W2, nodes=200, scale_down=deletion-cost"],
+                             ["deletion-cost vs spread, B2", "scenario=W2, nodes=200, placement=most-allocated"]], \
+            undefined
 
         doc = json.loads((out / "tables/frontier_fidelity.json").read_text(encoding="utf-8"))
-        assert doc["exp6"]["h6_supported"] is False
-        assert doc["exp6"]["verdict_counts"] == {"dominated": 2, "dominates": 2, "matches": 2}
-        assert doc["exp6"]["comparisons_evaluated"] == doc["exp6"]["comparisons_expected"] == 6
-        assert "B0" in doc["exp6"]["pareto"]["W2/200"]
-        assert doc["exp5"]["outcome_counts"]["as expected"] >= 10
-        assert all(abs(c["fidelity_mean"] - 1) < 0.1 for c in doc["exp5"]["oracle_check"])
-        validity = {v["group"]: v for v in doc["exp6"]["validity"]}
+        e6 = doc["exp6"]
+        assert e6["verdict"] == "not supported" and e6["complete"], e6["verdict"]
+        assert e6["verdict_counts"] == {"dominated": 2, "dominates": 2, "inconclusive": 2}
+        assert e6["n_cells"] == 6 and "B0 (least-allocated)" in e6["pareto"]["W2/200"]
+        h5 = doc["exp5"]["h5"]
+        assert h5["verdict"] == "supported" and h5["off_plan_holds"] and h5["complete"], h5
+        assert {k: v["state"] for k, v in h5["levers"].items()} == {"most-allocated": "holds",
+                                                                    "deletion-cost": "holds"}
+        assert h5["oracle"]["ok"] and h5["oracle"]["n_cells"] == 4 and h5["oracle"]["flagged_cells"] == []
+        validity = {v["group"]: v for v in e6["validity"]}
         assert validity["exp6"]["n_invalid"] == 2 and validity["exp6"]["n_abandoned"] == 1
+        assert validity["exp6"]["n_violation"] == 1 and validity["exp6-b5"]["n_violation"] == 1
 
         root = str(runs.parent)
         for rel in OUTPUTS:
@@ -300,36 +385,28 @@ def test_synthetic_end_to_end() -> None:
         assert "skipped" not in log, log
 
 
-def test_h6_open_while_design_incomplete() -> None:
-    # H6 covers every operating point in every registry scenario: W2-only data cannot support it, and a "matches"
-    # from tests too small to reach Holm significance is no evidence either.
-    exp = common.experiment("exp6")
-    frontier = pd.DataFrame({"scenario": ["W2"], "nodes": [200], "label": ["B0"], "pareto": [True]})
-
-    def dominance(verdict: str, underpowered: bool) -> pd.DataFrame:
-        rows = []
-        for b in exp["params"]["operating_points"]:
-            for metric, family in (("savings", "H6"), ("eviction_cost", "H6")):
-                rows.append({"scenario": "W2", "nodes": 200, "baseline": b, "matched_label": "x", "matched_lambda": 1.0,
-                             "selection": "s", "verdict": verdict, "verdict_one_sided": verdict,
-                             "underpowered": underpowered, "metric": metric, "n_pairs": 10, "n_dropped": 0,
-                             "mean_matched": 1.0, "mean_baseline": 1.0, "mean_diff": 0.0, "mean_diff_lo": 0.0,
-                             "mean_diff_hi": 0.0, "pct_diff": 0.0, "pct_diff_lo": 0.0, "pct_diff_hi": 0.0,
-                             "p_wilcoxon": 0.5, "p_floor": 2 / 1024, "p_holm": 1.0, "holm_reachable": True,
-                             "outcome": "no difference", "family": family})
-        return pd.DataFrame(rows)
-
-    sel = pd.DataFrame(columns=common.RUN_COLUMNS)
-    head = ff.exp6_headline(sel, frontier, dominance("matches", False), exp)
-    assert head["h6_supported"] is None and head["comparisons_expected"] == 6, head
-    assert head["comparisons_missing"] == [f"W3/200/{b}" for b in ("B2", "B3", "B5")], head["comparisons_missing"]
-    full = pd.concat([frontier.assign(scenario=s) for s in ("W2", "W3")], ignore_index=True)
-    both = pd.concat([dominance("matches", False).assign(scenario=s) for s in ("W2", "W3")], ignore_index=True)
-    assert ff.exp6_headline(sel, full, both, exp)["h6_supported"] is True
-    weak = both.assign(underpowered=both["scenario"] == "W3")
-    head = ff.exp6_headline(sel, full, weak, exp)
-    assert head["h6_supported"] is None and head["n_underpowered"] == 3, head
-    assert ff.exp6_headline(sel, full, both.assign(verdict="dominated"), exp)["h6_supported"] is False
+def test_h5_partial_and_oracle_flag() -> None:
+    # One lever only (deletion-cost has no effect) is "partial"; a plan-following cell below 0.95 is flagged.
+    exp = common.experiment("exp5")
+    cells = pd.DataFrame([
+        {"label": "random/entropy-greedy", "placement": "least-allocated", "scale_down": sd, "n_fidelity": 10,
+         "off_plan_share_mean": 0.5, "off_plan_share_mean_lo": 0.4, "fidelity_mean": 0.5} for sd in ("spread",
+                                                                                                    "deletion-cost")]
+        + [{"label": "B2", "placement": "plan-following", "scale_down": "spread", "n_fidelity": 10,
+            "off_plan_share_mean": 0.1, "off_plan_share_mean_lo": 0.08, "fidelity_mean": 0.9}])
+    tests = pd.DataFrame([
+        {"comparison": "most- vs least-allocated, random/entropy-greedy", "outcome": "higher"},
+        {"comparison": "most- vs least-allocated, random/entropy-greedy", "outcome": "no significant difference"},
+        {"comparison": "deletion-cost vs spread, random/entropy-greedy", "outcome": "no significant difference"},
+        {"comparison": "deletion-cost vs spread, random/entropy-greedy", "outcome": "no significant difference"}])
+    h5 = ff.h5_verdict(cells, tests, exp, [])
+    assert h5["verdict"] == "partial" and h5["levers"]["deletion-cost"]["state"] == "fails", h5
+    assert not h5["oracle"]["ok"] and len(h5["oracle"]["flagged_cells"]) == 1
+    tests.loc[2, "outcome"] = "inconclusive"
+    tests.loc[0, "outcome"] = "no significant difference"
+    assert ff.h5_verdict(cells, tests, exp, [])["verdict"] == "inconclusive"
+    cells.loc[1, "off_plan_share_mean_lo"] = 0.01  # (a) fails under deletion-cost
+    assert ff.h5_verdict(cells, tests, exp, [])["verdict"] == "not supported"
 
 
 def test_reproducible() -> None:
