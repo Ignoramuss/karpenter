@@ -18,6 +18,7 @@ package main
 
 import (
 	"bufio"
+	"compress/gzip"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -140,8 +141,9 @@ func runCmd(args []string) error {
 	return err
 }
 
-// RunCell runs one configuration into dir: manifest.json, decisions.jsonl, timeseries.csv, podsets.jsonl and
-// summary.json.
+// RunCell runs one configuration into dir: manifest.json, decisions.jsonl.gz, timeseries.csv, podsets.jsonl and
+// summary.json. The decision log is gzipped (with a zero header timestamp, so identical logs compress to identical
+// bytes): pipeline arms log every generated move, tens of megabytes per run before compression.
 func RunCell(cfg sim.Config, dir string) (sim.Summary, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return sim.Summary{}, err
@@ -151,12 +153,13 @@ func RunCell(cfg sim.Config, dir string) (sim.Summary, error) {
 	man.GitSHA, man.GitDirty = gitInfo()
 	man.Environment.GoVersion, man.Environment.OS, man.Environment.Arch, man.Environment.CPUs = runtime.Version(), runtime.GOOS, runtime.GOARCH, runtime.NumCPU()
 	man.Environment.Hostname, _ = os.Hostname()
-	dec, err := os.Create(filepath.Join(dir, "decisions.jsonl"))
+	dec, err := os.Create(filepath.Join(dir, "decisions.jsonl.gz"))
 	if err != nil {
 		return sim.Summary{}, err
 	}
 	defer dec.Close()
-	bw := bufio.NewWriter(dec)
+	gz := gzip.NewWriter(dec)
+	bw := bufio.NewWriter(gz)
 	s, err := sim.New(cfg, bw)
 	if err != nil {
 		return sim.Summary{}, err
@@ -168,6 +171,9 @@ func RunCell(cfg sim.Config, dir string) (sim.Summary, error) {
 	defer ts.Close()
 	sum, runErr := s.Run(ts)
 	if err := bw.Flush(); err != nil {
+		return sum, err
+	}
+	if err := gz.Close(); err != nil {
 		return sum, err
 	}
 	ps, err := os.Create(filepath.Join(dir, "podsets.jsonl"))

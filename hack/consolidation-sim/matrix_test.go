@@ -692,7 +692,7 @@ groups:
 		if sum.RunID != ids[i] || sum.Arm != arm || sum.Nodes != 6 || sum.Error != "" {
 			t.Errorf("summary of %s: run %s, arm %s, nodes %d, error %q", ids[i], sum.RunID, sum.Arm, sum.Nodes, sum.Error)
 		}
-		for _, f := range []string{"cell.json", "run.log", "manifest.json", "decisions.jsonl"} {
+		for _, f := range []string{"cell.json", "run.log", "manifest.json", "decisions.jsonl.gz"} {
 			if !exists(filepath.Join(dir, f)) {
 				t.Errorf("%s has no %s", ids[i], f)
 			}
