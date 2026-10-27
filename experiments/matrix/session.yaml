@@ -118,9 +118,9 @@ groups:
         - {name: pipeline, label: anneal-plan/t0=0.1/cooling=0.95, pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.5, t0: 0.1, cooling: 0.95, temperatureUnit: per-node}}}}
         - {name: pipeline, label: anneal-plan/t0=0.3/cooling=0.95, pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.5, t0: 0.3, cooling: 0.95, temperatureUnit: per-node}}}}
         - {name: pipeline, label: anneal-plan/t0=1/cooling=0.95, pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.5, t0: 1, cooling: 0.95, temperatureUnit: per-node}}}}
-        - {name: pipeline, label: anneal-plan/t0=0.1/cooling=0.99, pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.5, t0: 0.1, cooling: 0.99, temperatureUnit: per-node}}}}
-        - {name: pipeline, label: anneal-plan/t0=0.3/cooling=0.99, pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.5, t0: 0.3, cooling: 0.99, temperatureUnit: per-node}}}}
-        - {name: pipeline, label: anneal-plan/t0=1/cooling=0.99, pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.5, t0: 1, cooling: 0.99, temperatureUnit: per-node}}}}
+        - {name: pipeline, label: anneal-plan/t0=0.1/cooling=0.98, pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.5, t0: 0.1, cooling: 0.98, temperatureUnit: per-node}}}}
+        - {name: pipeline, label: anneal-plan/t0=0.3/cooling=0.98, pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.5, t0: 0.3, cooling: 0.98, temperatureUnit: per-node}}}}
+        - {name: pipeline, label: anneal-plan/t0=1/cooling=0.98, pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.5, t0: 1, cooling: 0.98, temperatureUnit: per-node}}}}
         - {name: pipeline, label: anneal-online/t0=0.1, pipeline: {<<: [*common, *random], planner: {name: anneal-online, params: {lambda: 0.5, t0: 0.1, cooling: 0.99, temperatureUnit: per-node}}}}
         - {name: pipeline, label: anneal-online/t0=0.3, pipeline: {<<: [*common, *random], planner: {name: anneal-online, params: {lambda: 0.5, t0: 0.3, cooling: 0.99, temperatureUnit: per-node}}}}
         - {name: pipeline, label: anneal-online/t0=1, pipeline: {<<: [*common, *random], planner: {name: anneal-online, params: {lambda: 0.5, t0: 1, cooling: 0.99, temperatureUnit: per-node}}}}
