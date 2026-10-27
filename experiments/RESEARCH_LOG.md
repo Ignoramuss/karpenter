@@ -92,3 +92,15 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   counter handed out names in goroutine order, so NodeClaims are named from a hash of their canonicalized spec
   (identical claims are interchangeable); and requirement lists come from map iteration, so the hash sorts them first.
   After the fixes, four runs of W1/B2 (30 nodes, seed 7) produced identical decision logs, timeseries and summaries.
+- **Gate 2 passes.** `TestDeterminism` (hack/consolidation-sim/sim) runs nine cases twice in one process (W1-W5,
+  B2, B3, B5 with most-allocated placement, deletion-cost scale-down, and a pipeline arm with the fine upstream
+  adapters) and requires byte-identical decision logs and timeseries: all nine pass. Two more upstream sources had
+  to be handled on the way:
+  - Hard zone topology spread is not reproducible in Karpenter's scheduler: when zones tie for the minimum count,
+    `TopologyGroup` pins a new NodeClaim to the first tied zone it meets while ranging over a map
+    (`pkg/controllers/provisioning/scheduling/topologygroup.go`, the `for domain := range t.domains` loop).
+    Upstream code stays untouched, and a nondeterministic run would be invalid, so **W5 uses a hard hostname spread
+    (maxSkew 2) in place of a zone spread**; it still exercises topology constraints Fast feasibility does not
+    check. Zone spread remains available as a scenario parameter, documented as nondeterministic.
+  - `EmptinessValidator` returns a validated command's candidates in `GetCandidates` (map) order. The order has no
+    effect beyond logs; the simulator sorts sources when it logs upstream commands.

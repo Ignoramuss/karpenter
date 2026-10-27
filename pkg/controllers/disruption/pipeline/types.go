@@ -32,6 +32,7 @@ package pipeline
 
 import (
 	"fmt"
+	"maps"
 	"math"
 	"sort"
 	"strings"
@@ -332,9 +333,7 @@ func (b Budgets) Clone() Budgets {
 			return nil
 		}
 		out := make(map[string]int, len(m))
-		for k, v := range m {
-			out[k] = v
-		}
+		maps.Copy(out, m)
 		return out
 	}
 	return Budgets{Nodes: cp(b.Nodes), PodEvictions: cp(b.PodEvictions), WorkloadEvictions: cp(b.WorkloadEvictions)}

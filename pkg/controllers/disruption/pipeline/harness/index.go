@@ -93,10 +93,3 @@ func (p *podIndex) list(nodeName, namespace string, deepCopy bool) []corev1.Pod 
 	}
 	return out
 }
-
-// Count returns how many pods the index holds, for consistency checks.
-func (p *podIndex) count() int {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return len(p.nodeOf)
-}

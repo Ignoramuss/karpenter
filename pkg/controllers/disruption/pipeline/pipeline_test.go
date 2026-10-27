@@ -45,6 +45,8 @@ func TestPotentialDeltaMatchesValue(t *testing.T) {
 
 // TestSnapshotApply checks Apply conserves reschedulable pods, never exceeds capacity, leaves its parent unchanged,
 // and rejects moves that would.
+//
+//nolint:gocyclo
 func TestSnapshotApply(t *testing.T) {
 	for seed := int64(1); seed <= 60; seed++ {
 		rng := rand.New(rand.NewSource(seed)) //nolint:gosec

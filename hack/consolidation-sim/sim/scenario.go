@@ -55,8 +55,13 @@ type Deployment struct {
 	Schedule []ReplicaPoint `json:"schedule"`
 	// PDBMaxUnavailable adds a PodDisruptionBudget when >= 0; -1 means none.
 	PDBMaxUnavailable int `json:"pdbMaxUnavailable"`
-	// ZoneSpread adds a hard zone topology spread constraint (maxSkew 1).
+	// ZoneSpread adds a hard zone topology spread constraint (maxSkew 1). Not used by the built-in scenarios: when zones
+	// tie for the minimum count, Karpenter's scheduler pins a new NodeClaim to whichever it meets first while ranging
+	// over a map (provisioning/scheduling/topologygroup.go), so runs with it are not reproducible.
 	ZoneSpread bool `json:"zoneSpread,omitempty"`
+	// HostSpread adds a hard hostname topology spread constraint (maxSkew 2), deterministic in Karpenter's scheduler
+	// because a new NodeClaim has exactly one hostname domain.
+	HostSpread bool `json:"hostSpread,omitempty"`
 	// HostAntiAffinity adds required hostname anti-affinity between replicas.
 	HostAntiAffinity bool `json:"hostAntiAffinity,omitempty"`
 	// DoNotDisrupt annotates replicas with karpenter.sh/do-not-disrupt.
@@ -200,7 +205,7 @@ func fragmented(n int, rng *rand.Rand, cat catalogView, shapes []Shape, mixed bo
 }
 
 // diurnal ramps deployments to a peak that needs about n nodes, then scales each down by 50-70% over the second hour
-// and holds. constrained adds PDBs, hard zone spread, hostname anti-affinity and do-not-disrupt pods (W5).
+// and holds. constrained adds PDBs, hard hostname spread, hostname anti-affinity and do-not-disrupt pods (W5).
 func diurnal(n int, rng *rand.Rand, cat catalogView, constrained bool) Workload {
 	w := Workload{Name: pick(constrained, W5Constrained, W2Diurnal)}
 	capCPU := float64(n) * meanCPU(cat) * 0.7
@@ -219,8 +224,8 @@ func diurnal(n int, rng *rand.Rand, cat catalogView, constrained bool) Workload 
 			if r < 0.5 {
 				d.PDBMaxUnavailable = 1
 			}
-			d.ZoneSpread = rng.Float64() < 0.3
-			d.HostAntiAffinity = !d.ZoneSpread && rng.Float64() < 0.1
+			d.HostSpread = rng.Float64() < 0.3
+			d.HostAntiAffinity = !d.HostSpread && rng.Float64() < 0.1
 			d.DoNotDisrupt = rng.Float64() < 0.05
 		}
 		w.Deployments = append(w.Deployments, d)

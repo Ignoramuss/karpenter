@@ -38,7 +38,7 @@ import (
 	"sigs.k8s.io/karpenter/pkg/test"
 )
 
-func liveSnapshot(t *testing.T, seed int64) (context.Context, *harness.Env, *pipeline.Upstream, *pipeline.State) {
+func liveSnapshot(t *testing.T, seed int64) (context.Context, *pipeline.Upstream, *pipeline.State) {
 	ctx := log.IntoContext(options.ToContext(context.Background(), test.Options()), logr.Discard())
 	cat, err := catalog.Load(catalog.Options{MaxCPU: 16})
 	if err != nil {
@@ -66,16 +66,18 @@ func liveSnapshot(t *testing.T, seed int64) (context.Context, *harness.Env, *pip
 	if err != nil {
 		t.Fatal(err)
 	}
-	return ctx, env, up, snap
+	return ctx, up, snap
 }
 
 // TestFastNeverAcceptsWhatFullRejectsOnResources checks Fast against Karpenter's scheduling simulation on live
 // states. Disagreements on moves whose pods carry topology constraints (spread, pod affinity, anti-affinity) are
 // counted and logged, not failed: Fast checks hostname anti-affinity only.
+//
+//nolint:gocyclo
 func TestFastNeverAcceptsWhatFullRejectsOnResources(t *testing.T) {
 	var checked, topology, resourceDisagree, greedy int
 	for seed := int64(1); seed <= 40; seed++ {
-		ctx, _, up, snap := liveSnapshot(t, seed)
+		ctx, up, snap := liveSnapshot(t, seed)
 		feas := &pipeline.UpstreamFeasibility{FastChecker: &pipeline.FastChecker{}, Up: up}
 		for _, m := range conformance.ReferenceMoves(snap, rand.New(rand.NewSource(seed)), 20) { //nolint:gosec
 			if feas.Fast(snap, m) != nil {
@@ -118,10 +120,12 @@ func TestFastNeverAcceptsWhatFullRejectsOnResources(t *testing.T) {
 
 // TestCommandMoveRoundTrip converts upstream commands to moves and confirms them back through Full, which must
 // reproduce the same decision, candidates and replacement options.
+//
+//nolint:gocyclo
 func TestCommandMoveRoundTrip(t *testing.T) {
 	trips := 0
 	for seed := int64(1); seed <= 30; seed++ {
-		ctx, _, up, snap := liveSnapshot(t, seed)
+		ctx, up, snap := liveSnapshot(t, seed)
 		feas := &pipeline.UpstreamFeasibility{FastChecker: &pipeline.FastChecker{}, Up: up}
 		for _, name := range []string{"node-000", "node-001", "node-002"} {
 			c, ok := up.Candidate(name)

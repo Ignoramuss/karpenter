@@ -304,6 +304,7 @@ func (m *Method) cycleBudgets(s Snapshot) Budgets {
 	return b
 }
 
+//nolint:gocyclo
 func (m *Method) round(ctx context.Context, snap Snapshot, sources, dests []NodeView, gens []MoveGenerator) ([]disruption.Command, bool, bool, error) {
 	budget := m.searchBudget()
 	var moves []Move

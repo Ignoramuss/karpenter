@@ -187,6 +187,8 @@ func (g *upstreamMulti) Generate(ctx context.Context, s Snapshot, sources, _ []N
 // firstN is MultiNodeConsolidation.firstNConsolidationOption with the evaluator replaced by the planner's guide.
 // Its one-minute limit runs on the injected clock rather than a wall-clock context deadline, per the pipeline's
 // no-wall-clock rule; under a real clock the two agree.
+//
+//nolint:gocyclo
 func (g *upstreamMulti) firstN(ctx context.Context, s Snapshot, b *SearchBudget, cands []*disruption.Candidate, maxN int) (disruption.Command, error) {
 	up := g.env.Upstream
 	if len(cands) < 2 {
@@ -330,7 +332,7 @@ type upstreamPlanner struct {
 func (p *upstreamPlanner) Name() string     { return p.name }
 func (p *upstreamPlanner) FirstValid() bool { return true }
 
-func (p *upstreamPlanner) balancedFor(pool string, s Snapshot) bool {
+func (p *upstreamPlanner) balancedFor(pool string) bool {
 	if p.forceBalanced {
 		return true
 	}
@@ -376,7 +378,7 @@ func (p *upstreamPlanner) scoreFromSnapshot(s Snapshot, sc Scored) bool {
 		return false
 	}
 	for pool, nodes := range byPool {
-		if !p.balancedFor(pool, s) {
+		if !p.balancedFor(pool) {
 			continue
 		}
 		var poolCost, dis float64
@@ -421,7 +423,7 @@ func (p *upstreamPlanner) CanPass(_ context.Context, s Snapshot, sources []strin
 		return true
 	}
 	n, ok := s.Node(sources[0])
-	if !ok || !p.balancedFor(n.NodePool, s) {
+	if !ok || !p.balancedFor(n.NodePool) {
 		return true
 	}
 	t := s.Totals(n.NodePool)
@@ -455,6 +457,8 @@ func (p *upstreamPlanner) Plan(ctx context.Context, s Snapshot, moves []Scored, 
 }
 
 // ExceedsBudgets checks a move against the cycle's remaining budgets and returns why it does not fit, or "".
+//
+//nolint:gocyclo
 func ExceedsBudgets(s Snapshot, m Scored, b Budgets) string {
 	removals := map[string]int{}
 	for _, r := range m.Remove {

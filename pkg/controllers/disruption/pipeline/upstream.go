@@ -298,6 +298,8 @@ func podViewOf(ctx context.Context, p *corev1.Pod, node string, pdbs []pdbInfo, 
 
 // MoveFromCommand converts an upstream command into a merge. Pods the scheduling simulation left out (for example
 // pods a fully blocking PDB holds in place) are first-fit onto destinations so the snapshot can apply the move.
+//
+//nolint:gocyclo
 func MoveFromCommand(s Snapshot, cmd disruption.Command, id, generator string, validated bool) Move {
 	m := Move{ID: id, Kind: Merge, Generator: generator, Upstream: &UpstreamCommand{Command: cmd, Validated: validated}}
 	for _, c := range cmd.Candidates {
@@ -392,6 +394,8 @@ type UpstreamFeasibility struct {
 // Full confirms a move. A merge is simulated the way consolidation simulates candidates, and the confirmed move takes
 // the simulation's placements and replacement. A shift is simulated against its destinations alone, with no new
 // capacity allowed.
+//
+//nolint:gocyclo
 func (f *UpstreamFeasibility) Full(ctx context.Context, s Snapshot, m Move) (Move, error) {
 	switch m.Kind {
 	case Merge, RightSize:
@@ -426,6 +430,7 @@ func (f *UpstreamFeasibility) Full(ctx context.Context, s Snapshot, m Move) (Mov
 	return m, fmt.Errorf("%w: unknown move kind %q", ErrInfeasible, m.Kind)
 }
 
+//nolint:gocyclo
 func (f *UpstreamFeasibility) fullShift(ctx context.Context, m Move) (Move, error) {
 	dests := sets.New(m.Destinations()...)
 	if dests.Len() == 0 || len(m.Launch) > 0 {

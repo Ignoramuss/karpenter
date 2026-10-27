@@ -115,8 +115,9 @@ func hardTaint(t corev1.Taint) bool {
 }
 
 // feasible is kube-scheduler's filter phase for the constraints the workloads use: resources, NoSchedule and
-// NoExecute taints, required hostname anti-affinity, and hard zone spread.
-func (s *Sim) feasible(p *simPod, n *simNode, zoneCounts map[string]int, zones []string) bool {
+// NoExecute taints, required hostname anti-affinity, and hard zone and hostname spread. minHost is the smallest
+// same-owner count over schedulable nodes, the global minimum hostname spread skews against.
+func (s *Sim) feasible(p *simPod, n *simNode, zoneCounts, hostCounts map[string]int, zones []string, minHost int) bool {
 	for _, t := range n.taints {
 		if hardTaint(t) {
 			return false
@@ -135,6 +136,9 @@ func (s *Sim) feasible(p *simPod, n *simNode, zoneCounts map[string]int, zones [
 				return false
 			}
 		}
+	}
+	if d.spec.HostSpread && hostCounts[n.name]+1-minHost > 2 {
+		return false
 	}
 	if d.spec.ZoneSpread {
 		minCount := math.MaxInt
@@ -178,9 +182,13 @@ func (s *Sim) place(p *simPod, nodes []*simNode) string {
 		zones = append(zones, z)
 	}
 	sort.Strings(zones)
+	minHost := math.MaxInt
+	for _, n := range nodes {
+		minHost = min(minHost, hostCounts[n.name])
+	}
 	var feasible []*simNode
 	for _, n := range nodes {
-		if s.feasible(p, n, zoneCounts, zones) {
+		if s.feasible(p, n, zoneCounts, hostCounts, zones, minHost) {
 			feasible = append(feasible, n)
 		}
 	}

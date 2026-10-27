@@ -19,6 +19,7 @@ package harness
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/awslabs/operatorpkg/status"
@@ -188,7 +189,7 @@ func (e *Env) Pod(spec PodSpec) *corev1.Pod {
 	if spec.Owner != "" {
 		kind := lo.Ternary(spec.DaemonSet, "DaemonSet", "ReplicaSet")
 		p.OwnerReferences = []metav1.OwnerReference{{APIVersion: "apps/v1", Kind: kind, Name: spec.Owner,
-			UID: types.UID(ns + "/" + kind + "/" + spec.Owner), Controller: lo.ToPtr(true), BlockOwnerDeletion: lo.ToPtr(true)}}
+			UID: types.UID(ns + "/" + kind + "/" + spec.Owner), Controller: new(true), BlockOwnerDeletion: new(true)}}
 	}
 	if spec.NodeName != "" {
 		p.Status = corev1.PodStatus{Phase: corev1.PodRunning, Conditions: []corev1.PodCondition{
@@ -208,15 +209,18 @@ func (e *Env) AddPod(ctx context.Context, spec PodSpec) (*corev1.Pod, error) {
 
 // PDB builds a PodDisruptionBudget over pods with the given labels, with its status already computed.
 func PDB(name, namespace string, selector map[string]string, maxUnavailable, healthy, expected int) *policyv1.PodDisruptionBudget {
-	mu := intstr.FromInt32(int32(maxUnavailable))
+	mu := intstr.FromInt32(i32(maxUnavailable))
 	allowed := lo.Max([]int{0, healthy - (expected - maxUnavailable)})
 	return &policyv1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: lo.CoalesceOrEmpty(namespace, "default")},
 		Spec:       policyv1.PodDisruptionBudgetSpec{MaxUnavailable: &mu, Selector: &metav1.LabelSelector{MatchLabels: selector}},
-		Status: policyv1.PodDisruptionBudgetStatus{CurrentHealthy: int32(healthy), DesiredHealthy: int32(expected - maxUnavailable),
-			ExpectedPods: int32(expected), DisruptionsAllowed: int32(allowed)},
+		Status: policyv1.PodDisruptionBudgetStatus{CurrentHealthy: i32(healthy), DesiredHealthy: i32(expected - maxUnavailable),
+			ExpectedPods: i32(expected), DisruptionsAllowed: i32(allowed)},
 	}
 }
+
+// i32 converts a count to int32, saturating; counts here are pod counts, far below the bound.
+func i32(v int) int32 { return int32(lo.Clamp(v, math.MinInt32, math.MaxInt32)) } //nolint:gosec
 
 // Requests builds a resource list.
 func Requests(cpu, memory string) corev1.ResourceList {

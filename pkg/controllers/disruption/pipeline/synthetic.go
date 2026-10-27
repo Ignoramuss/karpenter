@@ -72,7 +72,7 @@ func RandomState(rng *rand.Rand, o SyntheticOptions) *State {
 		n.Labels["topology.kubernetes.io/zone"] = n.Zone
 		fill := rng.Float64() * o.MaxFill
 		var load Resources
-		for j := 0; j < 40; j++ {
+		for j := range 40 {
 			sh := syntheticShapes[rng.Intn(len(syntheticShapes))]
 			req := Resources{CPU: sh[0], Memory: sh[1], Pods: 1}
 			next := load.Add(req)
@@ -120,7 +120,7 @@ func (f *SnapshotFeasibility) Full(_ context.Context, s Snapshot, m Move) (Move,
 		return m, fmt.Errorf("%w: launches need the live scheduler", ErrInfeasible)
 	}
 	if err := f.Fast(s, m); err != nil {
-		return m, fmt.Errorf("%w: %v", ErrInfeasible, err)
+		return m, fmt.Errorf("%w: %w", ErrInfeasible, err)
 	}
 	return m, nil
 }

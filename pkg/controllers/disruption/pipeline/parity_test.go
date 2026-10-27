@@ -122,13 +122,14 @@ func instanceTypes(t *testing.T, name string) []*cloudprovider.InstanceType {
 	return nil
 }
 
+//nolint:gocyclo
 func TestParity(t *testing.T) {
 	states := envInt("PARITY_STATES", 40)
 	seed0 := int64(envInt("PARITY_SEED", 1))
 	policies := lo.Map(lo.Compact([]string{lo.CoalesceOrEmpty(os.Getenv("PARITY_POLICIES"), "WhenEmptyOrUnderutilized,Balanced")}), func(s string, _ int) string { return s })
 	var out *json.Encoder
 	if p := os.Getenv("PARITY_OUT"); p != "" {
-		f, err := os.Create(p)
+		f, err := os.Create(p) //nolint:gosec // the path comes from the test runner's own PARITY_OUT
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -139,6 +139,8 @@ func (c *Config) defaults() {
 }
 
 // Validate checks the config names registered strategies and sane limits.
+//
+//nolint:gocyclo
 func (c Config) Validate() error {
 	if c.MovesMode != Sequential && c.MovesMode != Pooled {
 		return fmt.Errorf("movesMode %q, want %s or %s", c.MovesMode, Sequential, Pooled)

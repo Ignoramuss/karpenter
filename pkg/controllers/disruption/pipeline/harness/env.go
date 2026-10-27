@@ -180,6 +180,7 @@ func (e *Env) generatedName(obj client.Object) string {
 	return e.NextName(fmt.Sprintf("%s%08x-", obj.GetGenerateName(), h.Sum32()))
 }
 
+//nolint:gocyclo
 func (e *Env) interceptors() interceptor.Funcs {
 	return interceptor.Funcs{
 		List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {

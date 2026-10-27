@@ -33,6 +33,7 @@ type DefaultScorer struct {
 	Potential Potential
 }
 
+//nolint:gocyclo
 func (d DefaultScorer) Score(s Snapshot, m Move) Scored {
 	sc := Scored{Move: m}
 	if d.Potential != nil {

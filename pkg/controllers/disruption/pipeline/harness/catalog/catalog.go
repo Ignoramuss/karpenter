@@ -131,6 +131,8 @@ type Catalog struct {
 
 // Load reads the catalog file and keeps linux instance types of the requested families, with only the requested
 // capacity types' offerings.
+//
+//nolint:gocyclo
 func Load(opts Options) (*Catalog, error) {
 	opts = opts.withDefaults()
 	raw, err := os.ReadFile(opts.Path)

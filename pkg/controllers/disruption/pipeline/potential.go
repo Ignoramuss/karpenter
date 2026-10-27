@@ -302,6 +302,8 @@ type loadChange struct {
 
 // loadChanges computes the loads a move leaves on each node it touches, without forking the snapshot. It reports
 // false when the move references a node or pod the snapshot lacks.
+//
+//nolint:gocyclo
 func loadChanges(s Snapshot, m Move) ([]loadChange, bool) {
 	idx := map[string]int{}
 	var out []loadChange

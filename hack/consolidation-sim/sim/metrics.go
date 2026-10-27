@@ -209,9 +209,13 @@ func (c *collector) commandStarted(m disruption.Method, cmd *disruption.Command)
 		c.sourcePlan[src] = pr
 	}
 	if c.s.pipe == nil {
+		// Validation can return a command's candidates in map order (EmptinessValidator rebuilds them from
+		// GetCandidates), an order with no effect but the log's; sort so the log is reproducible.
+		sources := append([]string(nil), mv.Sources...)
+		sort.Strings(sources)
 		c.s.decisions.Record(pipeline.DecisionEvent{SchemaVersion: pipeline.DecisionLogSchemaVersion, RunID: c.s.cfg.RunID,
 			T: c.s.now().Sub(c.s.start).Seconds(), Stage: pipeline.StageExecute, Strategy: m.ConsolidationType(), MoveID: mv.ID, Kind: string(cmd.Decision()),
-			Sources: mv.Sources, Destinations: mv.Destinations(), Pods: len(mv.Bindings), DeltaPotential: pr.predicted,
+			Sources: sources, Destinations: mv.Destinations(), Pods: len(mv.Bindings), DeltaPotential: pr.predicted,
 			Disruption:     lo.SumBy(cmd.Candidates, func(cd *disruption.Candidate) float64 { return cd.RescheduleDisruptionCost }),
 			SavingsPerHour: cmd.EstimatedSavings(), Accepted: true})
 	}

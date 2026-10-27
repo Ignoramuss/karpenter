@@ -83,7 +83,7 @@ func GenerateState(ctx context.Context, e *Env, seed int64, opts StateOptions) (
 	pools := make([]*v1.NodePool, nps)
 	for i := range nps {
 		pools[i] = NodePool(fmt.Sprintf("pool-%d", i), opts.Policy, "0s", budgets[rng.Intn(len(budgets))])
-		pools[i].Spec.Weight = lo.ToPtr(int32(10 * (nps - i)))
+		pools[i].Spec.Weight = new(i32(10 * (nps - i)))
 		if err := e.Apply(ctx, pools[i]); err != nil {
 			return st, err
 		}
@@ -129,7 +129,7 @@ func GenerateState(ctx context.Context, e *Env, seed int64, opts StateOptions) (
 			d.annotation[v1.DisruptionCostAnnotationKey] = strconv.Itoa(rng.Intn(1<<28) - 1<<27)
 		}
 		if rng.Float64() < 0.05 {
-			d.priority = lo.ToPtr(int32(rng.Intn(1000)))
+			d.priority = new(i32(rng.Intn(1000)))
 		}
 		d.antiAff = rng.Float64() < 0.08
 		deps[i] = d

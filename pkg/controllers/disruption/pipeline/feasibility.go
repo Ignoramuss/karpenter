@@ -19,6 +19,7 @@ package pipeline
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sync/atomic"
 
 	corev1 "k8s.io/api/core/v1"
@@ -203,6 +204,7 @@ func violatesHostnameAntiAffinity(pod PodView, others []PodView) bool {
 	return false
 }
 
+//nolint:gocyclo
 func antiAffinityMatches(owner, other PodView) bool {
 	if owner.Pod == nil || owner.Pod.Spec.Affinity == nil || owner.Pod.Spec.Affinity.PodAntiAffinity == nil {
 		return false
@@ -226,10 +228,5 @@ func antiAffinityMatches(owner, other PodView) bool {
 }
 
 func contains(s []string, v string) bool {
-	for _, x := range s {
-		if x == v {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(s, v)
 }

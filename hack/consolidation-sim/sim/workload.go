@@ -151,6 +151,10 @@ func (s *Sim) createPod(d *deployState, replaces bool, o orphan) (*simPod, error
 		ps.Spread = []corev1.TopologySpreadConstraint{{MaxSkew: 1, TopologyKey: corev1.LabelTopologyZone, WhenUnsatisfiable: corev1.DoNotSchedule,
 			LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": spec.Name}}}}
 	}
+	if spec.HostSpread {
+		ps.Spread = append(ps.Spread, corev1.TopologySpreadConstraint{MaxSkew: 2, TopologyKey: corev1.LabelHostname, WhenUnsatisfiable: corev1.DoNotSchedule,
+			LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": spec.Name}}})
+	}
 	if spec.HostAntiAffinity {
 		ps.Affinity = &corev1.Affinity{PodAntiAffinity: &corev1.PodAntiAffinity{RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
 			TopologyKey: corev1.LabelHostname, LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": spec.Name}}}}}}

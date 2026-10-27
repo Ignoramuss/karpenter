@@ -204,6 +204,8 @@ func sameSet(a, b []string) bool {
 
 // ReferenceMoves builds a mixed pool of feasible moves on s for planner checks: single-pod shifts to fuller nodes
 // and delete-only merges of one or two sources whose pods fit elsewhere, first-fit.
+//
+//nolint:gocyclo
 func ReferenceMoves(s pipeline.Snapshot, r *rand.Rand, n int) []pipeline.Move {
 	fast := &pipeline.FastChecker{}
 	src, dst := eligible(s)
