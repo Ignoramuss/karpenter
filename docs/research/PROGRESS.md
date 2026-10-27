@@ -15,7 +15,7 @@ file before the next action. Decisions and fallbacks are logged in `experiments/
 - [ ] `paper/figures/` built by `make figures`, plus `experiments/RESULTS.md`.
 - [ ] `docs/research/`: code map (done), parity report, and a runbook for the full profile and KWOK; RFC draft at
       `designs/consolidation-pipeline.md` (done).
-- [ ] Branch pushed: blocked, `git push` and the GitHub API both return 403 (research log); commits are local.
+- [x] Branch pushed (blocked by 403 until 18:40 UTC, then restored; pushed at every milestone since).
 
 ## Self-gates
 

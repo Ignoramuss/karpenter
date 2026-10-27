@@ -172,3 +172,5 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   re-evaluation every 5 minutes. Re-running every 10-second pass after a fruitless cycle, as upstream does after a
   timeout, would cost a full budget of simulations per pass forever in static workloads (an estimated hour of wall
   time per 1,000-node run) and would not change what Exp 1 compares.
+- **Push works again.** At 18:40 UTC `git push -u origin claude/new-session-03ukbe` succeeded (GitHub access was
+  evidently restored); the branch on the fork carries every commit so far. Pushes resume at every milestone.

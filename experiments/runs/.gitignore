@@ -1,0 +1,2 @@
+# The matrix runner holds this lock while cells run.
+*/.matrix.lock
