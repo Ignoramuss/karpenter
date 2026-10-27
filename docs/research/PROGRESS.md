@@ -12,9 +12,9 @@ file before the next action. Decisions and fallbacks are logged in `experiments/
 - [x] `hack/consolidation-sim/`: the simulator, a determinism test, and the resumable experiment runner.
 - [ ] `experiments/PREREGISTRATION.md`, committed before the main runs, and session-profile results for all eight
       experiments in `experiments/runs/`.
-- [ ] `paper/figures/` built by `make figures`, plus `experiments/RESULTS.md`.
-- [ ] `docs/research/`: code map (done), parity report, and a runbook for the full profile and KWOK; RFC draft at
-      `designs/consolidation-pipeline.md` (done).
+- [ ] `paper/figures/` built by `make figures` (tooling done and verified), plus `experiments/RESULTS.md`.
+- [x] `docs/research/`: code map, parity report (10,000-state run to be appended), runbook; RFC draft at
+      `designs/consolidation-pipeline.md`.
 - [x] Branch pushed (blocked by 403 until 18:40 UTC, then restored; pushed at every milestone since).
 
 ## Self-gates
@@ -23,7 +23,7 @@ file before the next action. Decisions and fallbacks are logged in `experiments/
 - [x] Gate 1: 100% parity on sampled states: 1,000/1,000 per policy and catalog, coarse and fine adapters, and
       re-checked on 150 states after each later pipeline change. The 10,000-state run is pending (background chunk).
 - [x] Gate 2: determinism test passes (14 cases: W1-W6, B2, B3, B5, both scale-down models, five pipeline arms).
-- [ ] Gate 3: `experiments/PREREGISTRATION.md` committed before the main runs.
+- [x] Gate 3: `experiments/PREREGISTRATION.md` committed (`c78b5f9`) before the first session run (20:52 UTC).
 - [ ] Gate 4: `make figures` rebuilds every figure and table from raw runs.
 
 ## Phase 0: rebase, environment, code map
@@ -61,11 +61,13 @@ file before the next action. Decisions and fallbacks are logged in `experiments/
 
 ## Phase 4: experiments
 
-- [ ] Pilot (W1, W2 at 200 nodes, seeds 1-5): running.
-- [ ] Preregistration (drafted; finalized from the pilot).
-- [ ] Exp 1, 6, 5, 3, 4, 7, 8, ablations, then Exp 2 from logs.
+- [x] Pilot (W1, W2 at 200 nodes, seeds 1-5): 120 cells, all valid; calibration in `experiments/PILOT.md`.
+- [x] Preregistration, reviewed adversarially and finalized (Gate 3); analysis aligned and independently verified.
+- [ ] Session matrix (1,740 runs, 20 groups, preregistered order): running since 20:52 UTC. Done: `exp1-n200`,
+      `exp1-baselines-n200`. Running: `exp1-n1000`.
+- [ ] Exp 2 from logs; 10,000-state parity (first chunk done: 10,000/10,000 x 2), resumes after the session.
 
 ## Phases 5-6: validation and artifacts
 
-- [ ] Tier B validation (skipped: blocked hosts), figures (analysis tooling in progress), RESULTS, REPRODUCE,
-      related work (drafted), runbook, full matrix.
+- [ ] Tier B validation (skipped: blocked hosts); figures (tooling done, `make figures`), RESULTS (after the
+      session), REPRODUCE (done), related work (drafted), runbook (done), full matrix (done).
