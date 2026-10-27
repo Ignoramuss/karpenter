@@ -449,6 +449,11 @@ type Summary struct {
 	WallPassP95Ms       float64        `json:"wall_pass_p95_ms"`
 	WallPassMaxMs       float64        `json:"wall_pass_max_ms"`
 	WallPassTotalSecond float64        `json:"wall_pass_total_s"`
+	// WallPassesOver1m and WallPassesOver3m count passes whose wall time exceeded upstream's multi-node (1 minute) and
+	// single-node (3 minute) consolidation timeouts. The simulator's clock does not move during a pass, so upstream's
+	// own timeouts never fire here; these counts say how often they would have on this hardware.
+	WallPassesOver1m int `json:"wall_passes_over_1m"`
+	WallPassesOver3m int `json:"wall_passes_over_3m"`
 }
 
 func (c *collector) summary(s *Sim) Summary {
@@ -521,6 +526,14 @@ func (c *collector) summary(s *Sim) Summary {
 		sum.WallPassP95Ms = float64(ds[int(0.95*float64(len(ds)-1))].Microseconds()) / 1000
 		sum.WallPassMaxMs = float64(ds[len(ds)-1].Microseconds()) / 1000
 		sum.WallPassTotalSecond = tot.Seconds()
+		for _, d := range ds {
+			if d > time.Minute {
+				sum.WallPassesOver1m++
+			}
+			if d > 3*time.Minute {
+				sum.WallPassesOver3m++
+			}
+		}
 	}
 	return sum
 }
