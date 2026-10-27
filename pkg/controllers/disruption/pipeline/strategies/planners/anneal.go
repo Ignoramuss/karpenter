@@ -33,6 +33,7 @@ type annealPlan struct {
 	env              *pipeline.Env
 	w                pipeline.Weights
 	t0, cooling      float64
+	unit             string
 	steps, maxLength int
 	// fast re-checks moves on forks. It is private so speculative checks do not count toward the shared checker's
 	// statistics.
@@ -139,7 +140,7 @@ func (p *annealPlan) search(ctx context.Context, s pipeline.Snapshot, moves []pi
 	var best []pipeline.Scored
 	bestTotal := 0.0
 	constrained := false
-	t := p.t0
+	t := temperature(p.t0, p.unit, s)
 	for range p.steps {
 		if err := ctx.Err(); err != nil {
 			return nil, false, err
@@ -209,7 +210,8 @@ type annealOnline struct {
 	acceptAll
 	w       pipeline.Weights
 	cooling float64
-	// t is the temperature the next Plan call accepts at.
+	unit    string
+	// t is the temperature the next Plan call accepts at, in the planner's temperature unit.
 	t float64
 }
 
@@ -226,7 +228,7 @@ func (p *annealOnline) Temperature() float64 { return p.t }
 func (p *annealOnline) Plan(_ context.Context, s pipeline.Snapshot, moves []pipeline.Scored, budgets pipeline.Budgets, rng *rand.Rand) (pipeline.Plan, error) {
 	plan := newPlan(p.Name(), false)
 	setEnergies(p.w, moves)
-	t := p.t
+	t := temperature(p.t, p.unit, s)
 	// The schedule advances once per cycle whether or not a move is taken: it tracks time on the cluster, not search
 	// effort.
 	p.t *= p.cooling

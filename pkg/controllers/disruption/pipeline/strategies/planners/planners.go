@@ -25,8 +25,8 @@ limitations under the License.
 //	                    judges the chain as a whole, so a shift is never judged alone
 //
 // Every planner scores a move by the planning energy ΔE = α ΔΦ + λ D̂ - μ Ŝ (pipeline.Weights) and takes the params
-// alpha, lambda and mu, default 1, 0.5 and 1. anneal-plan adds t0 (0.05), cooling (0.97), steps (400) and maxLength
-// (8); anneal-online adds t0 and cooling; sequence adds horizon (4).
+// alpha, lambda and mu, default 1, 0.5 and 1. anneal-plan adds t0 (0.05), cooling (0.97), temperatureUnit (absolute),
+// steps (400) and maxLength (8); anneal-online adds t0, cooling and temperatureUnit; sequence adds horizon (4).
 //
 // Plan writes each input move's energy into its Energy field, so the decision log reports it. Plans never exceed the
 // node and pod-eviction budgets, and never take a PodDisruptionBudget past its allowance in total: Fast feasibility
@@ -113,10 +113,41 @@ func (p energyParams) weights() (pipeline.Weights, error) {
 	return w, nil
 }
 
+// Temperature units. Energies are normalized by NodePool totals, so a typical move's |ΔE| shrinks as 1/n with the
+// fleet size n; "per-node" divides the temperature by the root snapshot's node count, so one t0 means the same
+// acceptance odds at every scale (an uphill move worth one node's share of the fleet is taken with probability
+// exp(-1/t0) at t0). "absolute" uses t0 as is.
+const (
+	TemperatureAbsolute = "absolute"
+	TemperaturePerNode  = "per-node"
+)
+
 // scheduleParams are the annealing planners' temperature schedule.
 type scheduleParams struct {
-	T0      *float64 `json:"t0"`
-	Cooling *float64 `json:"cooling"`
+	T0              *float64 `json:"t0"`
+	Cooling         *float64 `json:"cooling"`
+	TemperatureUnit string   `json:"temperatureUnit"`
+}
+
+// unit validates the temperature unit and returns it, "absolute" by default.
+func (p scheduleParams) unit() (string, error) {
+	switch p.TemperatureUnit {
+	case "", TemperatureAbsolute:
+		return TemperatureAbsolute, nil
+	case TemperaturePerNode:
+		return TemperaturePerNode, nil
+	}
+	return "", fmt.Errorf("temperatureUnit %q, want %s or %s", p.TemperatureUnit, TemperatureAbsolute, TemperaturePerNode)
+}
+
+// temperature converts a schedule temperature to energy units on s.
+func temperature(t float64, unit string, s pipeline.Snapshot) float64 {
+	if unit == TemperaturePerNode {
+		if n := s.Normalizer().NodeCount; n > 0 {
+			return t / float64(n)
+		}
+	}
+	return t
 }
 
 func (p scheduleParams) schedule() (t0, cooling float64, err error) {
@@ -179,6 +210,9 @@ func newAnnealPlan(env *pipeline.Env, p pipeline.Params) (pipeline.Planner, erro
 	if pl.t0, pl.cooling, err = params.schedule(); err != nil {
 		return nil, fmt.Errorf("%s: %w", AnnealPlanName, err)
 	}
+	if pl.unit, err = params.unit(); err != nil {
+		return nil, fmt.Errorf("%s: %w", AnnealPlanName, err)
+	}
 	if pl.steps, err = atLeastOne("steps", params.Steps, DefaultSteps); err != nil {
 		return nil, fmt.Errorf("%s: %w", AnnealPlanName, err)
 	}
@@ -202,6 +236,9 @@ func newAnnealOnline(_ *pipeline.Env, p pipeline.Params) (pipeline.Planner, erro
 		return nil, fmt.Errorf("%s: %w", AnnealOnlineName, err)
 	}
 	if pl.t, pl.cooling, err = params.schedule(); err != nil {
+		return nil, fmt.Errorf("%s: %w", AnnealOnlineName, err)
+	}
+	if pl.unit, err = params.unit(); err != nil {
 		return nil, fmt.Errorf("%s: %w", AnnealOnlineName, err)
 	}
 	return pl, nil
