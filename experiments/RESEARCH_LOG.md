@@ -253,3 +253,13 @@ Every decision taken without asking, every fallback, and every blocked host, in 
       and not supported when none does (inconclusive where a test is unreachable), matching H3 and H5's "partially
       if some". The condition for "supported" is unchanged.
   `make figures` stays byte-reproducible (two runs on the pilot: 40 identical files); all analysis tests pass.
+- **Container restart, Oct 27 about 23:52 UTC.** The session VM restarted during `exp1-n1000`, killing the driver
+  and four in-flight cells (no `summary.json`; the runner wiped and relaunched them). 248 finished cells were intact.
+  The restarted VM has a faster CPU: Intel Xeon @ 2.80 GHz instead of @ 2.10 GHz (4 vCPUs, 15 GiB, both), and both
+  report hostname `vm`. Simulated outcomes are unaffected (they depend only on binary, configuration and seed); wall
+  and CPU time per pass are not. Cells that finished by 23:43 UTC (all of `exp1-n200` and `exp1-baselines-n200`,
+  and eight `exp1-n1000` heuristic/savings-only W1 cells) ran on the 2.10 GHz machine; every later cell, including
+  every cell H7's primary test uses (heuristic/entropy-greedy and random/entropy-greedy at 1,000 nodes), on the
+  2.80 GHz one. Decision-cost results that mix the two (latency against cluster size at 200 nodes vs 50 and 1,000)
+  are reported with the machine noted, by each run's `started_at` relative to the restart. The cut rule's clock
+  keeps its start, the first session cell at 20:52 UTC. Driver restarted at 23:53 UTC.
