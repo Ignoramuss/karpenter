@@ -1,0 +1,46 @@
+{
+  "arm": {
+    "label": "random/savings-only",
+    "name": "pipeline",
+    "pipeline": {
+      "candidates": {
+        "name": "uniform-random",
+        "params": {
+          "sourceFraction": 0.25
+        }
+      },
+      "executor": {
+        "name": "shift-evict"
+      },
+      "moves": [
+        {
+          "name": "random-merge",
+          "params": {
+            "confirm": true
+          }
+        },
+        {
+          "name": "random-shift"
+        }
+      ],
+      "movesMode": "pooled",
+      "planner": {
+        "name": "savings-only"
+      },
+      "potential": {
+        "name": "util-entropy"
+      },
+      "search": {
+        "maxAttempts": 500,
+        "maxFullSimulations": 16
+      }
+    }
+  },
+  "duration": "3h",
+  "runID": "pilot-exp1__arm-random-savings-only_scenario-w1_seed-2__d5f870ee",
+  "scenario": {
+    "name": "W1",
+    "nodes": 200
+  },
+  "seed": 2
+}

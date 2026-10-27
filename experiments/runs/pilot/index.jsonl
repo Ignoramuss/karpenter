@@ -59,3 +59,12 @@
 {"run_id":"pilot-exp1__arm-heuristic-anneal-plan_scenario-w2_seed-1__a91236e1","group":"pilot-exp1","status":"done","exit_code":0,"wall_seconds":540.59,"finished_at":"2026-10-27T18:39:25.172962708Z","attempt":1}
 {"run_id":"pilot-exp1__arm-heuristic-anneal-plan_scenario-w2_seed-4__c32b9f28","group":"pilot-exp1","status":"done","exit_code":0,"wall_seconds":310.825,"finished_at":"2026-10-27T18:40:57.850057286Z","attempt":1}
 {"run_id":"pilot-exp1__arm-random-savings-only_scenario-w1_seed-1__4778860d","group":"pilot-exp1","status":"done","exit_code":0,"wall_seconds":169.676,"finished_at":"2026-10-27T18:43:47.526307148Z","attempt":1}
+{"run_id":"pilot-exp1__arm-heuristic-anneal-plan_scenario-w2_seed-3__f3e690d0","group":"pilot-exp1","status":"done","exit_code":0,"wall_seconds":670.708,"finished_at":"2026-10-27T18:45:22.882826198Z","attempt":1}
+{"run_id":"pilot-exp1__arm-random-savings-only_scenario-w1_seed-2__d5f870ee","group":"pilot-exp1","status":"done","exit_code":0,"wall_seconds":168.108,"finished_at":"2026-10-27T18:46:35.634557707Z","attempt":1}
+{"run_id":"pilot-exp1__arm-random-savings-only_scenario-w1_seed-3__5799df6c","group":"pilot-exp1","status":"done","exit_code":0,"wall_seconds":185.923,"finished_at":"2026-10-27T18:48:28.806516573Z","attempt":1}
+{"run_id":"pilot-exp1__arm-heuristic-anneal-plan_scenario-w2_seed-5__62c21708","group":"pilot-exp1","status":"done","exit_code":0,"wall_seconds":566.77,"finished_at":"2026-10-27T18:48:51.944981679Z","attempt":1}
+{"run_id":"pilot-exp1__arm-random-savings-only_scenario-w1_seed-4__201f928b","group":"pilot-exp1","status":"done","exit_code":0,"wall_seconds":162.874,"finished_at":"2026-10-27T18:49:18.508891196Z","attempt":1}
+{"run_id":"pilot-exp1__arm-random-savings-only_scenario-w1_seed-5__636fec16","group":"pilot-exp1","status":"done","exit_code":0,"wall_seconds":136.814,"finished_at":"2026-10-27T18:50:45.621253738Z","attempt":1}
+{"run_id":"pilot-exp1__arm-random-savings-only_scenario-w2_seed-2__d6d0c0af","group":"pilot-exp1","status":"done","exit_code":0,"wall_seconds":101.228,"finished_at":"2026-10-27T18:50:59.736678776Z","attempt":1}
+{"run_id":"pilot-exp1__arm-random-savings-only_scenario-w2_seed-1__1f92dcbc","group":"pilot-exp1","status":"done","exit_code":0,"wall_seconds":131.389,"finished_at":"2026-10-27T18:51:03.334073374Z","attempt":1}
+{"run_id":"pilot-exp1__arm-random-savings-only_scenario-w2_seed-4__c624ea15","group":"pilot-exp1","status":"done","exit_code":0,"wall_seconds":128.474,"finished_at":"2026-10-27T18:53:08.210816887Z","attempt":1}
