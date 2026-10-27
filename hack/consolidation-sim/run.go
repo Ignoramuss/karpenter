@@ -26,6 +26,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"runtime/pprof"
 	"strings"
 	"time"
@@ -39,13 +40,18 @@ import (
 
 // Manifest records everything needed to reproduce a run (operating rule 7).
 type Manifest struct {
-	RunID       string     `json:"run_id"`
-	GitSHA      string     `json:"git_sha"`
-	GitDirty    bool       `json:"git_dirty"`
-	Config      sim.Config `json:"config"`
-	Seed        int64      `json:"seed"`
-	Scenario    string     `json:"scenario"`
-	Environment struct {
+	RunID string `json:"run_id"`
+	// BinaryRevision and BinaryModified identify the source the simulator binary was built from (Go's embedded VCS
+	// stamp), which is what produced the run. GitSHA and GitDirty describe the working tree at run time, which can
+	// move while a long matrix runs.
+	BinaryRevision string     `json:"binary_revision"`
+	BinaryModified bool       `json:"binary_modified"`
+	GitSHA         string     `json:"git_sha"`
+	GitDirty       bool       `json:"git_dirty"`
+	Config         sim.Config `json:"config"`
+	Seed           int64      `json:"seed"`
+	Scenario       string     `json:"scenario"`
+	Environment    struct {
 		GoVersion string `json:"go_version"`
 		OS        string `json:"os"`
 		Arch      string `json:"arch"`
@@ -54,6 +60,24 @@ type Manifest struct {
 	} `json:"environment"`
 	StartedAt  time.Time `json:"started_at"`
 	FinishedAt time.Time `json:"finished_at"`
+}
+
+// buildInfo returns the VCS revision and modified flag Go stamped into this binary, or "unknown".
+func buildInfo() (string, bool) {
+	bi, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "unknown", false
+	}
+	rev, modified := "unknown", false
+	for _, kv := range bi.Settings {
+		switch kv.Key {
+		case "vcs.revision":
+			rev = kv.Value
+		case "vcs.modified":
+			modified = kv.Value == "true"
+		}
+	}
+	return rev, modified
 }
 
 func gitInfo() (string, bool) {
@@ -151,6 +175,7 @@ func RunCell(cfg sim.Config, dir string) (sim.Summary, error) {
 	cfg.Defaults()
 	man := Manifest{RunID: cfg.RunID, Config: cfg, Seed: cfg.Seed, Scenario: cfg.Scenario.Name, StartedAt: time.Now().UTC()}
 	man.GitSHA, man.GitDirty = gitInfo()
+	man.BinaryRevision, man.BinaryModified = buildInfo()
 	man.Environment.GoVersion, man.Environment.OS, man.Environment.Arch, man.Environment.CPUs = runtime.Version(), runtime.GOOS, runtime.GOARCH, runtime.NumCPU()
 	man.Environment.Hostname, _ = os.Hostname()
 	dec, err := os.Create(filepath.Join(dir, "decisions.jsonl.gz"))

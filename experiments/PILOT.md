@@ -5,10 +5,14 @@ calibration seeds 1-5, 120 cells (`experiments/matrix/pilot.yaml`, raw runs in `
 number here comes from those runs; no evaluation seed (101 and up) was run before `experiments/PREREGISTRATION.md`
 was committed. All 120 runs are valid (no PDB or do-not-disrupt violation, no error, no timeout).
 
-Binaries: the 20 baseline cells (B2, B3) ran on `c3e9e35`; the 100 pipeline cells ran on `2d8fce7`, after the fix
-for capped heuristic scans (`experiments/RESEARCH_LOG.md`, "Pilot restart"). No change between the two commits
-touches code the baseline arms execute. The pipeline cells used lambda = 0.5, t0 = 0.3 and cooling 0.98 except where
-the label says otherwise.
+Binaries: the 20 baseline cells (B2, B3) ran on a binary built from `c3e9e35` and the 100 pipeline cells on one built
+from `2d8fce7`, after the fix for capped heuristic scans (`experiments/RESEARCH_LOG.md`, "Pilot restart"); no change
+between the two touches code the baseline arms execute. The pilot manifests cannot show this: their `git_sha` is
+the working tree's HEAD when each cell started, which moved as commits landed during the pilot (15 distinct values,
+mostly marked dirty). Session manifests record the binary's own build revision instead. The pipeline cells used
+lambda = 0.5, t0 = 0.3 and cooling 0.98 except where the label says otherwise. Steady state here is the mean of the
+last 20% of timeseries rows (the pilot binaries' definition, which counted the final minute twice); session binaries
+take the samples with t >= 0.8 x horizon, a window that differs by a minute at each end.
 
 ## Results by arm (means over 5 seeds)
 
@@ -58,6 +62,7 @@ to bracket it. lambda = 0.1 applies to every energy planner in every arm (heuris
 
 ## Variance and power for H1
 
+| Scenario | Planner | Mean paired difference, random - heuristic (% of heuristic) | SD of paired differences (%) | Projected unadjusted 90% CI half-width at 10 seeds (%) |
 | --- | --- | --- | --- | --- |
 | W1 | savings-only | -8.02 | 1.69 | 0.98 |
 | W1 | entropy-greedy | +3.61 | 1.05 | 0.61 |
@@ -66,10 +71,12 @@ to bracket it. lambda = 0.1 applies to every energy planner in every arm (heuris
 | W2 | entropy-greedy | +3.09 | 2.04 | 1.18 |
 | W2 | anneal-plan | +2.85 | 3.56 | 2.06 |
 
-At 10 seeds the projected 90% interval half-width is under 1% of cost on W1 and 1-3% on W2, inside the 3% margin, so
-TOST at 10 seeds can establish equivalence when the true difference is near zero. These pilot differences were
-measured at lambda = 0.5 and t0 = 0.3, not the calibrated values, and on calibration seeds; they size the test and
-are not evidence for or against H1.
+At 10 seeds the projected unadjusted 90% half-width is under 1% of cost on W1 and 1.2-3.1% on W2 (the 3.1% is
+savings-only, outside H1's family). H1 Holm-adjusts its 12 TOSTs, which widens the effective interval: simulating
+the 12 tests with these SDs (W4 and the 1,000-node cells assumed to vary like W1 and W2 at 200, which the pilot did
+not measure; 20,000 replicates), P(at least 10 of 12 equivalent after Holm) is 0.93 if the true difference is 0,
+0.49 at +1% and 0.00 at +2% or more. These pilot differences were measured at lambda = 0.5 and t0 = 0.3, not the
+calibrated values, and on calibration seeds; they size the test and are not evidence for or against H1.
 
 ## Timing (sizing the session profile)
 

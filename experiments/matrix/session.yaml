@@ -4,13 +4,14 @@
 # Groups run in the preregistered order:
 #
 #   for g in exp1-n200 exp1-baselines-n200 exp1-n1000 exp6 exp6-baselines exp6-b5 exp5 exp5-steered exp3 exp4 \
-#            exp7-n50 exp7-b2 abl exp8 exp8-b5 realism-w5 realism-w6 exp1-baselines-n1000 exp7-b2-n1000; do
-#     go run ./hack/consolidation-sim matrix --matrix experiments/matrix/session.yaml --only $g --workers 4 --max-wall 100m
-#   done   # re-invoke until each group reports 0 pending
+#            exp7-n50 exp7-b2 abl exp8 exp8-b5 b4 realism-w5 realism-w6 exp7-b2-n1000 exp1-baselines-n1000; do
+#     until bin/csim matrix --matrix experiments/matrix/session.yaml --only $g --workers 4 --max-wall 60m \
+#         | grep -q ' 0 pending'; do :; done
+#   done   # bin/csim: built once with go build -o at the Gate 3 commit (experiments/session-binary.txt)
 #
-# Cut order if time runs short (fixed by the plan): 1,000-node cells outside Exp 1 first (exp1-baselines-n1000,
-# exp7-b2-n1000), then W6 (realism-w6), then W5 (realism-w5). Exp 1 cells are never cut, and no cell drops below 10
-# seeds.
+# Groups appear in this file in run order. Cut order if time runs short (fixed by the plan): the 1,000-node groups
+# outside Exp 1 first (exp1-baselines-n1000, then exp7-b2-n1000), then W6 (realism-w6), then W5 (realism-w5); a cut
+# group is dropped whole. Exp 1's own groups are never cut, and no configuration runs with fewer than 10 seeds.
 name: session
 outDir: experiments/runs/session
 definitions:
@@ -43,6 +44,13 @@ definitions:
     - {name: pipeline, label: random/savings-only, pipeline: {<<: [*common, *random], planner: *p0}}
     - {name: pipeline, label: random/entropy-greedy, pipeline: {<<: [*common, *random], planner: *p1}}
     - {name: pipeline, label: random/anneal-plan, pipeline: {<<: [*common, *random], planner: *p2}}
+  b4-pipeline: &b4-pipeline
+    candidates: {name: upstream}
+    moves: [{name: upstream-multi, params: {mode: fine}}, {name: upstream-single, params: {mode: fine}}]
+    movesMode: sequential
+    planner: {name: upstream}
+    executor: {name: upstream-queue}
+    potential: {name: none}
   b2: &b2 {name: B2-when-empty-or-underutilized, label: B2}
   b3: &b3 {name: B3-balanced, label: B3}
   b0: &b0 {name: B0-none, label: B0}
@@ -55,6 +63,9 @@ definitions:
   budget-hi: &budget-hi {podEvictionsPerMinute: 36}
 base:
   duration: 3h
+  # No per-cell wall-time limit: a 1,000-node B2 or B3 cell takes hours, and a limit would invalidate those arms
+  # selectively. The runner's --max-wall only bounds how long it keeps launching cells.
+  maxWall: 0s
   scenario: {nodes: 200}
 groups:
   # --- Exp 1 (H1): random vs heuristic generation under three planners ----------------------------------------
@@ -65,9 +76,6 @@ groups:
   - name: exp1-n1000
     set: {scenario: {nodes: 1000}}
     vary: {scenario.name: [W1, W2, W4], arm: *exp1-arms, seed: *seeds}
-  - name: exp1-baselines-n1000
-    set: {scenario: {nodes: 1000}}
-    vary: {scenario.name: [W1, W2, W4], arm: [*b2, *b3], seed: *seeds}
   # --- Exp 6 (H6): lambda sweep against upstream operating points ---------------------------------------------
   - name: exp6
     vary:
@@ -83,9 +91,11 @@ groups:
       seed: *seeds
   - name: exp6-baselines
     vary: {scenario.name: [W2, W3], arm: [*b0, *b2, *b3], seed: *seeds}
+  # B5 runs under most-allocated placement (the descheduler pattern); its B0 runs under the same placement, so its
+  # savings are measured against a matching reference.
   - name: exp6-b5
     set: {placement: most-allocated}
-    vary: {scenario.name: [W2, W3], arm: [*b5], seed: *seeds}
+    vary: {scenario.name: [W2, W3], arm: [*b0, *b5], seed: *seeds}
   # --- Exp 5 (H5): plan fidelity by placement and scale-down model --------------------------------------------
   - name: exp5
     set: {scenario: {name: W2}}
@@ -99,7 +109,7 @@ groups:
     vary:
       scaleDown: [spread, deletion-cost]
       arm:
-        - {name: pipeline, label: random/entropy-greedy/steered, pipeline: {<<: [*search, *random], potential: {name: util-entropy}, planner: *p1, executor: {name: steered}}}
+        - {name: pipeline, label: random/entropy-greedy/steered, pipeline: {<<: [*search, *random], potential: {name: util-entropy}, planner: *p1, executor: {name: steered, params: {mode: affinity}}}}
       seed: *seeds
   # --- Exp 3 (H3): merge-only vs merge plus shift at equal pod-eviction budgets ------------------------------
   - name: exp3
@@ -134,9 +144,6 @@ groups:
   - name: exp7-b2
     set: {scenario: {name: W1, nodes: 200}}
     vary: {arm: [*b2], seed: *seeds}
-  - name: exp7-b2-n1000
-    set: {scenario: {name: W1, nodes: 1000}, duration: 1h}
-    vary: {arm: [*b2], seed: *seeds}
   # --- Ablations (figure 8) --------------------------------------------------------------------------------------
   - name: abl
     vary:
@@ -147,6 +154,34 @@ groups:
         - {name: pipeline, label: no-eviction-budget, pipeline: {<<: [*common, *random], planner: *p2}}
         - {name: pipeline, label: no-annealing, pipeline: {<<: [*common, *random], planner: *p1, budgets: *budget-lo}}
         - {name: pipeline, label: no-randomness, pipeline: {<<: [*common, *heuristic], planner: *p2, budgets: *budget-lo}}
+      seed: *seeds
+  # --- Exp 8: optimality gap to the offline packing bound (B6) at 50 nodes ---------------------------------------
+  - name: exp8
+    set: {scenario: {nodes: 50}}
+    vary:
+      scenario.name: [W1, W2, W4]
+      arm:
+        - *b2
+        - *b3
+        - {name: pipeline, label: heuristic/savings-only, pipeline: {<<: [*common, *heuristic], planner: *p0}}
+        - {name: pipeline, label: heuristic/entropy-greedy, pipeline: {<<: [*common, *heuristic], planner: *p1}}
+        - {name: pipeline, label: heuristic/anneal-plan, pipeline: {<<: [*common, *heuristic], planner: *p2}}
+        - {name: pipeline, label: random/savings-only, pipeline: {<<: [*common, *random], planner: *p0}}
+        - {name: pipeline, label: random/entropy-greedy, pipeline: {<<: [*common, *random], planner: *p1}}
+        - {name: pipeline, label: random/anneal-plan, pipeline: {<<: [*common, *random], planner: *p2}}
+      seed: *seeds
+  - name: exp8-b5
+    set: {scenario: {nodes: 50}, placement: most-allocated}
+    vary: {scenario.name: [W1, W2, W4], arm: [*b5], seed: *seeds}
+  # --- B4: the pipeline with fine upstream adapters (sequential, upstream planner, upstream-queue executor, no search
+  # caps), which must reproduce B2 and, under the Balanced policy, B3 (parity in the wild; B2 and B3 come from
+  # exp1-baselines-n200).
+  - name: b4
+    vary:
+      scenario.name: [W1, W2, W4]
+      arm:
+        - {name: pipeline, label: B4, pipeline: *b4-pipeline}
+        - {name: pipeline, label: B4-balanced, policy: Balanced, pipeline: *b4-pipeline}
       seed: *seeds
   # --- Realism checks (threats to validity): Exp 1's entropy-guided cells and the upstream baselines on W5
   # (PDBs, hostname spread, anti-affinity, do-not-disrupt) and W6 (Google 2011 trace replay) at 200 nodes. Cut after
@@ -173,20 +208,11 @@ groups:
         - {name: pipeline, label: random/entropy-greedy, pipeline: {<<: [*common, *random], planner: *p1}}
         - {name: pipeline, label: random/anneal-plan, pipeline: {<<: [*common, *random], planner: *p2}}
       seed: *seeds
-  # --- Exp 8: optimality gap to the offline packing bound (B6) at 50 nodes ---------------------------------------
-  - name: exp8
-    set: {scenario: {nodes: 50}}
-    vary:
-      scenario.name: [W1, W2, W4]
-      arm:
-        - *b2
-        - *b3
-        - {name: pipeline, label: heuristic/savings-only, pipeline: {<<: [*common, *heuristic], planner: *p0}}
-        - {name: pipeline, label: heuristic/entropy-greedy, pipeline: {<<: [*common, *heuristic], planner: *p1}}
-        - {name: pipeline, label: random/savings-only, pipeline: {<<: [*common, *random], planner: *p0}}
-        - {name: pipeline, label: random/entropy-greedy, pipeline: {<<: [*common, *random], planner: *p1}}
-        - {name: pipeline, label: random/anneal-plan, pipeline: {<<: [*common, *random], planner: *p2}}
-      seed: *seeds
-  - name: exp8-b5
-    set: {scenario: {nodes: 50}, placement: most-allocated}
-    vary: {scenario.name: [W1, W2, W4], arm: [*b5], seed: *seeds}
+  # --- 1,000-node reference groups, run last and cut first: B2 latency at 1,000 nodes for H7's secondary contrast
+  # (1-hour runs), then B2 and B3 reference rows beside Exp 1 at 1,000 nodes (not Exp 1 cells: no test uses them).
+  - name: exp7-b2-n1000
+    set: {scenario: {name: W1, nodes: 1000}, duration: 1h}
+    vary: {arm: [*b2], seed: *seeds}
+  - name: exp1-baselines-n1000
+    set: {scenario: {nodes: 1000}}
+    vary: {scenario.name: [W1, W2, W4], arm: [*b2, *b3], seed: *seeds}

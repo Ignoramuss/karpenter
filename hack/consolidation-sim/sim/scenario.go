@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"os"
 	"path/filepath"
 	"sort"
 	"time"
@@ -294,14 +295,14 @@ func pick[T any](c bool, a, b T) T {
 const DefaultTrace = "hack/consolidation-sim/traces/google-2011-6h-9h.csv"
 
 // traceReplay is W6: tasks replayed from a trace file (params.trace: CSV of
-// start_seconds,end_seconds,cpu_millicores,memory_mib, relative to the repository root unless absolute; default
-// DefaultTrace), scaled to n nodes' demand.
+// start_seconds,end_seconds,cpu_millicores,memory_mib; a relative path is tried against the working directory, then
+// the repository root; default DefaultTrace), scaled to n nodes' demand.
 func traceReplay(cfg ScenarioConfig, n int, rng *rand.Rand, cat catalogView) (Workload, error) {
 	path, _ := cfg.Param["trace"].(string)
 	if path == "" {
 		path = DefaultTrace
 	}
-	if !filepath.IsAbs(path) {
+	if _, err := os.Stat(path); err != nil && !filepath.IsAbs(path) {
 		path = catalog.RepoPath(path)
 	}
 	return loadTrace(path, n, rng, cat)

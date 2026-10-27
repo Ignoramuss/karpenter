@@ -76,6 +76,8 @@ func (s *Sim) disruptionTick() {
 		return
 	}
 	wall := time.Now() //nolint:forbidigo // decision latency is the one wall-clock measurement, and it is never fed back
+	cpu := processCPU()
+	s.passWaitWall, s.passWaitCPU = 0, 0
 	success := false
 	method := ""
 	for _, m := range s.methods {
@@ -122,7 +124,7 @@ func (s *Sim) disruptionTick() {
 		method = m.ConsolidationType()
 		break
 	}
-	s.m.disruptionPass(time.Since(wall), method)
+	s.m.disruptionPass(time.Since(wall)-s.passWaitWall, processCPU()-cpu-s.passWaitCPU, method)
 	s.ensureQueueTicking()
 	if success {
 		// RequeueImmediately: the next pass runs as soon as the commands just started have been taken in.

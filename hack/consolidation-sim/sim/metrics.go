@@ -86,6 +86,7 @@ type collector struct {
 	pendingSec float64
 
 	passes      []time.Duration
+	passesCPU   []time.Duration
 	passMethods map[string]int
 	started     map[string]int
 	completed   int
@@ -93,8 +94,10 @@ type collector struct {
 	plans       []*planRecord
 	sourcePlan  map[string]*planRecord
 
-	rows    []string
-	podsets []string
+	rows []string
+	// lastSample is when the last timeseries row was taken.
+	lastSample time.Time
+	podsets    []string
 }
 
 func newCollector(s *Sim) *collector {
@@ -244,8 +247,11 @@ func (c *collector) ObservePlan(m pipeline.Move) {
 
 func (c *collector) commandCompleted(*disruption.Command) { c.completed++ }
 
-func (c *collector) disruptionPass(wall time.Duration, method string) {
+// disruptionPass records one pass's decision latency: wall time and process CPU time, each excluding the validation
+// waits during which the pass advanced the world.
+func (c *collector) disruptionPass(wall, cpu time.Duration, method string) {
 	c.passes = append(c.passes, wall)
+	c.passesCPU = append(c.passesCPU, cpu)
 	c.passMethods[lo.CoalesceOrEmpty(method, "none")]++
 }
 
@@ -286,8 +292,13 @@ const timeseriesHeader = "t_min,nodes,ready_nodes,cost_per_hour,pods_running,pod
 	"cpu_util_mean,mem_util_mean,dom_util_mean,band_share_cpu,band_share_dom,p1_load_entropy,p1_norm,p2_util_entropy,p2_norm,p3_quadratic,p3_norm," +
 	"hist_cpu,hist_mem"
 
-// sample appends one timeseries row.
+// sample appends one timeseries row. A second sample at the same instant (the run's final sample landing on the last
+// tick) is dropped, so every row is a distinct minute.
 func (c *collector) sample() {
+	if len(c.rows) > 0 && !c.s.now().After(c.lastSample) {
+		return
+	}
+	c.lastSample = c.s.now()
 	c.advanceCost()
 	var ready, running, pending int
 	var cpuSum, memSum, domSum, bandCPU, bandDom, p2raw, p3raw, priceReady float64
@@ -454,6 +465,12 @@ type Summary struct {
 	// own timeouts never fire here; these counts say how often they would have on this hardware.
 	WallPassesOver1m int `json:"wall_passes_over_1m"`
 	WallPassesOver3m int `json:"wall_passes_over_3m"`
+	// CPUPass* are the passes' process CPU time (user plus system), the contention-robust decision cost (H7). Like
+	// the wall-time fields they exclude validation waits, during which a pass advances the world.
+	CPUPassMeanMs      float64 `json:"cpu_pass_mean_ms"`
+	CPUPassP95Ms       float64 `json:"cpu_pass_p95_ms"`
+	CPUPassMaxMs       float64 `json:"cpu_pass_max_ms"`
+	CPUPassTotalSecond float64 `json:"cpu_pass_total_s"`
 }
 
 func (c *collector) summary(s *Sim) Summary {
@@ -499,16 +516,24 @@ func (c *collector) summary(s *Sim) Summary {
 			sum.RealizedDeltaP2 += pr.realized
 		}
 	}
-	// Steady state: mean of the last 20% of samples.
+	// Steady state: mean $/hr over the samples in the last 20% of the horizon (t >= 0.8 x duration).
 	if n := len(c.rows); n > 0 {
-		from := n - max(1, n/5)
+		from := 0.8 * s.cfg.Duration.Minutes()
 		var tot float64
-		for _, r := range c.rows[from:] {
-			var cost float64
-			fmt.Sscanf(strings.Split(r, ",")[3], "%f", &cost) //nolint:errcheck
-			tot += cost
+		var k int
+		for _, r := range c.rows {
+			var t, cost float64
+			fields := strings.Split(r, ",")
+			fmt.Sscanf(fields[0], "%f", &t)    //nolint:errcheck
+			fmt.Sscanf(fields[3], "%f", &cost) //nolint:errcheck
+			if t+1e-9 >= from {
+				tot += cost
+				k++
+			}
 		}
-		sum.SteadyCostPerHour = tot / float64(n-from)
+		if k > 0 {
+			sum.SteadyCostPerHour = tot / float64(k)
+		}
 		for _, r := range c.rows {
 			var nodes int
 			fmt.Sscanf(strings.Split(r, ",")[2], "%d", &nodes) //nolint:errcheck
@@ -522,7 +547,7 @@ func (c *collector) summary(s *Sim) Summary {
 		for _, d := range ds {
 			tot += d
 		}
-		sum.WallPassMeanMs = float64(tot.Milliseconds()) / float64(len(ds))
+		sum.WallPassMeanMs = float64(tot.Microseconds()) / 1000 / float64(len(ds))
 		sum.WallPassP95Ms = float64(ds[int(0.95*float64(len(ds)-1))].Microseconds()) / 1000
 		sum.WallPassMaxMs = float64(ds[len(ds)-1].Microseconds()) / 1000
 		sum.WallPassTotalSecond = tot.Seconds()
@@ -534,6 +559,16 @@ func (c *collector) summary(s *Sim) Summary {
 				sum.WallPassesOver3m++
 			}
 		}
+		cpu := append([]time.Duration(nil), c.passesCPU...)
+		sort.Slice(cpu, func(i, j int) bool { return cpu[i] < cpu[j] })
+		var cpuTot time.Duration
+		for _, d := range cpu {
+			cpuTot += d
+		}
+		sum.CPUPassMeanMs = float64(cpuTot.Microseconds()) / 1000 / float64(len(cpu))
+		sum.CPUPassP95Ms = float64(cpu[int(0.95*float64(len(cpu)-1))].Microseconds()) / 1000
+		sum.CPUPassMaxMs = float64(cpu[len(cpu)-1].Microseconds()) / 1000
+		sum.CPUPassTotalSecond = cpuTot.Seconds()
 	}
 	return sum
 }

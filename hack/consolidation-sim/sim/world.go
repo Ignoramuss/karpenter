@@ -122,12 +122,15 @@ type orphan struct {
 
 // Sim is one run.
 type Sim struct {
-	cfg  Config
-	ctx  context.Context
-	env  *harness.Env
-	cat  *catalog.Catalog
-	cp   *fake.CloudProvider
-	work Workload
+	// passWaitWall and passWaitCPU accumulate the time the current disruption pass spends advancing the world in
+	// validation waits; the pass's decision latency excludes it.
+	passWaitWall, passWaitCPU time.Duration
+	cfg                       Config
+	ctx                       context.Context
+	env                       *harness.Env
+	cat                       *catalog.Catalog
+	cp                        *fake.CloudProvider
+	work                      Workload
 
 	events    eventHeap
 	seq       int
@@ -236,9 +239,7 @@ type simValidator struct {
 }
 
 func (v simValidator) Validate(ctx context.Context, cmd disruption.Command, delay time.Duration) (disruption.Command, error) {
-	if delay > 0 {
-		v.s.runUntil(v.s.now().Add(delay))
-	}
+	v.s.advanceWithinPass(delay)
 	return v.inner.Validate(ctx, cmd, 0)
 }
 
@@ -246,10 +247,21 @@ func (s *Sim) wrap(v disruption.Validator) disruption.Validator { return simVali
 
 // wait is the pipeline executors' validation wait: virtual time advances while the world keeps running.
 func (s *Sim) wait(_ context.Context, d time.Duration) error {
-	if d > 0 {
-		s.runUntil(s.now().Add(d))
-	}
+	s.advanceWithinPass(d)
 	return nil
+}
+
+// advanceWithinPass runs the world for d of virtual time during a disruption pass (a validation wait). The wall and
+// CPU time it takes are simulating the world, not deciding, so they are booked against the pass and subtracted from
+// its decision latency.
+func (s *Sim) advanceWithinPass(d time.Duration) {
+	if d <= 0 {
+		return
+	}
+	wall, cpu := time.Now(), processCPU() //nolint:forbidigo // latency bookkeeping only; never fed back
+	s.runUntil(s.now().Add(d))
+	s.passWaitWall += time.Since(wall)
+	s.passWaitCPU += processCPU() - cpu
 }
 
 // steer records a steering request (E2): the pod replacing this one prefers the node, as a webhook adding preferred

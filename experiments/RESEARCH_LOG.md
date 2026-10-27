@@ -192,3 +192,31 @@ Every decision taken without asking, every fallback, and every blocked host, in 
     1); budget-hi = 2 x budget-lo. So budget-lo binds during active consolidation and budget-hi binds less.
   - Not calibrated: maxFullSimulations (16), cooling (0.98), maxAttempts (500), sourceFraction (0.25), tau and the
     re-disruption window (plan defaults).
+- **Preregistration review before Gate 3.** Three independent reviewers (matrix, analysis code, plan and
+  statistics) checked the draft preregistration against `session.yaml`, the analysis registry and code, and the
+  plan. Changes made in response, before any evaluation run:
+  - *Provenance:* manifests now record the binary's embedded VCS revision (`binary_revision`, `binary_modified`);
+    one binary built at the Gate 3 commit runs every session cell, and runs from any other binary are invalid. The
+    pilot manifests' `git_sha` is HEAD at cell start, which moved during the pilot.
+  - *Decision cost:* summaries gained per-pass process CPU time (`cpu_pass_*`), and both CPU and wall time now
+    exclude validation waits, during which a pass advances the simulated world. H7's primary metric is CPU time per
+    pass, which co-running cells perturb less than wall time.
+  - *Steady state* is defined by time (samples with t >= 0.8 x horizon); the duplicated final timeseries row is gone.
+  - *Holm families* sized so exact Wilcoxon tests at 10 pairs can reject (smallest p 2/1024): H4 cut to 8 tests,
+    the ablation family to 8 (steady-state cost only), the Exp 4 sweep made descriptive, H7's B2 contrast moved to
+    its own secondary family.
+  - *No result-dependent choices:* H6's matched lambda per baseline is fixed in advance (B2: 0.05; B3: 0.5, from
+    Balanced being dE <= 0 at lambda/mu = 1/2; B5: 0.1) instead of picked from evaluation data. H4's "no extra
+    disruption" and "little gain" clauses use bootstrap bounds (+10% evictions, -1% cost) instead of
+    non-significance. H2 uses the seed as its unit, so correlated runs on one workload seed are not counted as
+    independent. H3, H5 and H6 gained explicit verdict rules; H1's rules were made unambiguous (Holm-adjusted
+    equivalence, unadjusted veto, fixed m = 12).
+  - *Design:* B5 now pairs with a B0 run under its own (most-allocated) placement; Exp 8 gained heuristic/anneal-plan;
+    a B4 group (fine upstream adapters, uncapped) re-checks parity in the wild against B2 and B3; the steering mode
+    is explicit; `maxWall: 0s` is explicit (no per-cell limit, so no arm is excluded by its run time); groups appear
+    in `session.yaml` in run order, and the cut rule is time-based and written down. 1,740 runs in 20 groups.
+  - *Exclusion and completeness:* violations are counted from the PDB and do-not-disrupt fields; retried cells are
+    counted; a configuration with fewer than 10 finished runs is cut whole; undefined metric values are counted
+    apart from invalid runs; identical configurations across groups serve as a cross-group determinism check.
+  The analysis code is being aligned with these rules (one writer, then an independent verifier) before the Gate 3
+  commit.
