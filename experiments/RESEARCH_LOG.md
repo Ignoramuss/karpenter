@@ -174,3 +174,9 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   time per 1,000-node run) and would not change what Exp 1 compares.
 - **Push works again.** At 18:40 UTC `git push -u origin claude/new-session-03ukbe` succeeded (GitHub access was
   evidently restored); the branch on the fork carries every commit so far. Pushes resume at every milestone.
+- **B2 at 1,000 nodes is the expensive cell.** W1, seed 1, sharing the VM with three pilot workers: 11.4 s of wall
+  time per disruption pass on average (p95 31 s, max 41 s); the run hit its 100-minute wall limit at simulated minute
+  160 (`timed_out`), still removing about one node per pass by single-node consolidation (1,000 to 523 nodes). A
+  1,000-node B2 or B3 cell therefore costs over two hours of one core. The plan's cut order drops 1,000-node cells
+  outside Exp 1 first (`exp1-baselines-n1000`, `exp7-b2-n1000`); whether they run is decided from the session's
+  remaining time once Exp 1 is done.
