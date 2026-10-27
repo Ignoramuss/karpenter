@@ -144,3 +144,18 @@ Every decision taken without asking, every fallback, and every blocked host, in 
 - **Determinism, strategy arms.** `TestDeterminism` gained four strategy arms (random generation with entropy-greedy
   and E1; anneal-plan with swap; util-band with greedy-shift, the sequence planner and E2; potential-weighted with
   anneal-online and E3 on W5); all thirteen cases are byte-identical across runs.
+- **W6 trace.** The Google 2011 cluster trace bucket is reachable; W6 replays a 3-hour window (6 h to 9 h after the
+  trace start), sampled to 20% of tasks by a seeded hash, with CPU and memory scaled to 32 vCPU / 128 GiB machines
+  (`hack/consolidation-sim/traces/README.md` documents the mapping, the input shards' SHA-256 and the CC BY 4.0
+  attribution). W6 defaults to the bundled CSV and joined the determinism test (14 cases).
+- **RFC review of code against plan.** Drafting `designs/consolidation-pipeline.md` surfaced inconsistencies. Fixed:
+  the two experimental annotations (`consolidation.experimental.karpenter.sh/shift-source-since`,
+  `simulation.karpenter.sh/volume-zone`) are now `wellknown.Annotation`s in `KarpenterAnnotations`, as CLAUDE.md
+  requires; the `pipeline:`-wrapped config form is decoded strictly; executors lift expired shift-source taints on
+  every cycle that executes nothing, including cycles with no moves; a bad pipeline config panics with a `serrors`
+  error. Documented as open questions in the RFC instead: energy planners accept strictly downhill moves (dE < 0)
+  where Balanced approves at the threshold; fine mode does not emit `consolidation_score` metrics or
+  `ConsolidationApproved` events; shift sources are not marked as planned removals, so a drained shift source is
+  removed by Emptiness under the Empty reason and budgets; `budget_remaining` is unset in decision events; the
+  operator has no steering webhook, so `steered` (affinity mode) and `make-before-break` do not steer outside the
+  simulator.

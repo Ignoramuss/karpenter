@@ -23,6 +23,7 @@ import (
 	"github.com/awslabs/operatorpkg/controller"
 	"github.com/awslabs/operatorpkg/object"
 	"github.com/awslabs/operatorpkg/option"
+	"github.com/awslabs/operatorpkg/serrors"
 	"github.com/awslabs/operatorpkg/status"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/samber/lo"
@@ -245,7 +246,7 @@ func disruptionMethods(ctx context.Context, clk clock.Clock, kubeClient client.C
 	}
 	methods, err := pipeline.Methods(ctx, clk, kubeClient, p, cloudProvider, recorder, cluster, queue, clusterCost)
 	if err != nil {
-		panic(fmt.Sprintf("configuring the consolidation pipeline, %s", err))
+		panic(serrors.Wrap(fmt.Errorf("configuring the consolidation pipeline, %w", err)))
 	}
 	return []option.Function[disruption.ControllerOptions]{disruption.WithMethods(methods...)}
 }

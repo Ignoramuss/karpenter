@@ -187,7 +187,11 @@ func ParseConfig(raw []byte) (Config, error) {
 		Pipeline *Config `json:"pipeline"`
 	}
 	var cfg Config
+	// The wrapped form is detected leniently and then decoded strictly, so a misspelled key fails in either form.
 	if err := yaml.Unmarshal(raw, &wrapped); err == nil && wrapped.Pipeline != nil {
+		if err := yaml.UnmarshalStrict(raw, &wrapped); err != nil {
+			return Config{}, fmt.Errorf("parsing pipeline config, %w", err)
+		}
 		cfg = *wrapped.Pipeline
 	} else if err := yaml.UnmarshalStrict(raw, &cfg); err != nil {
 		return Config{}, fmt.Errorf("parsing pipeline config, %w", err)

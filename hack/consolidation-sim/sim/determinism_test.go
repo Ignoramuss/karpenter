@@ -47,6 +47,7 @@ func TestDeterminism(t *testing.T) {
 		{Scenario: ScenarioConfig{Name: W2Diurnal, Nodes: 16}, Arm: ArmConfig{Name: ArmDescheduler}, Placement: MostAllocated, Duration: D(150 * time.Minute)},
 		{Scenario: ScenarioConfig{Name: W2Diurnal, Nodes: 16}, Arm: ArmConfig{Name: ArmUnderutil}, ScaleDown: ScaleDownDeletionCost, Duration: D(150 * time.Minute)},
 		{Scenario: ScenarioConfig{Name: W1Fragmented, Nodes: 24}, Arm: ArmConfig{Name: ArmPipeline, Pipeline: &fine}, Duration: D(45 * time.Minute)},
+		{Scenario: ScenarioConfig{Name: W6Trace, Nodes: 20}, Arm: ArmConfig{Name: ArmUnderutil}, Duration: D(60 * time.Minute)},
 		// Strategy arms: random generation with shifts, each planner family and executor.
 		{Scenario: ScenarioConfig{Name: W2Diurnal, Nodes: 16}, Arm: strategyArm("random-greedy", "uniform-random",
 			pipeline.StageList{{Name: "random-merge", Params: pipeline.Params{"confirm": true}}, {Name: "random-shift"}}, "entropy-greedy", nil, "shift-evict"), Duration: D(150 * time.Minute)},

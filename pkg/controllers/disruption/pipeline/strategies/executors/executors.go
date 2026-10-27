@@ -48,6 +48,7 @@ import (
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	v1 "sigs.k8s.io/karpenter/pkg/apis/v1"
 	"sigs.k8s.io/karpenter/pkg/controllers/disruption"
 	"sigs.k8s.io/karpenter/pkg/controllers/disruption/pipeline"
 )
@@ -73,7 +74,7 @@ const (
 
 // ShiftSourceSinceAnnotationKey records when a node was tainted as a shift source, as RFC3339 on the injected clock.
 // The taint lapses taintTTL after it, so a source no move ever empties does not repel pods forever.
-const ShiftSourceSinceAnnotationKey = "consolidation.experimental.karpenter.sh/shift-source-since"
+const ShiftSourceSinceAnnotationKey = v1.ShiftSourceSinceAnnotationKey
 
 // Reasons recorded in Report.Reasons, so the decision log can count them.
 const (

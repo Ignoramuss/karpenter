@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
+	v1 "sigs.k8s.io/karpenter/pkg/apis/v1"
 	"sigs.k8s.io/karpenter/pkg/scheduling"
 )
 
@@ -184,7 +185,7 @@ func hasTopologyConstraints(p *corev1.Pod) bool {
 
 // VolumeZoneAnnotation lets synthetic workloads declare the zone their bound volume lives in; the simulator sets it
 // on pods with zonal persistent volumes. Full feasibility reads real PersistentVolumes instead.
-const VolumeZoneAnnotation = "simulation.karpenter.sh/volume-zone"
+const VolumeZoneAnnotation = v1.SimulatedVolumeZoneAnnotationKey
 
 func volumeZonesAllow(p *corev1.Pod, zone string) bool {
 	want, ok := p.Annotations[VolumeZoneAnnotation]

@@ -20,8 +20,11 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"path/filepath"
 	"sort"
 	"time"
+
+	"sigs.k8s.io/karpenter/pkg/controllers/disruption/pipeline/harness/catalog"
 )
 
 // ScenarioConfig picks a workload and its scale. Nodes sizes the workload so it needs roughly that many nodes at peak.
@@ -286,13 +289,20 @@ func pick[T any](c bool, a, b T) T {
 	return b
 }
 
-// traceReplay is W6. No public trace is bundled with the repository and the session's network policy does not reach
-// the trace hosts, so W6 needs a trace file (params.trace: CSV of start_seconds,end_seconds,cpu_millicores,memory_mib)
-// prepared by hack/consolidation-sim/traces; without one it fails, and the runner records the cell as skipped.
+// DefaultTrace is W6's bundled trace: a 3-hour window of the Google 2011 cluster trace (CC BY 4.0), derived by
+// hack/consolidation-sim/traces, which documents the mapping, the sampling and the attribution.
+const DefaultTrace = "hack/consolidation-sim/traces/google-2011-6h-9h.csv"
+
+// traceReplay is W6: tasks replayed from a trace file (params.trace: CSV of
+// start_seconds,end_seconds,cpu_millicores,memory_mib, relative to the repository root unless absolute; default
+// DefaultTrace), scaled to n nodes' demand.
 func traceReplay(cfg ScenarioConfig, n int, rng *rand.Rand, cat catalogView) (Workload, error) {
 	path, _ := cfg.Param["trace"].(string)
 	if path == "" {
-		return Workload{}, fmt.Errorf("scenario W6 needs params.trace (a CSV prepared by hack/consolidation-sim/traces)")
+		path = DefaultTrace
+	}
+	if !filepath.IsAbs(path) {
+		path = catalog.RepoPath(path)
 	}
 	return loadTrace(path, n, rng, cat)
 }

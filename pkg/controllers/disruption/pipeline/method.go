@@ -362,6 +362,7 @@ func (m *Method) round(ctx context.Context, snap Snapshot, sources, dests []Node
 		"moves": float64(len(moves)), "attempts": float64(attempts), "full_simulations": float64(full),
 		"timed_out": b2f(timedOut), "exhausted": b2f(exhausted)}})
 	if len(scored) == 0 {
+		m.idle(ctx)
 		return nil, false, false, nil
 	}
 	budgets := m.cycleBudgets(snap)
@@ -379,9 +380,7 @@ func (m *Method) round(ctx context.Context, snap Snapshot, sources, dests []Node
 		}
 	}
 	if len(plan.Moves) == 0 {
-		if idle, ok := m.executor.(IdleExecutor); ok {
-			idle.Idle(ctx)
-		}
+		m.idle(ctx)
 		return nil, false, plan.ConstrainedByBudgets, nil
 	}
 	report, err := m.executor.Execute(ctx, plan)
@@ -420,6 +419,13 @@ func (m *Method) noteEvictions(s Snapshot, mv Move) {
 		}
 		n, _ := s.Node(b.From)
 		m.evictions = append(m.evictions, eviction{at: now, pool: n.NodePool, owner: podsOf[b.From][b.Pod].Owner})
+	}
+}
+
+// idle gives the executor its housekeeping on a cycle that executes nothing.
+func (m *Method) idle(ctx context.Context) {
+	if idle, ok := m.executor.(IdleExecutor); ok {
+		idle.Idle(ctx)
 	}
 }
 
