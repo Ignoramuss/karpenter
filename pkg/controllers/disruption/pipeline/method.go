@@ -61,6 +61,9 @@ type Method struct {
 	evictions []eviction
 	// fullSims and timeouts accumulate search effort across cycles.
 	fullSims, timeouts int
+	// searchFeasibility is the Feasibility search budgets hand to generators; execFull wraps it for everything else.
+	searchFeasibility Feasibility
+	execFull          *countingFeasibility
 }
 
 type eviction struct {
@@ -110,10 +113,19 @@ func newMethod(env *Env, cfg Config, opts MethodOptions) (*Method, error) {
 	}
 	env.Potential = pot
 	env.Scorer = DefaultScorer{Potential: pot}
+	// Generators reach Full through the cycle's search budget, which counts and caps it; everything else that holds
+	// the env (executors confirming merges no generator confirmed) goes through a counter, so SearchTotals reports
+	// every simulation a cycle spends.
+	execFull := &countingFeasibility{Feasibility: env.Feasibility}
+	searchFeasibility := env.Feasibility
+	if env.Feasibility != nil {
+		env.Feasibility = execFull
+	}
 	env.Recorder = lo.Ternary[Recorder](opts.Recorder != nil, opts.Recorder, NopRecorder{})
 	env.Observer = opts.Observer
 	env.Steer = opts.Steer
-	m := &Method{cfg: cfg, env: env, rng: rand.New(rand.NewSource(cfg.Seed)), recorder: env.Recorder, runID: opts.RunID, start: env.Clock.Now()} //nolint:gosec
+	m := &Method{cfg: cfg, env: env, rng: rand.New(rand.NewSource(cfg.Seed)), recorder: env.Recorder, runID: opts.RunID, start: env.Clock.Now(), //nolint:gosec
+		searchFeasibility: searchFeasibility, execFull: execFull}
 	if m.selector, err = NewCandidateSelector(env, cfg.Candidates); err != nil {
 		return nil, err
 	}
@@ -133,8 +145,22 @@ func newMethod(env *Env, cfg Config, opts MethodOptions) (*Method, error) {
 	return m, nil
 }
 
-// SearchTotals returns the full scheduling simulations spent and the search timeouts hit, over every cycle so far.
-func (m *Method) SearchTotals() (fullSimulations, timeouts int) { return m.fullSims, m.timeouts }
+// SearchTotals returns the full scheduling simulations spent, in search and in execution, and the search timeouts
+// hit, over every cycle so far.
+func (m *Method) SearchTotals() (fullSimulations, timeouts int) {
+	return m.fullSims + m.execFull.calls, m.timeouts
+}
+
+// countingFeasibility counts Full calls.
+type countingFeasibility struct {
+	Feasibility
+	calls int
+}
+
+func (c *countingFeasibility) Full(ctx context.Context, s Snapshot, m Move) (Move, error) {
+	c.calls++
+	return c.Feasibility.Full(ctx, s, m)
+}
 
 // Env returns the strategies' environment, for harnesses.
 func (m *Method) Env() *Env { return m.env }
@@ -268,7 +294,7 @@ func (m *Method) searchBudget() *SearchBudget {
 	if fv, ok := m.planner.(FirstValid); ok {
 		b.StopAtFirst = fv.FirstValid()
 	}
-	b.Feasibility = m.env.Feasibility
+	b.Feasibility = m.searchFeasibility
 	b.Scorer = m.env.Scorer
 	return b
 }
@@ -309,7 +335,7 @@ func (m *Method) round(ctx context.Context, snap Snapshot, sources, dests []Node
 	budget := m.searchBudget()
 	var moves []Move
 	for _, g := range gens {
-		gm, err := g.Generate(ctx, snap, sources, dests, m.rng, budget)
+		gm, err := g.Generate(ctx, snap, sources, dests, m.rng, budget.Fork())
 		if err != nil {
 			return nil, false, false, fmt.Errorf("generating moves with %s, %w", g.Name(), err)
 		}
@@ -353,6 +379,9 @@ func (m *Method) round(ctx context.Context, snap Snapshot, sources, dests []Node
 		}
 	}
 	if len(plan.Moves) == 0 {
+		if idle, ok := m.executor.(IdleExecutor); ok {
+			idle.Idle(ctx)
+		}
 		return nil, false, plan.ConstrainedByBudgets, nil
 	}
 	report, err := m.executor.Execute(ctx, plan)
@@ -363,7 +392,11 @@ func (m *Method) round(ctx context.Context, snap Snapshot, sources, dests []Node
 	for _, sc := range plan.Moves {
 		m.record(moveEvent(StageExecute, m.executor.Name(), sc, executed[sc.ID], report.Reasons[sc.ID]))
 		if executed[sc.ID] {
-			m.noteEvictions(snap, sc.Move)
+			mv := sc.Move
+			if done, ok := report.Evicted[sc.ID]; ok {
+				mv.Bindings = done
+			}
+			m.noteEvictions(snap, mv)
 		}
 	}
 	cmds := make([]disruption.Command, 0, len(report.Commands))

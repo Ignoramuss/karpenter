@@ -1,0 +1,70 @@
+# Pilot (docs/research/PLAN.md, Phase 4 "Statistics"): W1 and W2 at 200 nodes, 5 calibration seeds (1-5), to
+# calibrate lambda, the annealing temperature and cooling, to estimate variance, and to time cells. Main runs use
+# fresh seeds (101 and up), so no evaluation seed is used for tuning.
+#
+#   go run ./hack/consolidation-sim matrix --matrix experiments/matrix/pilot.yaml --workers 4 --max-wall 20m
+name: pilot
+outDir: experiments/runs/pilot
+definitions:
+  common: &common
+    movesMode: pooled
+    executor: {name: shift-evict}
+    potential: {name: util-entropy}
+    search: {maxFullSimulations: 16, maxAttempts: 500}
+  heuristic: &heuristic
+    candidates: {name: upstream}
+    moves: [{name: upstream-multi, params: {mode: fine}}, {name: upstream-single, params: {mode: fine}}]
+  random: &random
+    candidates: {name: uniform-random, params: {sourceFraction: 0.25}}
+    moves: [{name: random-merge}, {name: random-shift}]
+base:
+  duration: 3h
+  scenario: {nodes: 200}
+groups:
+  - name: pilot-baselines
+    vary:
+      scenario.name: [W1, W2]
+      arm:
+        - {name: B2-when-empty-or-underutilized, label: B2}
+        - {name: B3-balanced, label: B3}
+      seed: {from: 1, to: 5}
+  - name: pilot-exp1
+    vary:
+      scenario.name: [W1, W2]
+      arm:
+        - name: pipeline
+          label: heuristic/savings-only
+          pipeline: {<<: [*common, *heuristic], planner: {name: savings-only}}
+        - name: pipeline
+          label: heuristic/entropy-greedy
+          pipeline: {<<: [*common, *heuristic], planner: {name: entropy-greedy, params: {lambda: 0.5}}}
+        - name: pipeline
+          label: heuristic/anneal-plan
+          pipeline: {<<: [*common, *heuristic], planner: {name: anneal-plan, params: {lambda: 0.5, t0: 0.3, cooling: 0.98, temperatureUnit: per-node}}}
+        - name: pipeline
+          label: random/savings-only
+          pipeline: {<<: [*common, *random], planner: {name: savings-only}}
+        - name: pipeline
+          label: random/entropy-greedy
+          pipeline: {<<: [*common, *random], planner: {name: entropy-greedy, params: {lambda: 0.5}}}
+        - name: pipeline
+          label: random/anneal-plan
+          pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.5, t0: 0.3, cooling: 0.98, temperatureUnit: per-node}}}
+      seed: {from: 1, to: 5}
+  - name: pilot-calibrate
+    vary:
+      scenario.name: [W1, W2]
+      arm:
+        - name: pipeline
+          label: random/entropy-greedy/lambda=0.1
+          pipeline: {<<: [*common, *random], planner: {name: entropy-greedy, params: {lambda: 0.1}}}
+        - name: pipeline
+          label: random/entropy-greedy/lambda=2
+          pipeline: {<<: [*common, *random], planner: {name: entropy-greedy, params: {lambda: 2}}}
+        - name: pipeline
+          label: random/anneal-plan/t0=0.1
+          pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.5, t0: 0.1, cooling: 0.98, temperatureUnit: per-node}}}
+        - name: pipeline
+          label: random/anneal-plan/t0=1
+          pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.5, t0: 1, cooling: 0.98, temperatureUnit: per-node}}}
+      seed: {from: 1, to: 5}

@@ -63,7 +63,8 @@ const (
 	// that executes a move ends the cycle. This is how the disruption controller runs multi-node then single-node
 	// consolidation, so the upstream configuration uses it.
 	Sequential MovesMode = "sequential"
-	// Pooled runs every generator against one shared search budget and plans over all their moves at once.
+	// Pooled runs every generator in one round and plans over all their moves at once. Each generator gets its own
+	// attempts; full simulations come from one pool for the cycle.
 	Pooled MovesMode = "pooled"
 )
 

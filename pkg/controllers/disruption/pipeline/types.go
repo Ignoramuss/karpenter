@@ -361,6 +361,10 @@ type Report struct {
 	Aborted     []string // move IDs abandoned, with reasons in Reasons
 	Reasons     map[string]string
 	PodsEvicted int
+	// Evicted lists, per executed move, the bindings whose pods the executor evicted itself when that is fewer than
+	// the move planned (a shift stopped by a PDB or skipping a pod). Eviction budgets charge these; a move without an
+	// entry is charged for every planned binding, as a merge handed to the queue eventually evicts them all.
+	Evicted map[string][]Binding
 	// Commands are the merges handed back to the disruption controller for the orchestration queue.
 	Commands []any
 }

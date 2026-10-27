@@ -47,12 +47,21 @@ func TestDeterminism(t *testing.T) {
 		{Scenario: ScenarioConfig{Name: W2Diurnal, Nodes: 16}, Arm: ArmConfig{Name: ArmDescheduler}, Placement: MostAllocated, Duration: D(150 * time.Minute)},
 		{Scenario: ScenarioConfig{Name: W2Diurnal, Nodes: 16}, Arm: ArmConfig{Name: ArmUnderutil}, ScaleDown: ScaleDownDeletionCost, Duration: D(150 * time.Minute)},
 		{Scenario: ScenarioConfig{Name: W1Fragmented, Nodes: 24}, Arm: ArmConfig{Name: ArmPipeline, Pipeline: &fine}, Duration: D(45 * time.Minute)},
+		// Strategy arms: random generation with shifts, each planner family and executor.
+		{Scenario: ScenarioConfig{Name: W2Diurnal, Nodes: 16}, Arm: strategyArm("random-greedy", "uniform-random",
+			pipeline.StageList{{Name: "random-merge", Params: pipeline.Params{"confirm": true}}, {Name: "random-shift"}}, "entropy-greedy", nil, "shift-evict"), Duration: D(150 * time.Minute)},
+		{Scenario: ScenarioConfig{Name: W4MixedShapes, Nodes: 20}, Arm: strategyArm("random-anneal-plan", "uniform-random",
+			pipeline.StageList{{Name: "random-merge"}, {Name: "random-shift"}, {Name: "swap"}}, "anneal-plan", pipeline.Params{"temperatureUnit": "per-node", "t0": 0.3}, "shift-evict"), Duration: D(45 * time.Minute)},
+		{Scenario: ScenarioConfig{Name: W2Diurnal, Nodes: 16}, Arm: strategyArm("band-sequence-steered", "util-band",
+			pipeline.StageList{{Name: "greedy-shift"}, {Name: "random-merge"}}, "sequence", nil, "steered"), Duration: D(150 * time.Minute)},
+		{Scenario: ScenarioConfig{Name: W5Constrained, Nodes: 16}, Arm: strategyArm("weighted-online-mbb", "potential-weighted",
+			pipeline.StageList{{Name: "random-merge"}, {Name: "random-shift"}}, "anneal-online", nil, "make-before-break"), Duration: D(150 * time.Minute)},
 	}
 	filter := os.Getenv("DETERMINISM_CASES")
 	for i, c := range cases {
 		c.Seed = int64(11 + i)
 		c.RunID = "determinism"
-		name := fmt.Sprintf("%s-%d-%s-%s", c.Scenario.Name, c.Scenario.Nodes, c.Arm.Name, c.ScaleDown)
+		name := fmt.Sprintf("%s-%d-%s-%s", c.Scenario.Name, c.Scenario.Nodes, pick(c.Arm.Label != "", c.Arm.Label, c.Arm.Name), c.ScaleDown)
 		if filter != "" && !strings.Contains(name, filter) {
 			continue
 		}
@@ -97,4 +106,13 @@ func firstDiff(a, b []byte) int {
 		}
 	}
 	return min(len(a), len(b))
+}
+
+// strategyArm is a pooled pipeline arm over the util-entropy potential.
+func strategyArm(label, candidates string, moves pipeline.StageList, planner string, plannerParams pipeline.Params, executor string) ArmConfig {
+	return ArmConfig{Name: ArmPipeline, Label: label, Pipeline: &pipeline.Config{
+		Candidates: pipeline.StageConfig{Name: candidates}, Moves: moves, MovesMode: pipeline.Pooled,
+		Planner: pipeline.StageConfig{Name: planner, Params: plannerParams}, Executor: pipeline.StageConfig{Name: executor},
+		Potential: pipeline.StageConfig{Name: "util-entropy"}, Search: pipeline.SearchConfig{MaxFullSimulations: 16, MaxAttempts: 300},
+	}}
 }

@@ -104,3 +104,43 @@ Every decision taken without asking, every fallback, and every blocked host, in 
     check. Zone spread remains available as a scenario parameter, documented as nondeterministic.
   - `EmptinessValidator` returns a validated command's candidates in `GetCandidates` (map) order. The order has no
     effect beyond logs; the simulator sorts sources when it logs upstream commands.
+- **Scenario scale.** `scenario.nodes = n` sizes every workload as the demand of n mid-size nodes (the catalog's
+  3.5-16 vCPU types) at 70% fill. W1 and W4 start with exactly n nodes; W2, W3 and W5 are provisioned by Karpenter,
+  which packs whole batches into large (up to 32 vCPU) nodes, so their node counts are lower: at n = 200, W2 peaked at
+  44 nodes and W3 at 124. Every summary reports `peak_nodes` and `final_nodes`, and figures that plot against cluster
+  size (Exp 7) use the measured node count, not n.
+- **Cell timing, B2, seed 1, 3 h horizon, one core.** W1 at 200: 236 s wall (consolidation converges by minute 80,
+  156 nodes removed); W2 at 200: 146 s; W3 at 200: 862 s (batch churn keeps consolidation busy all run). A CPU
+  profile of W1 at 200 puts half the time in single-node consolidation's per-candidate `SimulateScheduling`, which
+  deep-copies every StateNode (`Cluster.DeepCopyNodes`, 28%) and rebuilds the scheduler (22%) for each candidate, so a
+  pass costs O(n^2) at convergence. Pipeline arms cap full simulations per cycle (`search.maxFullSimulations`), so
+  they cost far less than B2 and B3 at 1,000 nodes.
+- **Annealing temperature unit.** Energies are normalized by NodePool totals, so a move's |dE| shrinks as 1/n. The
+  annealing planners gained `temperatureUnit: per-node` (temperature divided by the root node count); experiments use
+  it so one t0 means the same acceptance odds at every scale.
+- **Strategy details fixed by the Phase 3 implementations.** Generators cap a `Generate` call at 1,000 attempts when
+  `search.maxAttempts` is 0, since the simulator's clock does not advance during generation and a deadline alone
+  cannot stop it. `random-shift` with `full: true` emits Fast-only moves once the Full budget is spent. Energy
+  planners track PDB allowances across all moves of a plan and decline any move that touches a do-not-disrupt pod or
+  node; the upstream planners (P0, P0b) keep upstream's behavior. No session workload except W5 has PDBs, so Exp 1 is
+  unaffected by the difference.
+- **Push via the GitHub API is refused too.** The GitHub MCP tools can read the fork, but creating the branch
+  returns `403 Resource not accessible by integration`, so commits stay on the local branch.
+- **Executors and three fixes found by the first end-to-end runs.** E1-E3 (`shift-evict`, `steered`,
+  `make-before-break`) landed; smoke runs of complete arms (W2, 60 nodes) then showed:
+  - In pooled mode every generator drew on one attempt counter, so `random-merge` spent all attempts and
+    `random-shift` never ran. Each generator now gets its own attempts (`SearchBudget.Fork`); full simulations stay
+    one shared pool per cycle, which is what Exp 1 holds equal.
+  - Merges `random-merge` placed by first-fit passed Fast but 16 of 35 failed Karpenter's simulation at execution
+    ("simulation found no consolidation"): the simulation also reschedules pods of in-flight commands, which the
+    snapshot does not reserve room for. `random-merge` gained `confirm: true` (every emitted merge confirmed by Full,
+    one simulation each, within the cycle's cap), and experiments use it, so random and heuristic arms both hand the
+    planner only confirmed merges and spend the same full-simulation budget. With it, execution failures fell to
+    validation churn (3 of 18).
+  - Full simulations executors run (confirming merges no generator confirmed) bypassed the search budget; they are
+    now counted, so `full_simulations` in every summary covers search and execution.
+  - Eviction budgets charged every planned binding of an executed shift, even pods a PDB refusal stopped; reports
+    now carry the bindings actually evicted. Executors also lift expired shift-source taints on idle cycles.
+- **Determinism, strategy arms.** `TestDeterminism` gained four strategy arms (random generation with entropy-greedy
+  and E1; anneal-plan with swap; util-band with greedy-shift, the sequence planner and E2; potential-weighted with
+  anneal-online and E3 on W5); all thirteen cases are byte-identical across runs.

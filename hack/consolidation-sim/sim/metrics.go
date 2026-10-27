@@ -398,6 +398,7 @@ func (c *collector) writeTimeseries(w io.Writer) error {
 // Summary is a run's outcome. Fields prefixed Wall are wall-clock measurements and the only nondeterministic ones.
 type Summary struct {
 	RunID               string         `json:"run_id"`
+	Label               string         `json:"label"`
 	Arm                 string         `json:"arm"`
 	Scenario            string         `json:"scenario"`
 	Nodes               int            `json:"scenario_nodes"`
@@ -452,7 +453,7 @@ type Summary struct {
 
 func (c *collector) summary(s *Sim) Summary {
 	c.advanceCost()
-	sum := Summary{RunID: s.cfg.RunID, Arm: armLabel(s.cfg.Arm), Scenario: s.cfg.Scenario.Name, Nodes: s.cfg.Scenario.Nodes, Seed: s.cfg.Seed,
+	sum := Summary{RunID: s.cfg.RunID, Label: pick(s.cfg.Arm.Label != "", s.cfg.Arm.Label, armLabel(s.cfg.Arm)), Arm: armLabel(s.cfg.Arm), Scenario: s.cfg.Scenario.Name, Nodes: s.cfg.Scenario.Nodes, Seed: s.cfg.Seed,
 		Placement: s.cfg.Placement, ScaleDown: s.cfg.ScaleDown, SimMinutes: s.now().Sub(s.start).Minutes(),
 		IntegratedCost: c.costIntegral, IntegratedCostPost: c.costPost, FinalNodes: len(s.nodes), NodesRemoved: c.nodesRemoved,
 		Evictions: len(c.evictions), EvictionsBy: c.evictionsBy, EvictionCost: c.evictionCost, ReDisruptions: c.reDisruptions,

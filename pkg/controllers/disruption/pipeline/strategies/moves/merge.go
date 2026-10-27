@@ -37,6 +37,10 @@ type randomMergeParams struct {
 	Launch *bool `json:"launch"`
 	// MaxMoves caps the moves one Generate call emits. Default 50.
 	MaxMoves *int `json:"maxMoves"`
+	// Confirm sends every merge through Full feasibility before emitting it, first-fit placed or not, so only merges
+	// Karpenter's scheduler confirms reach the planner, each at the cost of one Full simulation. Default false: a
+	// first-fit merge is emitted on Fast alone and the executor confirms it if it runs.
+	Confirm *bool `json:"confirm"`
 }
 
 func newRandomMerge(_ *pipeline.Env, p pipeline.Params) (pipeline.MoveGenerator, error) {
@@ -47,6 +51,9 @@ func newRandomMerge(_ *pipeline.Env, p pipeline.Params) (pipeline.MoveGenerator,
 	g := &randomMerge{launch: true, own: &pipeline.FastChecker{}, ids: ids{prefix: randomMergeName}}
 	if raw.Launch != nil {
 		g.launch = *raw.Launch
+	}
+	if raw.Confirm != nil {
+		g.confirm = *raw.Confirm
 	}
 	var err error
 	if g.maxSources, err = positiveInt(randomMergeName, "maxSources", raw.MaxSources, 3); err != nil {
@@ -65,6 +72,7 @@ func newRandomMerge(_ *pipeline.Env, p pipeline.Params) (pipeline.MoveGenerator,
 type randomMerge struct {
 	maxSources int
 	launch     bool
+	confirm    bool
 	maxMoves   int
 	own        *pipeline.FastChecker
 	ids        ids
@@ -132,20 +140,23 @@ func (g *randomMerge) Generate(ctx context.Context, s pipeline.Snapshot, sources
 		if emitted[key] || !st.pdbAllows(set) {
 			continue
 		}
-		if m, ok := st.firstFit(set, rng); ok && fast(s, m) == nil {
-			emit(m, key)
+		placed, ok := st.firstFit(set, rng)
+		fits := ok && fast(s, placed) == nil
+		if fits && !g.confirm {
+			emit(placed, key)
 			continue
 		}
 		// A set first-fit could not place, or placed in a way Fast rejects (anti-affinity among pods landing together),
-		// may still merge where Karpenter's scheduler puts it, possibly onto one replacement. Full is deterministic on a
-		// fixed snapshot, so a set it already judged is not simulated again.
-		if !g.launch || b.Feasibility == nil || simulated[key] || !b.UseFull() {
+		// may still merge where Karpenter's scheduler puts it, possibly onto one replacement; with confirm, a set it did
+		// place is checked the same way. Full is deterministic on a fixed snapshot, so a set it already judged is not
+		// simulated again.
+		if (!fits && !g.launch) || b.Feasibility == nil || simulated[key] || !b.UseFull() {
 			continue
 		}
 		simulated[key] = true
 		probe := pipeline.Move{Kind: pipeline.Merge, Sources: set, Remove: append([]string(nil), set...), Generator: g.Name()}
 		m, err := b.Feasibility.Full(ctx, s, probe)
-		if err != nil || m.Kind != pipeline.Merge || !sameNodes(m.Sources, set) || !sameNodes(m.Remove, set) {
+		if err != nil || m.Kind != pipeline.Merge || !sameNodes(m.Sources, set) || !sameNodes(m.Remove, set) || (!g.launch && len(m.Launch) > 0) {
 			continue
 		}
 		m.Sources, m.Remove = set, append([]string(nil), set...)

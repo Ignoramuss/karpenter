@@ -21,6 +21,8 @@ package all
 import (
 	// Stage 1 selectors: uniform-random, util-band, potential-weighted.
 	_ "sigs.k8s.io/karpenter/pkg/controllers/disruption/pipeline/strategies/candidates"
+	// Stage 4 executors: shift-evict, steered, make-before-break.
+	_ "sigs.k8s.io/karpenter/pkg/controllers/disruption/pipeline/strategies/executors"
 	// Stage 2 generators: random-merge, random-shift, greedy-shift, swap.
 	_ "sigs.k8s.io/karpenter/pkg/controllers/disruption/pipeline/strategies/moves"
 	// Stage 3 planners: entropy-greedy, anneal-plan, anneal-online, sequence.

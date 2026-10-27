@@ -74,6 +74,9 @@ const (
 // ArmConfig selects the consolidation under test.
 type ArmConfig struct {
 	Name string `json:"name"`
+	// Label names the configuration under test for analysis (for example "random/entropy-greedy"); it has no effect on
+	// the run. Summaries fall back to the arm name.
+	Label string `json:"label,omitempty"`
 	// Policy is the NodePool consolidation policy; baselines set it, pipeline arms default to
 	// WhenEmptyOrUnderutilized.
 	Policy string `json:"policy,omitempty"`

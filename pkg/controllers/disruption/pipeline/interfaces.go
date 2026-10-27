@@ -89,6 +89,12 @@ type Executor interface {
 	Execute(ctx context.Context, p Plan) (Report, error)
 }
 
+// IdleExecutor is implemented by executors with housekeeping to do on cycles that execute nothing, such as lifting
+// expired shift-source taints.
+type IdleExecutor interface {
+	Idle(ctx context.Context)
+}
+
 // Potential is a scalar function of cluster state whose decrease consolidation pursues.
 type Potential interface {
 	Name() string
@@ -133,9 +139,11 @@ type SearchBudget struct {
 	c *budgetCounters
 }
 
+// budgetCounters are shared by every fork of a budget; attempts are per fork, so each generator of a cycle gets
+// MaxAttempts of its own while full simulations draw on one cycle-wide pool.
 type budgetCounters struct {
 	mu        sync.Mutex
-	attempts  int
+	attempts  map[*SearchBudget]int
 	full      int
 	timedOut  bool
 	exhausted bool
@@ -144,6 +152,15 @@ type budgetCounters struct {
 // NewSearchBudget returns a budget with fresh counters.
 func NewSearchBudget(maxAttempts, maxFull int, deadline time.Time, clk clock.Clock) *SearchBudget {
 	return &SearchBudget{MaxAttempts: maxAttempts, MaxFull: maxFull, Deadline: deadline, Clock: clk, c: &budgetCounters{}}
+}
+
+// Fork returns a budget with the same limits and its own attempt count that shares this budget's full simulations,
+// deadline and stop flags. The pipeline forks the cycle's budget per generator, so a generator that spends every
+// attempt cannot starve the ones after it, while all of them stay within one full-simulation cap.
+func (b *SearchBudget) Fork() *SearchBudget {
+	f := *b
+	f.c = b.counters()
+	return &f
 }
 
 func (b *SearchBudget) counters() *budgetCounters {
@@ -169,11 +186,14 @@ func (b *SearchBudget) Next() bool {
 		c.timedOut = true
 		return false
 	}
-	if b.MaxAttempts > 0 && c.attempts >= b.MaxAttempts {
+	if c.attempts == nil {
+		c.attempts = map[*SearchBudget]int{}
+	}
+	if b.MaxAttempts > 0 && c.attempts[b] >= b.MaxAttempts {
 		c.exhausted = true
 		return false
 	}
-	c.attempts++
+	c.attempts[b]++
 	return true
 }
 
@@ -194,12 +214,16 @@ func (b *SearchBudget) UseFull() bool {
 	return true
 }
 
-// Stats returns attempts and full simulations used, and whether search stopped on the deadline or a cap.
+// Stats returns attempts (over every fork) and full simulations used, and whether search stopped on the deadline or
+// a cap.
 func (b *SearchBudget) Stats() (attempts, full int, timedOut, exhausted bool) {
 	c := b.counters()
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.attempts, c.full, c.timedOut, c.exhausted
+	for _, n := range c.attempts {
+		attempts += n
+	}
+	return attempts, c.full, c.timedOut, c.exhausted
 }
 
 // Stage names, as recorded in the decision log.
