@@ -220,3 +220,15 @@ Every decision taken without asking, every fallback, and every blocked host, in 
     apart from invalid runs; identical configurations across groups serve as a cross-group determinism check.
   The analysis code is being aligned with these rules (one writer, then an independent verifier) before the Gate 3
   commit.
+- **Gate 3.** The preregistration was finalized in `c78b5f95063c1995b10fa6d66571a16d0a32b243`, before any
+  evaluation-seed run. The session binary was built from a clean clone checked out at that commit
+  (`vcs.revision=c78b5f9...`, `vcs.modified=false`; a `git worktree` checkout does not get Go's VCS stamp, so a
+  clone was used) and its revision written to `experiments/session-binary.txt`. `TestDeterminism` passed at that
+  commit, all 14 cases, before the first session cell. The analysis code was still being aligned with the final
+  rules (`paper/analysis`, one writer and an independent verifier); those commits follow and change code only toward
+  the preregistered text.
+- **10,000-state parity, first chunk.** WhenEmptyOrUnderutilized on the KWOK catalog, coarse and fine adapters:
+  10,000/10,000 each (upstream decided on 9,141 states and disagreed with itself on 228 multi-NodePool states, all
+  resolved within the observed decision set; `experiments/parity/chunks/`). The run was stopped when the session
+  started, so it would not perturb the decision-cost measurements; the remaining policy and catalog cells run as
+  separate chunks after the session.
