@@ -40,6 +40,9 @@ import (
 	"sigs.k8s.io/karpenter/pkg/controllers/capacitybuffer"
 	"sigs.k8s.io/karpenter/pkg/controllers/disruption"
 	"sigs.k8s.io/karpenter/pkg/controllers/disruption/pipeline"
+
+	// Registers the pipeline strategies a --consolidation-pipeline-config may name.
+	_ "sigs.k8s.io/karpenter/pkg/controllers/disruption/pipeline/strategies/all"
 	"sigs.k8s.io/karpenter/pkg/controllers/dynamicresources/deviceallocation"
 	metricsnode "sigs.k8s.io/karpenter/pkg/controllers/metrics/node"
 	metricsnodepool "sigs.k8s.io/karpenter/pkg/controllers/metrics/nodepool"

@@ -23,6 +23,7 @@ import (
 
 	"sigs.k8s.io/karpenter/pkg/controllers/disruption/pipeline"
 	"sigs.k8s.io/karpenter/pkg/controllers/disruption/pipeline/harness/catalog"
+	_ "sigs.k8s.io/karpenter/pkg/controllers/disruption/pipeline/strategies/all"
 )
 
 // Duration is a time.Duration that reads and writes as a string ("90s", "4h").

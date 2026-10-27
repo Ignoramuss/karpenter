@@ -23,6 +23,7 @@ import (
 
 	"sigs.k8s.io/karpenter/pkg/controllers/disruption/pipeline"
 	"sigs.k8s.io/karpenter/pkg/controllers/disruption/pipeline/conformance"
+	_ "sigs.k8s.io/karpenter/pkg/controllers/disruption/pipeline/strategies/all"
 )
 
 // Property tests for the shared services, plus the registry-wide conformance run: every registered strategy that

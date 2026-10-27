@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -99,8 +100,8 @@ type Config struct {
 	Executor   StageConfig  `json:"executor"`
 	Potential  StageConfig  `json:"potential"`
 	Seed       int64        `json:"seed"`
-	Search     SearchConfig `json:"search,omitempty"`
-	Budgets    BudgetConfig `json:"budgets,omitempty"`
+	Search     SearchConfig `json:"search,omitzero"`
+	Budgets    BudgetConfig `json:"budgets,omitzero"`
 }
 
 // DefaultConfig reproduces upstream consolidation: upstream candidates, multi-node then single-node consolidation as
@@ -157,10 +158,8 @@ func (c Config) Validate() error {
 	}
 	reg := Registered()
 	check := func(stage string, name string) error {
-		for _, n := range reg[stage] {
-			if n == name {
-				return nil
-			}
+		if slices.Contains(reg[stage], name) {
+			return nil
 		}
 		return fmt.Errorf("unknown %s strategy %q (registered: %v)", stage, name, reg[stage])
 	}
