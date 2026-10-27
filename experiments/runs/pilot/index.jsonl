@@ -58,3 +58,4 @@
 {"run_id":"pilot-exp1__arm-heuristic-anneal-plan_scenario-w2_seed-2__e70e4dbf","group":"pilot-exp1","status":"done","exit_code":0,"wall_seconds":242.839,"finished_at":"2026-10-27T18:35:47.024717328Z","attempt":1}
 {"run_id":"pilot-exp1__arm-heuristic-anneal-plan_scenario-w2_seed-1__a91236e1","group":"pilot-exp1","status":"done","exit_code":0,"wall_seconds":540.59,"finished_at":"2026-10-27T18:39:25.172962708Z","attempt":1}
 {"run_id":"pilot-exp1__arm-heuristic-anneal-plan_scenario-w2_seed-4__c32b9f28","group":"pilot-exp1","status":"done","exit_code":0,"wall_seconds":310.825,"finished_at":"2026-10-27T18:40:57.850057286Z","attempt":1}
+{"run_id":"pilot-exp1__arm-random-savings-only_scenario-w1_seed-1__4778860d","group":"pilot-exp1","status":"done","exit_code":0,"wall_seconds":169.676,"finished_at":"2026-10-27T18:43:47.526307148Z","attempt":1}
