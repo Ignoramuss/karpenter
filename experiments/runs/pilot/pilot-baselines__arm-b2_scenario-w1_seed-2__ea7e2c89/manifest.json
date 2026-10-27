@@ -1,0 +1,61 @@
+{
+  "run_id": "pilot-baselines__arm-b2_scenario-w1_seed-2__ea7e2c89",
+  "git_sha": "c3e9e354f59dacb1c4009dd76b72d0fc079a8f5a",
+  "git_dirty": false,
+  "config": {
+    "runID": "pilot-baselines__arm-b2_scenario-w1_seed-2__ea7e2c89",
+    "seed": 2,
+    "scenario": {
+      "name": "W1",
+      "nodes": 200
+    },
+    "arm": {
+      "name": "B2-when-empty-or-underutilized",
+      "label": "B2"
+    },
+    "placement": "least-allocated",
+    "scaleDown": "spread",
+    "duration": "3h0m0s",
+    "warmup": "10m0s",
+    "metricsInterval": "1m0s",
+    "catalog": {
+      "path": "",
+      "families": null,
+      "capacityTypes": null,
+      "zones": null,
+      "maxCPU": 32
+    },
+    "consolidateAfter": "30s",
+    "budget": "10%",
+    "latency": {
+      "launch": {
+        "min": "2s",
+        "max": "5s"
+      },
+      "registration": {
+        "min": "30s",
+        "max": "1m0s"
+      },
+      "podStartup": {
+        "min": "2s",
+        "max": "10s"
+      },
+      "podShutdown": {
+        "min": "1s",
+        "max": "5s"
+      }
+    },
+    "maxWall": "0s"
+  },
+  "seed": 2,
+  "scenario": "W1",
+  "environment": {
+    "go_version": "go1.26.10",
+    "os": "linux",
+    "arch": "amd64",
+    "cpus": 4,
+    "hostname": "vm"
+  },
+  "started_at": "2026-10-27T17:38:47.755457404Z",
+  "finished_at": "2026-10-27T17:43:13.797080867Z"
+}

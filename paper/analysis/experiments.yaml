@@ -1,0 +1,365 @@
+# Experiment registry for the paper's analyses (docs/research/PLAN.md "Phase 4"; experiments/PREREGISTRATION.md).
+# paper/analysis/common.py loads this file into common.EXPERIMENTS; analysis modules select runs with
+# common.select_runs(runs, "<key>") and expand comparisons with common.comparisons("<key>").
+#
+# Schema, per experiment key (exp1..exp8, abl):
+#   title:             short description
+#   hypothesis:        H1..H7, or null for descriptive experiments
+#   groups:            session group names (experiments/matrix/session.yaml) whose runs belong to the experiment.
+#                      The ANALYSIS_GROUP_MAP environment variable (a JSON object, session group -> pilot group or
+#                      list of groups) remaps them, so the same analyses run on the pilot.
+#   scenarios, nodes:  the workloads and scenario.nodes values the experiment covers (descriptive: display order)
+#   select:            optional hard row filter {column: [allowed values]}, applied by select_runs after the groups
+#   labels:            the configuration labels under test, in display order
+#   baselines:         reference configuration labels (B0..B5) shown alongside, in display order
+#   primary_metric:    a load_runs column, or the name of a metric the owning module derives (documented in params)
+#   secondary_metrics: further load_runs columns the experiment reports
+#   pair_keys:         columns that pair runs across arms (default [scenario, nodes, seed])
+#   comparisons:       list of paired comparisons, each:
+#       name:          display name ({placeholders} filled from foreach)
+#       family:        Holm family; p-values are adjusted within one family (default: the experiment key)
+#       test:          tost (equivalence, H1) or wilcoxon (two-sided signed-rank)
+#       metric:        load_runs column compared
+#       a, b:          arm selectors: a label string, or {column: value} filters (label, placement, scale_down, ...).
+#                      Differences are a - b; b is the reference (its mean is the denominator of percent effects).
+#       by:            columns that split the comparison into strata, one test per stratum (e.g. [scenario, nodes])
+#       where:         optional {column: [values]} filter applied before stratifying
+#       margin:        TOST equivalence margin; margin_type relative (fraction of b's mean over the pairs) or absolute
+#       expect:        expected direction of a - b for the verdict: lower, higher, not_higher, not_lower, equal
+#       foreach:       optional {placeholder: [values]}; the comparison is repeated for every combination (cartesian
+#                      product, in the listed order) with {placeholder} substituted in every string field
+#   params:            experiment-specific settings the owning module reads
+experiments:
+  exp1:
+    title: Random vs heuristic generation under three planners
+    hypothesis: H1
+    groups: [exp1-n200, exp1-n1000, exp1-baselines-n200, exp1-baselines-n1000]
+    scenarios: [W1, W2, W4]
+    nodes: [200, 1000]
+    labels:
+      - heuristic/savings-only
+      - heuristic/entropy-greedy
+      - heuristic/anneal-plan
+      - random/savings-only
+      - random/entropy-greedy
+      - random/anneal-plan
+    baselines: [B2, B3]
+    primary_metric: steady_cost_per_hour
+    secondary_metrics: [integrated_cost_post, final_nodes, evictions, eviction_cost, full_simulations, fidelity]
+    pair_keys: [scenario, nodes, seed]
+    comparisons:
+      # Preregistered H1 family: 2 planners x 3 scenarios x 2 scales = 12 TOST tests, Holm over the 12.
+      - name: "random vs heuristic, {planner}"
+        family: H1
+        foreach: {planner: [entropy-greedy, anneal-plan]}
+        test: tost
+        metric: steady_cost_per_hour
+        a: "random/{planner}"
+        b: "heuristic/{planner}"
+        by: [scenario, nodes]
+        margin: 0.03
+        margin_type: relative
+        expect: equal
+      # Savings-only (P0) pairs: a reported contrast in their own Holm family.
+      - name: "random vs heuristic, {planner}"
+        family: H1-P0-contrast
+        foreach: {planner: [savings-only]}
+        test: tost
+        metric: steady_cost_per_hour
+        a: "random/{planner}"
+        b: "heuristic/{planner}"
+        by: [scenario, nodes]
+        margin: 0.03
+        margin_type: relative
+        expect: equal
+    params:
+      # Exp 1 reports early (first hour after warmup) and late (last 20%) phases separately.
+      warmup_min: 10
+      early_window_min: [10, 70]
+      late_fraction: 0.2
+      # H1 holds if at least this many of the 12 H1 tests are equivalent after Holm and none has its 90% CI lower
+      # bound above +margin (random worse by more than the margin).
+      h1_min_equivalent: 10
+      h1_tests: 12
+
+  exp2:
+    title: Potential drop as a lead indicator of node removals and cost decrease
+    hypothesis: H2
+    groups:
+      - exp1-n200
+      - exp1-baselines-n200
+      - exp1-n1000
+      - exp1-baselines-n1000
+      - exp6
+      - exp6-baselines
+      - exp6-b5
+      - exp5
+      - exp5-steered
+      - exp3
+      - abl
+    select: {scenario: [W2, W3]}
+    scenarios: [W2, W3]
+    nodes: [200, 1000]
+    labels: []
+    baselines: []
+    primary_metric: spearman_lead   # derived per run: Spearman of -dPhi (window w) with removals in window w+1
+    secondary_metrics: []
+    pair_keys: [scenario, nodes, seed]
+    comparisons: []
+    params:
+      potentials: {P1: p1_load_entropy, P2: p2_util_entropy, P3: p3_quadratic}
+      outcomes: {removals: nodes_removed_cum, cost_decrease: cost_per_hour}
+      window_min: 10
+      sensitivity_windows_min: [5, 20]
+      warmup_min: 10
+      # Sign test that the share of positive per-run correlations exceeds one half; Holm over potentials x scenarios.
+      holm_family: potentials x scenarios
+
+  exp3:
+    title: Merge-only vs merge plus shift at equal pod-eviction budgets
+    hypothesis: H3
+    groups: [exp3]
+    scenarios: [W2, W3]
+    nodes: [200]
+    labels: [merge-only/budget-lo, merge+shift/budget-lo, merge-only/budget-hi, merge+shift/budget-hi]
+    baselines: []
+    primary_metric: integrated_cost_post
+    secondary_metrics: [steady_cost_per_hour, evictions, eviction_cost, final_nodes]
+    pair_keys: [scenario, nodes, seed]
+    comparisons:
+      - name: "merge+shift vs merge-only, budget-{budget}"
+        family: H3
+        foreach: {budget: [lo, hi]}
+        test: wilcoxon
+        metric: integrated_cost_post
+        a: "merge+shift/budget-{budget}"
+        b: "merge-only/budget-{budget}"
+        by: [scenario, nodes]
+        expect: lower
+      # Descriptive check that the eviction budget held both arms to comparable disruption.
+      - name: "merge+shift vs merge-only, budget-{budget}, evictions"
+        family: H3-evictions
+        foreach: {budget: [lo, hi]}
+        test: wilcoxon
+        metric: evictions
+        a: "merge+shift/budget-{budget}"
+        b: "merge-only/budget-{budget}"
+        by: [scenario, nodes]
+    params:
+      budgets_pods_per_minute: {lo: 10, hi: 20}
+
+  exp4:
+    title: Greedy vs plan-time vs online annealing
+    hypothesis: H4
+    groups: [exp4]
+    scenarios: [W1, W4]
+    nodes: [200]
+    labels:
+      - entropy-greedy
+      - anneal-plan/t0=0.1/cooling=0.95
+      - anneal-plan/t0=0.3/cooling=0.95
+      - anneal-plan/t0=1/cooling=0.95
+      - anneal-plan/t0=0.1/cooling=0.98
+      - anneal-plan/t0=0.3/cooling=0.98
+      - anneal-plan/t0=1/cooling=0.98
+      - anneal-online/t0=0.1
+      - anneal-online/t0=0.3
+      - anneal-online/t0=1
+    baselines: []
+    primary_metric: steady_cost_per_hour
+    secondary_metrics: [evictions, eviction_cost, integrated_cost_post, final_nodes]
+    pair_keys: [scenario, nodes, seed]
+    comparisons:
+      # The preregistered anneal-plan configuration (the one Exp 1 uses) against greedy: cheaper or equal, and no more
+      # evictions.
+      - name: "anneal-plan default vs entropy-greedy, {metric}"
+        family: H4
+        foreach: {metric: [steady_cost_per_hour, evictions]}
+        test: wilcoxon
+        metric: "{metric}"
+        a: anneal-plan/t0=0.3/cooling=0.98
+        b: entropy-greedy
+        by: [scenario, nodes]
+        expect: not_higher
+      # Online annealing pays disruption (more evictions) for little gain (cost not significantly lower).
+      - name: "anneal-online t0={t0} vs entropy-greedy, evictions"
+        family: H4
+        foreach: {t0: [0.1, 0.3, 1]}
+        test: wilcoxon
+        metric: evictions
+        a: "anneal-online/t0={t0}"
+        b: entropy-greedy
+        by: [scenario, nodes]
+        expect: higher
+      - name: "anneal-online t0={t0} vs entropy-greedy, steady_cost_per_hour"
+        family: H4
+        foreach: {t0: [0.1, 0.3, 1]}
+        test: wilcoxon
+        metric: steady_cost_per_hour
+        a: "anneal-online/t0={t0}"
+        b: entropy-greedy
+        by: [scenario, nodes]
+        expect: not_lower
+    params:
+      default_anneal_label: anneal-plan/t0=0.3/cooling=0.98
+      greedy_label: entropy-greedy
+      sweep: {t0: [0.1, 0.3, 1], cooling: [0.95, 0.98]}
+
+  exp5:
+    title: Plan fidelity by placement model and scale-down model
+    hypothesis: H5
+    groups: [exp5, exp5-steered]
+    scenarios: [W2]
+    nodes: [200]
+    labels: [random/entropy-greedy, random/entropy-greedy/steered]
+    baselines: [B2]
+    primary_metric: fidelity
+    secondary_metrics: [predicted_delta_p2, realized_delta_p2, steady_cost_per_hour, evictions]
+    pair_keys: [scenario, nodes, seed]
+    comparisons:
+      - name: "most- vs least-allocated, {label}"
+        family: H5
+        foreach: {label: [random/entropy-greedy, B2]}
+        test: wilcoxon
+        metric: fidelity
+        a: {label: "{label}", placement: most-allocated}
+        b: {label: "{label}", placement: least-allocated}
+        by: [scenario, nodes, scale_down]
+        expect: higher
+      - name: "deletion-cost vs spread, {label}"
+        family: H5
+        foreach: {label: [random/entropy-greedy, B2]}
+        test: wilcoxon
+        metric: fidelity
+        a: {label: "{label}", scale_down: deletion-cost}
+        b: {label: "{label}", scale_down: spread}
+        by: [scenario, nodes, placement]
+        expect: higher
+      - name: "steered vs unsteered, least-allocated"
+        family: H5
+        test: wilcoxon
+        metric: fidelity
+        a: {label: random/entropy-greedy/steered, placement: least-allocated}
+        b: {label: random/entropy-greedy, placement: least-allocated}
+        by: [scenario, nodes, scale_down]
+        expect: higher
+    params:
+      placements: [least-allocated, most-allocated, plan-following]
+      scale_downs: [spread, deletion-cost]
+      oracle_placement: plan-following   # fidelity should be near 1 here
+
+  exp6:
+    title: Savings vs disruption frontier from a lambda sweep, against upstream operating points
+    hypothesis: H6
+    groups: [exp6, exp6-baselines, exp6-b5]
+    scenarios: [W2, W3]
+    nodes: [200]
+    labels:
+      - random/entropy-greedy/lambda=0.05
+      - random/entropy-greedy/lambda=0.1
+      - random/entropy-greedy/lambda=0.2
+      - random/entropy-greedy/lambda=0.5
+      - random/entropy-greedy/lambda=1
+      - random/entropy-greedy/lambda=2
+      - random/entropy-greedy/lambda=5
+    baselines: [B0, B2, B3, B5]
+    primary_metric: savings_vs_b0   # derived per seed: B0 integrated_cost_post minus the run's ($)
+    secondary_metrics: [eviction_cost, evictions, steady_cost_per_hour]
+    pair_keys: [scenario, nodes, seed]
+    comparisons: []   # data-dependent: the matched lambda point is chosen per baseline and scenario (see params)
+    params:
+      sweep_param: planner_lambda
+      zero_label: B0
+      operating_points: [B2, B3, B5]
+      savings_metric: integrated_cost_post
+      disruption_metric: eviction_cost
+      # For each operating point and scenario: the lambda point with the highest mean savings among those with mean
+      # eviction cost at or below the baseline's; paired Wilcoxon on savings and on eviction cost, Holm within H6.
+      family: H6
+
+  exp7:
+    title: Decision latency vs cluster size
+    hypothesis: H7
+    groups: [exp7-n50, exp7-b2, exp7-b2-n1000, exp1-n200, exp1-n1000]
+    select:
+      scenario: [W1]
+      label: [B2, heuristic/entropy-greedy, random/entropy-greedy]
+    scenarios: [W1]
+    nodes: [50, 200, 1000]
+    labels: [heuristic/entropy-greedy, random/entropy-greedy]
+    baselines: [B2]
+    primary_metric: wall_pass_mean_ms
+    secondary_metrics:
+      - wall_pass_p95_ms
+      - wall_pass_max_ms
+      - wall_passes_over_1m
+      - wall_passes_over_3m
+      - search_timeouts
+      - full_simulations
+      - disruption_passes
+      - peak_nodes
+    pair_keys: [scenario, nodes, seed]
+    comparisons:
+      # Preregistered at 1,000 nodes; the other sizes are descriptive (plot against measured peak_nodes).
+      - name: "random/entropy-greedy vs {ref}, {metric}"
+        family: H7
+        foreach: {ref: [heuristic/entropy-greedy, B2], metric: [wall_pass_mean_ms, wall_pass_p95_ms]}
+        test: wilcoxon
+        metric: "{metric}"
+        a: random/entropy-greedy
+        b: "{ref}"
+        by: [scenario, nodes]
+        where: {nodes: [1000]}
+        expect: lower
+    params:
+      size_column: peak_nodes
+      timeout_columns: {multi_node_1m: wall_passes_over_1m, single_node_3m: wall_passes_over_3m}
+
+  exp8:
+    title: Optimality gap to the offline packing lower bound (B6)
+    hypothesis: null
+    groups: [exp8, exp8-b5]
+    scenarios: [W1, W2, W4]
+    nodes: [50]
+    labels:
+      - heuristic/savings-only
+      - heuristic/entropy-greedy
+      - random/savings-only
+      - random/entropy-greedy
+      - random/anneal-plan
+    baselines: [B2, B3, B5]
+    primary_metric: optimality_gap   # derived: final-snapshot cost / B6 bound - 1 (podsets.jsonl, last snapshot)
+    secondary_metrics: [steady_cost_per_hour, final_nodes]
+    pair_keys: [scenario, nodes, seed]
+    comparisons: []
+    params:
+      cp_sat_nodes: [50]
+      # LP-relaxation bounds at the larger scales come from Exp 1's runs (remapped like any group).
+      lp_groups: [exp1-n200, exp1-n1000, exp1-baselines-n200, exp1-baselines-n1000]
+      lp_nodes: [200, 1000]
+      snapshot: last
+
+  abl:
+    title: Ablations (figure 8)
+    hypothesis: null
+    groups: [abl]
+    scenarios: [W1, W2]
+    nodes: [200]
+    labels: [full, no-potential, no-eviction-budget, no-annealing, no-randomness]
+    baselines: []
+    primary_metric: steady_cost_per_hour
+    secondary_metrics: [integrated_cost_post, evictions]
+    pair_keys: [scenario, nodes, seed]
+    comparisons:
+      - name: "{variant} vs full, {metric}"
+        family: ablation
+        foreach:
+          variant: [no-potential, no-eviction-budget, no-annealing, no-randomness]
+          metric: [steady_cost_per_hour, integrated_cost_post, evictions]
+        test: wilcoxon
+        metric: "{metric}"
+        a: "{variant}"
+        b: full
+        by: [scenario, nodes]
+    params:
+      reference_label: full

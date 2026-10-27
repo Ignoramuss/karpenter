@@ -202,4 +202,7 @@ download: ## Recursively "go mod download" on all directories where go.mod exist
 gen_instance_types:
 	go run kwok/tools/gen_instance_types.go > kwok/cloudprovider/instance_types.json
 
-.PHONY: help presubmit install-kwok uninstall-kwok build apply delete test test-memory test-dra e2etest-dra benchmark deflake vulncheck licenses verify download gen_instance_types setup-kind setup-kind-dra delete-kind-dra apply-with-kind-dra
+figures: ## Rebuild paper figures and tables from the raw runs in experiments/runs
+	$(or $(wildcard /opt/research-venv/bin/python),python3) paper/make_figures.py
+
+.PHONY: help presubmit install-kwok uninstall-kwok build apply delete test test-memory test-dra e2etest-dra benchmark deflake vulncheck licenses verify download gen_instance_types setup-kind setup-kind-dra delete-kind-dra apply-with-kind-dra figures

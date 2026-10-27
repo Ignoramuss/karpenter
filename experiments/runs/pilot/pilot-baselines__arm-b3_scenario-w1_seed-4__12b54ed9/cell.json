@@ -1,0 +1,13 @@
+{
+  "arm": {
+    "label": "B3",
+    "name": "B3-balanced"
+  },
+  "duration": "3h",
+  "runID": "pilot-baselines__arm-b3_scenario-w1_seed-4__12b54ed9",
+  "scenario": {
+    "name": "W1",
+    "nodes": 200
+  },
+  "seed": 4
+}

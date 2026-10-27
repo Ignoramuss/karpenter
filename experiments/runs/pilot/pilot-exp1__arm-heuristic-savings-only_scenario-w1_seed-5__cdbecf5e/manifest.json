@@ -1,0 +1,95 @@
+{
+  "run_id": "pilot-exp1__arm-heuristic-savings-only_scenario-w1_seed-5__cdbecf5e",
+  "git_sha": "97308fda7a34a3ed09302d1b152da1a1d05667a9",
+  "git_dirty": true,
+  "config": {
+    "runID": "pilot-exp1__arm-heuristic-savings-only_scenario-w1_seed-5__cdbecf5e",
+    "seed": 5,
+    "scenario": {
+      "name": "W1",
+      "nodes": 200
+    },
+    "arm": {
+      "name": "pipeline",
+      "label": "heuristic/savings-only",
+      "pipeline": {
+        "candidates": {
+          "name": "upstream"
+        },
+        "moves": [
+          {
+            "name": "upstream-multi",
+            "params": {
+              "mode": "fine"
+            }
+          },
+          {
+            "name": "upstream-single",
+            "params": {
+              "mode": "fine"
+            }
+          }
+        ],
+        "movesMode": "pooled",
+        "planner": {
+          "name": "savings-only"
+        },
+        "executor": {
+          "name": "shift-evict"
+        },
+        "potential": {
+          "name": "util-entropy"
+        },
+        "seed": 0,
+        "search": {
+          "maxAttempts": 500,
+          "maxFullSimulations": 16
+        }
+      }
+    },
+    "placement": "least-allocated",
+    "scaleDown": "spread",
+    "duration": "3h0m0s",
+    "warmup": "10m0s",
+    "metricsInterval": "1m0s",
+    "catalog": {
+      "path": "",
+      "families": null,
+      "capacityTypes": null,
+      "zones": null,
+      "maxCPU": 32
+    },
+    "consolidateAfter": "30s",
+    "budget": "10%",
+    "latency": {
+      "launch": {
+        "min": "2s",
+        "max": "5s"
+      },
+      "registration": {
+        "min": "30s",
+        "max": "1m0s"
+      },
+      "podStartup": {
+        "min": "2s",
+        "max": "10s"
+      },
+      "podShutdown": {
+        "min": "1s",
+        "max": "5s"
+      }
+    },
+    "maxWall": "0s"
+  },
+  "seed": 5,
+  "scenario": "W1",
+  "environment": {
+    "go_version": "go1.26.10",
+    "os": "linux",
+    "arch": "amd64",
+    "cpus": 4,
+    "hostname": "vm"
+  },
+  "started_at": "2026-10-27T18:13:21.155611646Z",
+  "finished_at": "2026-10-27T18:16:18.49121197Z"
+}

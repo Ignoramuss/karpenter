@@ -1,0 +1,13 @@
+{
+  "arm": {
+    "label": "B2",
+    "name": "B2-when-empty-or-underutilized"
+  },
+  "duration": "3h",
+  "runID": "pilot-baselines__arm-b2_scenario-w1_seed-1__14bfd80f",
+  "scenario": {
+    "name": "W1",
+    "nodes": 200
+  },
+  "seed": 1
+}
