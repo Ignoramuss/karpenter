@@ -180,3 +180,15 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   1,000-node B2 or B3 cell therefore costs over two hours of one core. The plan's cut order drops 1,000-node cells
   outside Exp 1 first (`exp1-baselines-n1000`, `exp7-b2-n1000`); whether they run is decided from the session's
   remaining time once Exp 1 is done.
+- **Calibration rules, fixed before the `pilot-calibrate` cells were inspected** (the Exp 1 pilot cells were already
+  in view; the calibration cells were not yet looked at):
+  - lambda: among {0.1, 0.5, 2} for random/entropy-greedy, the value minimizing the mean, over W1 and W2 and seeds
+    1-5, of steady-state cost divided by the same seed's B2 steady-state cost. If the best value improves on
+    lambda = 0.5 (the default) by less than 1%, keep 0.5. The chosen lambda applies to every energy planner in every
+    arm, heuristic and random alike.
+  - t0: the same rule among {0.1, 0.3, 1} for random/anneal-plan, default 0.3.
+  - Pod-eviction budgets (Exp 3, ablations): budget-lo = the median, over W2 random/entropy-greedy pilot runs, of the
+    mean evictions per minute across minutes in which any pod was evicted, rounded to the nearest integer (at least
+    1); budget-hi = 2 x budget-lo. So budget-lo binds during active consolidation and budget-hi binds less.
+  - Not calibrated: maxFullSimulations (16), cooling (0.98), maxAttempts (500), sourceFraction (0.25), tau and the
+    re-disruption window (plan defaults).
