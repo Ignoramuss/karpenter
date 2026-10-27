@@ -29,3 +29,5 @@
 {"run_id":"exp1-n200__arm-heuristic-savings-only_scenario-w4_seed-109__c78f447e","group":"exp1-n200","status":"done","exit_code":0,"wall_seconds":161.77,"finished_at":"2026-10-27T21:11:40.369062132Z","attempt":1}
 {"run_id":"exp1-n200__arm-heuristic-savings-only_scenario-w4_seed-110__8f21094f","group":"exp1-n200","status":"done","exit_code":0,"wall_seconds":160.148,"finished_at":"2026-10-27T21:11:55.044593822Z","attempt":1}
 {"run_id":"exp1-n200__arm-heuristic-entropy-greedy_scenario-w1_seed-101__1bc7e87a","group":"exp1-n200","status":"done","exit_code":0,"wall_seconds":189.152,"finished_at":"2026-10-27T21:12:46.054922633Z","attempt":1}
+{"run_id":"exp1-n200__arm-heuristic-entropy-greedy_scenario-w1_seed-104__875c2f44","group":"exp1-n200","status":"done","exit_code":0,"wall_seconds":152.585,"finished_at":"2026-10-27T21:14:27.629817408Z","attempt":1}
+{"run_id":"exp1-n200__arm-heuristic-entropy-greedy_scenario-w1_seed-102__3ca0780d","group":"exp1-n200","status":"done","exit_code":0,"wall_seconds":172.541,"finished_at":"2026-10-27T21:14:28.826556793Z","attempt":1}
