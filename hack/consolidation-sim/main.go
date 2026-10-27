@@ -19,6 +19,7 @@ limitations under the License.
 //	go run ./hack/consolidation-sim run --config cell.yaml --out experiments/runs/<run-id>
 //	go run ./hack/consolidation-sim run --scenario W1 --nodes 50 --arm B2-when-empty-or-underutilized --seed 1 --out /tmp/run
 //	go run ./hack/consolidation-sim matrix --matrix experiments/matrix/session.yaml --workers 4 --max-wall 20m
+//	go run ./hack/consolidation-sim catalog > experiments/catalog.json
 //
 // "matrix" runs pending cells of a matrix file, each in its own process, appends results, and exits; re-invoke it
 // until it reports the matrix complete.
@@ -49,6 +50,8 @@ func main() {
 		err = matrixCmd(os.Args[2:])
 	case "strategies":
 		err = strategiesCmd()
+	case "catalog":
+		err = catalogCmd(os.Args[2:])
 	default:
 		usage()
 	}
@@ -59,6 +62,6 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: consolidation-sim run|matrix|strategies [flags]")
+	fmt.Fprintln(os.Stderr, "usage: consolidation-sim run|matrix|strategies|catalog [flags]")
 	os.Exit(2)
 }

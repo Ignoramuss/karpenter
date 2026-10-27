@@ -33,6 +33,7 @@ import (
 
 	"sigs.k8s.io/karpenter/hack/consolidation-sim/sim"
 	"sigs.k8s.io/karpenter/pkg/controllers/disruption/pipeline"
+	"sigs.k8s.io/karpenter/pkg/controllers/disruption/pipeline/harness/catalog"
 )
 
 // Manifest records everything needed to reproduce a run (operating rule 7).
@@ -193,6 +194,39 @@ func writeJSON(path string, v any) error {
 		return err
 	}
 	return os.WriteFile(path, append(raw, '\n'), 0o644)
+}
+
+// catalogEntry is one instance type as the offline packing bound (B6) sees it: allocatable resources and price.
+type catalogEntry struct {
+	Name      string  `json:"name"`
+	Family    string  `json:"family"`
+	CPU       int64   `json:"cpu_millicores"`
+	MemoryMiB int64   `json:"memory_mib"`
+	Pods      int64   `json:"pods"`
+	Price     float64 `json:"price_per_hour"`
+}
+
+// catalogCmd prints the instance types a run with the default catalog options can launch.
+func catalogCmd(args []string) error {
+	fs := flag.NewFlagSet("catalog", flag.ExitOnError)
+	maxCPU := fs.Int64("max-cpu", 0, "drop types above this many vCPUs (default: the simulator's)")
+	_ = fs.Parse(args)
+	cfg := sim.Config{}
+	cfg.Catalog.MaxCPU = *maxCPU
+	cfg.Defaults()
+	cat, err := catalog.Load(cfg.Catalog)
+	if err != nil {
+		return err
+	}
+	out := make([]catalogEntry, 0, len(cat.Entries))
+	for _, e := range cat.Entries {
+		alloc := e.InstanceType.Allocatable()
+		out = append(out, catalogEntry{Name: e.InstanceType.Name, Family: e.Family, CPU: alloc.Cpu().MilliValue(),
+			MemoryMiB: alloc.Memory().Value() >> 20, Pods: alloc.Pods().Value(), Price: e.Price})
+	}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(out)
 }
 
 func strategiesCmd() error {

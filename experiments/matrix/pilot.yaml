@@ -16,7 +16,7 @@ definitions:
     moves: [{name: upstream-multi, params: {mode: fine}}, {name: upstream-single, params: {mode: fine}}]
   random: &random
     candidates: {name: uniform-random, params: {sourceFraction: 0.25}}
-    moves: [{name: random-merge}, {name: random-shift}]
+    moves: [{name: random-merge, params: {confirm: true}}, {name: random-shift}]
 base:
   duration: 3h
   scenario: {nodes: 200}

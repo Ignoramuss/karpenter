@@ -1,0 +1,122 @@
+[
+  {
+    "name": "c7i.2xlarge",
+    "family": "c7i",
+    "cpu_millicores": 7900,
+    "memory_mib": 16374,
+    "pods": 128,
+    "price_per_hour": 0.357
+  },
+  {
+    "name": "c7i.4xlarge",
+    "family": "c7i",
+    "cpu_millicores": 15900,
+    "memory_mib": 32758,
+    "pods": 256,
+    "price_per_hour": 0.7854
+  },
+  {
+    "name": "c7i.8xlarge",
+    "family": "c7i",
+    "cpu_millicores": 31900,
+    "memory_mib": 65526,
+    "pods": 512,
+    "price_per_hour": 1.5708
+  },
+  {
+    "name": "c7i.large",
+    "family": "c7i",
+    "cpu_millicores": 1900,
+    "memory_mib": 4086,
+    "pods": 32,
+    "price_per_hour": 0.09818
+  },
+  {
+    "name": "c7i.xlarge",
+    "family": "c7i",
+    "cpu_millicores": 3900,
+    "memory_mib": 8182,
+    "pods": 64,
+    "price_per_hour": 0.19635
+  },
+  {
+    "name": "m7i.2xlarge",
+    "family": "m7i",
+    "cpu_millicores": 7900,
+    "memory_mib": 32758,
+    "pods": 128,
+    "price_per_hour": 0.44352
+  },
+  {
+    "name": "m7i.4xlarge",
+    "family": "m7i",
+    "cpu_millicores": 15900,
+    "memory_mib": 65526,
+    "pods": 256,
+    "price_per_hour": 0.88704
+  },
+  {
+    "name": "m7i.8xlarge",
+    "family": "m7i",
+    "cpu_millicores": 31900,
+    "memory_mib": 131062,
+    "pods": 512,
+    "price_per_hour": 1.6128
+  },
+  {
+    "name": "m7i.large",
+    "family": "m7i",
+    "cpu_millicores": 1900,
+    "memory_mib": 8182,
+    "pods": 32,
+    "price_per_hour": 0.1008
+  },
+  {
+    "name": "m7i.xlarge",
+    "family": "m7i",
+    "cpu_millicores": 3900,
+    "memory_mib": 16374,
+    "pods": 64,
+    "price_per_hour": 0.2016
+  },
+  {
+    "name": "r7i.2xlarge",
+    "family": "r7i",
+    "cpu_millicores": 7900,
+    "memory_mib": 65526,
+    "pods": 128,
+    "price_per_hour": 0.58212
+  },
+  {
+    "name": "r7i.4xlarge",
+    "family": "r7i",
+    "cpu_millicores": 15900,
+    "memory_mib": 131062,
+    "pods": 256,
+    "price_per_hour": 1.16424
+  },
+  {
+    "name": "r7i.8xlarge",
+    "family": "r7i",
+    "cpu_millicores": 31900,
+    "memory_mib": 262134,
+    "pods": 512,
+    "price_per_hour": 2.1168
+  },
+  {
+    "name": "r7i.large",
+    "family": "r7i",
+    "cpu_millicores": 1900,
+    "memory_mib": 16374,
+    "pods": 32,
+    "price_per_hour": 0.14553
+  },
+  {
+    "name": "r7i.xlarge",
+    "family": "r7i",
+    "cpu_millicores": 3900,
+    "memory_mib": 32758,
+    "pods": 64,
+    "price_per_hour": 0.2646
+  }
+]
