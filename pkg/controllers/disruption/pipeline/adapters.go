@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"slices"
 	"sort"
 
 	"github.com/samber/lo"
@@ -247,6 +248,11 @@ type upstreamSingle struct {
 	env  *Env
 	mode string
 	seq  int
+	// resumeAfter is the last candidate a fine-mode scan evaluated before the search budget ran out. The next scan
+	// starts after it, wrapping around, so a capped scan covers every candidate over successive cycles the way an
+	// uncapped one does in a single pass, instead of re-trying the same leading candidates. Upstream never caps the
+	// scan by simulations, so parity is unaffected.
+	resumeAfter string
 }
 
 func (g *upstreamSingle) Name() string     { return "upstream-single" }
@@ -271,7 +277,9 @@ func (g *upstreamSingle) Generate(ctx context.Context, s Snapshot, sources, _ []
 	if up.Single.IsConsolidated() {
 		return nil, nil
 	}
-	cands = up.Single.SortCandidates(ctx, cands)
+	prev := g.resumeAfter
+	cands = rotateAfter(up.Single.SortCandidates(ctx, cands), prev)
+	g.resumeAfter = ""
 	timeout := up.Clock.Now().Add(disruption.SingleNodeConsolidationTimeoutDuration)
 	budgets := up.Budgets()
 	constrained := false
@@ -293,6 +301,11 @@ func (g *upstreamSingle) Generate(ctx context.Context, s Snapshot, sources, _ []
 			continue
 		}
 		if b != nil && !b.UseFull() {
+			// Out of budget before evaluating anything (an earlier generator spent it) keeps the old position.
+			g.resumeAfter = prev
+			if i > 0 {
+				g.resumeAfter = cands[i-1].Name()
+			}
 			break
 		}
 		cmd, err := up.Single.ComputeConsolidation(ctx, c)
@@ -317,6 +330,18 @@ func (g *upstreamSingle) Generate(ctx context.Context, s Snapshot, sources, _ []
 	}
 	up.Single.PreviouslyUnseenNodePools = unseen
 	return out, nil
+}
+
+// rotateAfter returns cands starting after the one named after, wrapping around; unchanged if after is absent.
+func rotateAfter(cands []*disruption.Candidate, after string) []*disruption.Candidate {
+	if after == "" {
+		return cands
+	}
+	i := slices.IndexFunc(cands, func(c *disruption.Candidate) bool { return c.Name() == after })
+	if i < 0 {
+		return cands
+	}
+	return append(append(make([]*disruption.Candidate, 0, len(cands)), cands[i+1:]...), cands[:i+1]...)
 }
 
 // --- stage 3 ---------------------------------------------------------------------------------------------------
