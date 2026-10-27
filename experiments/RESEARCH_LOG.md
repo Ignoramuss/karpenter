@@ -159,3 +159,16 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   removed by Emptiness under the Empty reason and budgets; `budget_remaining` is unset in decision events; the
   operator has no steering webhook, so `steered` (affinity mode) and `make-before-break` do not steer outside the
   simulator.
+- **Pilot restart after a stall in capped heuristic generation.** The first 35 pilot cells showed
+  heuristic/savings-only stuck at 125 nodes on W1 (B2: 105). Under the 16-simulation cap, `upstream-single` (fine)
+  scanned candidates in upstream's deterministic order and stopped at the cap, so every re-evaluation re-tried the
+  same leading candidates. Fixed (`2d8fce7`): a capped scan resumes after the last candidate it evaluated. A check at
+  W1 100 nodes, seed 1: $24.04/hr before, $22.61/hr after, B2 $23.30/hr. The pilot's pipeline cells were deleted and
+  rerun on `2d8fce7`; its 20 baseline cells (B2, B3) ran on `c3e9e35`, and no change between the two commits touches
+  code those arms execute (gzip output, summary counters, pipeline-only fixes).
+- **Consolidated-state gating, decided.** A pipeline cycle that executes nothing marks the cluster consolidated, for
+  every generator (upstream's fine-mode scan through upstream's own flag, random generators through the pipeline's),
+  so both arms of a comparison re-evaluate on the same triggers: a cluster change or upstream's forced
+  re-evaluation every 5 minutes. Re-running every 10-second pass after a fruitless cycle, as upstream does after a
+  timeout, would cost a full budget of simulations per pass forever in static workloads (an estimated hour of wall
+  time per 1,000-node run) and would not change what Exp 1 compares.
