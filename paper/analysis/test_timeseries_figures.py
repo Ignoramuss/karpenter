@@ -3,8 +3,8 @@ repository root:
 
     /opt/research-venv/bin/python -m paper.analysis.test_timeseries_figures
 
-In the synthetic runs the P2 and P3 potentials drop by a step at minutes 28 + 20k and the matching node removals
-(and cost drops) follow 5 minutes later, so with any of the 5, 10 and 20 minute windows a drop always lands in the
+In the synthetic runs the P2 and P3 potentials (raw and normalized alike) drop by a step at minutes 28 + 20k and the
+matching node removals (and cost drops) follow 5 minutes later, so with any of the 5, 10 and 20 minute windows a drop always lands in the
 window before its removals; P1 is noise unrelated to removals. The tests check that Exp 2 recovers that (P2 and P3
 support H2, P1 does not, the lead-lag peaks at +5 minutes), that the selection drops B0, invalid runs and duplicate
 configurations, and that outputs are byte-reproducible and nothing is written without runs.
@@ -90,10 +90,12 @@ def _series(rng: np.random.Generator, scenario: str, nodes0: int, events: bool) 
         band = (n - top) / n if n else 0.0
         h = ";".join(str(v) for v in hist)
         pz = 0.0 if n == 0 else None
+        # The raw potentials carry the same planted steps as the normalized ones (scaled by a constant).
+        n1, n2, n3 = (0.0, 0.0, 0.0) if pz is not None else (p1[i], p2[i], p3[i])
         lines.append(
             f"{i:.2f},{n},{n},{0.5 * n:.6f},{10 * n},0,{3 * removed[i]},{3.0 * removed[i]:.6f},{removed[i]},"
-            f"0.6,0.5,0.6,{band:.6f},{band:.6f},4.0,{pz if pz is not None else p1[i]:.6f},10.0,"
-            f"{pz if pz is not None else p2[i]:.6f},1.0,{pz if pz is not None else p3[i]:.6f},{h},{h}")
+            f"0.6,0.5,0.6,{band:.6f},{band:.6f},{4.0 * n1:.6f},{n1:.6f},{100.0 * n2:.6f},"
+            f"{n2:.6f},{100.0 * n3:.6f},{n3:.6f},{h},{h}")
     return "\n".join(lines) + "\n"
 
 
@@ -186,18 +188,24 @@ def _run_main(runs: Path, out: Path) -> str:
 def test_window_samples() -> None:
     minutes = np.arange(0, 41)
     pm = pd.DataFrame({"t_min": minutes.astype(float), "nodes_removed_cum": (minutes >= 25).astype(int) * 2,
-                       "cost_per_hour": np.where(minutes >= 25, 8.0, 10.0), "p1_norm": 0.5,
-                       "p2_norm": np.where(minutes >= 18, 0.2, 0.4), "p3_norm": minutes * 0.01})
+                       "cost_per_hour": np.where(minutes >= 25, 8.0, 10.0), "p1_load_entropy": 0.5,
+                       "p2_util_entropy": np.where(minutes >= 18, 0.2, 0.4), "p3_quadratic": minutes * 0.01,
+                       "p2_norm": np.where(minutes >= 25, 0.5, 0.4)})
     pm = tf.per_minute(pm)
+    assert tf.POTENTIALS == common.experiment("exp2")["params"]["potentials"], "primary = the registry's columns"
     s = tf.window_samples(pm, 10)
     assert s["t"].tolist() == [20, 30], s
     assert np.allclose(s["drop_P2"], [0.2, 0.0]) and np.allclose(s["drop_P1"], [0.0, 0.0])
     assert np.allclose(s["drop_P3"], [-0.1, -0.1])
     assert s["removals"].tolist() == [2, 0] and np.allclose(s["cost_decrease"], [2.0, 0.0])
+    # No look-ahead: the predictor at t reads (t - w, t], the outcome (t, t + w]; the removal at minute 25 belongs to
+    # the window after the sample at t = 20 and its normalized-P2 jump to the predictor of the sample at t = 30.
+    norm = tf.window_samples(pm, 10, potentials=tf.POTENTIALS_NORM)
+    assert np.allclose(norm["drop_P2"], [0.0, -0.1]), norm
     assert tf.window_samples(pm, 5)["t"].tolist() == [15, 20, 25, 30, 35]
     # A missing minute makes its samples NaN rather than shifting the windows.
     gap = tf.per_minute(pm.reset_index(drop=True).drop(index=30))
-    assert len(gap) == 41 and math.isnan(gap.loc[30, "p2_norm"])
+    assert len(gap) == 41 and math.isnan(gap.loc[30, "p2_util_entropy"])
     s = tf.window_samples(gap, 10)
     assert math.isnan(s.loc[0, "removals"]) and math.isnan(s.loc[1, "drop_P2"]) and s.loc[0, "drop_P2"] == 0.2
 
@@ -251,9 +259,9 @@ def test_synthetic_end_to_end() -> None:
         assert sel["n_excluded_label"] == 2 * n_seeds, sel  # B0 on W2 and W3
         assert sel["n_invalid"] == 1 and sel["n_duplicate_config"] == n_seeds, sel
         assert all("lambda=0.5" in d["run_id"] and "_w2_" in d["run_id"] for d in sel["duplicates"])
-        # Exp 1 W2 (3 pipeline labels; its baselines group is not in Exp 2) + 1,000 nodes + Exp 6 (W2 lambda=2, W3
-        # both points) + B2 on W3.
-        assert sel["n_used"] == n_seeds * (3 + 1 + 3 + 1), sel
+        # Exp 1 W2 (3 pipeline labels and B2, B3: every registry group's W2/W3 runs count) + 1,000 nodes + Exp 6 (W2
+        # lambda=2, W3 both points) + B2 on W3.
+        assert sel["n_used"] == n_seeds * (3 + 2 + 1 + 3 + 1), sel
 
         corr = pd.read_csv(out / "tables" / "exp2_correlation.csv")
         prim = corr.loc[corr["role"] == "primary"].set_index(["potential", "scenario"])
@@ -276,7 +284,12 @@ def test_synthetic_end_to_end() -> None:
         row = comp.loc[(comp["role"] == "primary") & (comp["scenario"] == "W2") & (comp["a"] == "P1")
                        & (comp["b"] == "P2")].iloc[0]
         assert row["favours"] == "P2" and bool(row["significant"]) and row["median_diff"] < 0, row
-        assert set(comp["family"]) == {f"H2-compare/{o}/w{w}" for o in tf.OUTCOMES for w in tf.WINDOWS}
+        assert set(comp.loc[comp["form"] == "raw", "family"]) == {f"H2-compare/{o}/w{w}" for o in tf.OUTCOMES
+                                                                  for w in tf.WINDOWS}
+        assert set(comp.loc[comp["form"] == "norm", "family"]) == {f"H2-norm-compare/{o}/w{w}" for o in tf.OUTCOMES
+                                                                   for w in tf.WINDOWS}
+        norm = corr.loc[corr["family"] == "H2-norm/removals/w10"]
+        assert len(norm) == 6 and set(norm["role"]) == {"sensitivity"}, norm
 
         ll = doc["exp2"]["leadlag"]
         for scenario in ("W2", "W3"):
@@ -349,6 +362,22 @@ def test_only_b0_or_invalid() -> None:
         assert doc["exp2"]["selection"]["n_invalid"] == 1 and doc["exp2"]["selection"]["n_used"] == 0
         assert "skipped exp2: no valid runs" in log, log
         assert not (out / "tables" / "exp2_correlation.csv").exists()
+
+
+def test_empty_timeseries_counts_as_missing() -> None:
+    # A run whose timeseries.csv has a header and no samples (a crash right after start) is reported as missing,
+    # not a crash in figures 1 and 2.
+    with tempfile.TemporaryDirectory() as tmp:
+        m = Path(tmp) / "runs" / "session"
+        ok = _write_run(m, "exp1-n200", "random/entropy-greedy", "W2", 101)
+        bad = _write_run(m, "exp1-baselines-n200", "B2", "W2", 101)
+        (m / bad / "timeseries.csv").write_text(TS_HEADER + "\n", encoding="utf-8")
+        out = Path(tmp) / "out"
+        log = _run_main(Path(tmp) / "runs", out)
+        doc = json.loads((out / "tables" / "timeseries_figures.json").read_text())
+        assert doc["exp2"]["selection"]["missing_timeseries"] == [bad], doc["exp2"]["selection"]
+        assert doc["fig2_potential_nodes_cost"]["arms"]["random/entropy-greedy"]["n_used"] == 1
+        assert f"empty timeseries.csv for {bad}" in log and ok not in doc["exp2"]["selection"]["missing_timeseries"]
 
 
 def test_pilot_runs() -> None:

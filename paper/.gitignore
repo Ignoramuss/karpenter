@@ -1,3 +1,6 @@
 # Python bytecode from running the analyses
 __pycache__/
 *.pyc
+
+# Derived CP-SAT/LP bound cache (paper/analysis/lower_bound.py); safe to delete, outputs are identical without it
+tables/cache/

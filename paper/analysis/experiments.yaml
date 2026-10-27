@@ -82,6 +82,35 @@ experiments:
       h1_min_equivalent: 10
       h1_tests: 12
 
+  realism:
+    title: Exp 1's entropy-guided comparison on the constrained (W5) and trace (W6) workloads
+    hypothesis: null   # a realism check on H1 (threats to validity), reported beside Exp 1, outside H1's family
+    groups: [realism-w5, realism-w6]
+    scenarios: [W5, W6]
+    nodes: [200]
+    labels:
+      - heuristic/entropy-greedy
+      - heuristic/anneal-plan
+      - random/entropy-greedy
+      - random/anneal-plan
+    baselines: [B2, B3]
+    primary_metric: steady_cost_per_hour
+    secondary_metrics: [integrated_cost_post, final_nodes, evictions, eviction_cost, evictions_refused_by_pdb, full_simulations]
+    pair_keys: [scenario, nodes, seed]
+    comparisons:
+      - name: "random vs heuristic, {planner}"
+        family: H1-realism
+        foreach: {planner: [entropy-greedy, anneal-plan]}
+        test: tost
+        metric: steady_cost_per_hour
+        a: "random/{planner}"
+        b: "heuristic/{planner}"
+        by: [scenario, nodes]
+        margin: 0.03
+        margin_type: relative
+        expect: equal
+    params: {}
+
   exp2:
     title: Potential drop as a lead indicator of node removals and cost decrease
     hypothesis: H2
@@ -97,8 +126,9 @@ experiments:
       - exp5-steered
       - exp3
       - abl
-    select: {scenario: [W2, W3]}
-    scenarios: [W2, W3]
+      - realism-w6
+    select: {scenario: [W2, W3, W6]}
+    scenarios: [W2, W3, W6]
     nodes: [200, 1000]
     labels: []
     baselines: []
@@ -156,15 +186,15 @@ experiments:
     nodes: [200]
     labels:
       - entropy-greedy
-      - anneal-plan/t0=0.1/cooling=0.95
       - anneal-plan/t0=0.3/cooling=0.95
       - anneal-plan/t0=1/cooling=0.95
-      - anneal-plan/t0=0.1/cooling=0.98
+      - anneal-plan/t0=3/cooling=0.95
       - anneal-plan/t0=0.3/cooling=0.98
       - anneal-plan/t0=1/cooling=0.98
-      - anneal-online/t0=0.1
+      - anneal-plan/t0=3/cooling=0.98
       - anneal-online/t0=0.3
       - anneal-online/t0=1
+      - anneal-online/t0=3
     baselines: []
     primary_metric: steady_cost_per_hour
     secondary_metrics: [evictions, eviction_cost, integrated_cost_post, final_nodes]
@@ -177,14 +207,14 @@ experiments:
         foreach: {metric: [steady_cost_per_hour, evictions]}
         test: wilcoxon
         metric: "{metric}"
-        a: anneal-plan/t0=0.3/cooling=0.98
+        a: anneal-plan/t0=1/cooling=0.98
         b: entropy-greedy
         by: [scenario, nodes]
         expect: not_higher
       # Online annealing pays disruption (more evictions) for little gain (cost not significantly lower).
       - name: "anneal-online t0={t0} vs entropy-greedy, evictions"
         family: H4
-        foreach: {t0: [0.1, 0.3, 1]}
+        foreach: {t0: [0.3, 1, 3]}
         test: wilcoxon
         metric: evictions
         a: "anneal-online/t0={t0}"
@@ -193,7 +223,7 @@ experiments:
         expect: higher
       - name: "anneal-online t0={t0} vs entropy-greedy, steady_cost_per_hour"
         family: H4
-        foreach: {t0: [0.1, 0.3, 1]}
+        foreach: {t0: [0.3, 1, 3]}
         test: wilcoxon
         metric: steady_cost_per_hour
         a: "anneal-online/t0={t0}"
@@ -201,9 +231,9 @@ experiments:
         by: [scenario, nodes]
         expect: not_lower
     params:
-      default_anneal_label: anneal-plan/t0=0.3/cooling=0.98
+      default_anneal_label: anneal-plan/t0=1/cooling=0.98
       greedy_label: entropy-greedy
-      sweep: {t0: [0.1, 0.3, 1], cooling: [0.95, 0.98]}
+      sweep: {t0: [0.3, 1, 3], cooling: [0.95, 0.98]}
 
   exp5:
     title: Plan fidelity by placement model and scale-down model

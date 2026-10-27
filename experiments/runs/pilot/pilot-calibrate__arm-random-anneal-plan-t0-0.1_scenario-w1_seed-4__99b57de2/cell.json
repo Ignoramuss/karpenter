@@ -1,0 +1,52 @@
+{
+  "arm": {
+    "label": "random/anneal-plan/t0=0.1",
+    "name": "pipeline",
+    "pipeline": {
+      "candidates": {
+        "name": "uniform-random",
+        "params": {
+          "sourceFraction": 0.25
+        }
+      },
+      "executor": {
+        "name": "shift-evict"
+      },
+      "moves": [
+        {
+          "name": "random-merge",
+          "params": {
+            "confirm": true
+          }
+        },
+        {
+          "name": "random-shift"
+        }
+      ],
+      "movesMode": "pooled",
+      "planner": {
+        "name": "anneal-plan",
+        "params": {
+          "cooling": 0.98,
+          "lambda": 0.5,
+          "t0": 0.1,
+          "temperatureUnit": "per-node"
+        }
+      },
+      "potential": {
+        "name": "util-entropy"
+      },
+      "search": {
+        "maxAttempts": 500,
+        "maxFullSimulations": 16
+      }
+    }
+  },
+  "duration": "3h",
+  "runID": "pilot-calibrate__arm-random-anneal-plan-t0-0.1_scenario-w1_seed-4__99b57de2",
+  "scenario": {
+    "name": "W1",
+    "nodes": 200
+  },
+  "seed": 4
+}

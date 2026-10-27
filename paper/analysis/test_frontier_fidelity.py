@@ -300,6 +300,38 @@ def test_synthetic_end_to_end() -> None:
         assert "skipped" not in log, log
 
 
+def test_h6_open_while_design_incomplete() -> None:
+    # H6 covers every operating point in every registry scenario: W2-only data cannot support it, and a "matches"
+    # from tests too small to reach Holm significance is no evidence either.
+    exp = common.experiment("exp6")
+    frontier = pd.DataFrame({"scenario": ["W2"], "nodes": [200], "label": ["B0"], "pareto": [True]})
+
+    def dominance(verdict: str, underpowered: bool) -> pd.DataFrame:
+        rows = []
+        for b in exp["params"]["operating_points"]:
+            for metric, family in (("savings", "H6"), ("eviction_cost", "H6")):
+                rows.append({"scenario": "W2", "nodes": 200, "baseline": b, "matched_label": "x", "matched_lambda": 1.0,
+                             "selection": "s", "verdict": verdict, "verdict_one_sided": verdict,
+                             "underpowered": underpowered, "metric": metric, "n_pairs": 10, "n_dropped": 0,
+                             "mean_matched": 1.0, "mean_baseline": 1.0, "mean_diff": 0.0, "mean_diff_lo": 0.0,
+                             "mean_diff_hi": 0.0, "pct_diff": 0.0, "pct_diff_lo": 0.0, "pct_diff_hi": 0.0,
+                             "p_wilcoxon": 0.5, "p_floor": 2 / 1024, "p_holm": 1.0, "holm_reachable": True,
+                             "outcome": "no difference", "family": family})
+        return pd.DataFrame(rows)
+
+    sel = pd.DataFrame(columns=common.RUN_COLUMNS)
+    head = ff.exp6_headline(sel, frontier, dominance("matches", False), exp)
+    assert head["h6_supported"] is None and head["comparisons_expected"] == 6, head
+    assert head["comparisons_missing"] == [f"W3/200/{b}" for b in ("B2", "B3", "B5")], head["comparisons_missing"]
+    full = pd.concat([frontier.assign(scenario=s) for s in ("W2", "W3")], ignore_index=True)
+    both = pd.concat([dominance("matches", False).assign(scenario=s) for s in ("W2", "W3")], ignore_index=True)
+    assert ff.exp6_headline(sel, full, both, exp)["h6_supported"] is True
+    weak = both.assign(underpowered=both["scenario"] == "W3")
+    head = ff.exp6_headline(sel, full, weak, exp)
+    assert head["h6_supported"] is None and head["n_underpowered"] == 3, head
+    assert ff.exp6_headline(sel, full, both.assign(verdict="dominated"), exp)["h6_supported"] is False
+
+
 def test_reproducible() -> None:
     with _synthetic() as (runs, out):
         out2 = out.parent / "out2"

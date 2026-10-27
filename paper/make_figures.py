@@ -9,6 +9,11 @@ Each module in MODULES (``paper.analysis.<module>``) exposes ``main(runs_root, o
 freshly applied, so no module's output depends on which modules ran before it. A module that does not exist yet is
 skipped with a note; one that raises is reported and makes the run exit 1 after the others have run.
 
+A full run (no ``--only``) first deletes the previous outputs (``<out>/tables/*.csv|md|json`` and
+``<out>/figures/out/*.png|pdf``; the bound cache in ``tables/cache`` stays), so every file left is one this run wrote:
+an experiment that is skipped now (no runs, or a different ANALYSIS_GROUP_MAP) cannot leave stale numbers behind.
+``--only`` runs leave other modules' files alone.
+
 Set ANALYSIS_GROUP_MAP to run the session analyses on other groups, e.g. the pilot::
 
     ANALYSIS_GROUP_MAP='{"exp1-n200": "pilot-exp1", "exp1-baselines-n200": "pilot-baselines"}' \\
@@ -59,6 +64,25 @@ def parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     return args
 
 
+OUTPUT_GLOBS = ((("tables",), ("*.csv", "*.md", "*.json")), (("figures", "out"), ("*.png", "*.pdf")))
+
+
+def clear_outputs(out_root: Path) -> int:
+    """Delete the generated tables and figures directly under ``<out_root>/tables`` and ``<out_root>/figures/out``
+    (not the bound cache in ``tables/cache``, nor anything else). Returns how many files were removed."""
+    removed = 0
+    for parts, patterns in OUTPUT_GLOBS:
+        d = Path(out_root).joinpath(*parts)
+        if not d.is_dir():
+            continue
+        for pattern in patterns:
+            for f in sorted(d.glob(pattern)):
+                if f.is_file():
+                    f.unlink()
+                    removed += 1
+    return removed
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the selected analysis modules; return the process exit code (1 if any module failed)."""
     args = parse_args(argv)
@@ -68,6 +92,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     from paper.analysis import common
 
     selected = [m for m in MODULES if not args.only or m in args.only]
+    if not args.only:
+        removed = clear_outputs(args.out)
+        if removed:
+            print(f"removed {removed} previous output file(s) under {common.TABLES_DIR} and {common.FIGURES_DIR}")
     ran, missing, failed = [], [], []
     for name in selected:
         qualified = f"{PACKAGE}.{name}"

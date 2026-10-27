@@ -1,14 +1,16 @@
 # Session profile (docs/research/PLAN.md, Phase 4): Tier A at 50, 200 and 1,000 nodes, 10 evaluation seeds per cell
-# (101-110; the pilot calibrated on 1-5). Parameters marked "pilot" were fixed from the pilot before any of these
-# runs started; experiments/PREREGISTRATION.md records how. Groups run in the preregistered order:
+# (101-110; the pilot calibrated on 1-5). lambda, t0 and the eviction budgets were fixed from the pilot by rules
+# committed before the calibration cells were inspected (experiments/PILOT.md, experiments/PREREGISTRATION.md).
+# Groups run in the preregistered order:
 #
 #   for g in exp1-n200 exp1-baselines-n200 exp1-n1000 exp6 exp6-baselines exp6-b5 exp5 exp5-steered exp3 exp4 \
-#            exp7-n50 exp7-b2 abl exp8 exp8-b5 exp1-baselines-n1000 exp7-b2-n1000; do
+#            exp7-n50 exp7-b2 abl exp8 exp8-b5 realism-w5 realism-w6 exp1-baselines-n1000 exp7-b2-n1000; do
 #     go run ./hack/consolidation-sim matrix --matrix experiments/matrix/session.yaml --only $g --workers 4 --max-wall 100m
 #   done   # re-invoke until each group reports 0 pending
 #
 # Cut order if time runs short (fixed by the plan): 1,000-node cells outside Exp 1 first (exp1-baselines-n1000,
-# exp7-b2-n1000), then W6, then W5. Exp 1 cells are never cut, and no cell drops below 10 seeds.
+# exp7-b2-n1000), then W6 (realism-w6), then W5 (realism-w5). Exp 1 cells are never cut, and no cell drops below 10
+# seeds.
 name: session
 outDir: experiments/runs/session
 definitions:
@@ -29,10 +31,10 @@ definitions:
   random: &random
     <<: *random-candidates
     moves: [{name: random-merge, params: {confirm: true}}, {name: random-shift}]
-  # Planners at the pilot-calibrated weights and schedule.
+  # Planners at the pilot-calibrated weights and schedule (experiments/PILOT.md): lambda 0.1, t0 1.
   p0: &p0 {name: savings-only}
-  p1: &p1 {name: entropy-greedy, params: {lambda: 0.5}}
-  p2: &p2 {name: anneal-plan, params: {lambda: 0.5, t0: 0.3, cooling: 0.98, temperatureUnit: per-node}}
+  p1: &p1 {name: entropy-greedy, params: {lambda: 0.1}}
+  p2: &p2 {name: anneal-plan, params: {lambda: 0.1, t0: 1, cooling: 0.98, temperatureUnit: per-node}}
   # Exp 1's six cells: generation {heuristic, random} x planner {P0, P1, P2}, equal full-simulation budget.
   exp1-arms: &exp1-arms
     - {name: pipeline, label: heuristic/savings-only, pipeline: {<<: [*common, *heuristic], planner: *p0}}
@@ -49,8 +51,8 @@ definitions:
   heuristic-p1: &heuristic-p1 {name: pipeline, label: heuristic/entropy-greedy, pipeline: {<<: [*common, *heuristic], planner: *p1}}
   # Pod-eviction budget for Exp 3 and the ablations (pilot: the median per-minute eviction rate of random/entropy-greedy
   # while it consolidates, so the budget binds), and twice that.
-  budget-lo: &budget-lo {podEvictionsPerMinute: 10}
-  budget-hi: &budget-hi {podEvictionsPerMinute: 20}
+  budget-lo: &budget-lo {podEvictionsPerMinute: 18}
+  budget-hi: &budget-hi {podEvictionsPerMinute: 36}
 base:
   duration: 3h
   scenario: {nodes: 200}
@@ -115,15 +117,15 @@ groups:
       scenario.name: [W1, W4]
       arm:
         - {name: pipeline, label: entropy-greedy, pipeline: {<<: [*common, *random], planner: *p1}}
-        - {name: pipeline, label: anneal-plan/t0=0.1/cooling=0.95, pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.5, t0: 0.1, cooling: 0.95, temperatureUnit: per-node}}}}
-        - {name: pipeline, label: anneal-plan/t0=0.3/cooling=0.95, pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.5, t0: 0.3, cooling: 0.95, temperatureUnit: per-node}}}}
-        - {name: pipeline, label: anneal-plan/t0=1/cooling=0.95, pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.5, t0: 1, cooling: 0.95, temperatureUnit: per-node}}}}
-        - {name: pipeline, label: anneal-plan/t0=0.1/cooling=0.98, pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.5, t0: 0.1, cooling: 0.98, temperatureUnit: per-node}}}}
-        - {name: pipeline, label: anneal-plan/t0=0.3/cooling=0.98, pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.5, t0: 0.3, cooling: 0.98, temperatureUnit: per-node}}}}
-        - {name: pipeline, label: anneal-plan/t0=1/cooling=0.98, pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.5, t0: 1, cooling: 0.98, temperatureUnit: per-node}}}}
-        - {name: pipeline, label: anneal-online/t0=0.1, pipeline: {<<: [*common, *random], planner: {name: anneal-online, params: {lambda: 0.5, t0: 0.1, cooling: 0.99, temperatureUnit: per-node}}}}
-        - {name: pipeline, label: anneal-online/t0=0.3, pipeline: {<<: [*common, *random], planner: {name: anneal-online, params: {lambda: 0.5, t0: 0.3, cooling: 0.99, temperatureUnit: per-node}}}}
-        - {name: pipeline, label: anneal-online/t0=1, pipeline: {<<: [*common, *random], planner: {name: anneal-online, params: {lambda: 0.5, t0: 1, cooling: 0.99, temperatureUnit: per-node}}}}
+        - {name: pipeline, label: anneal-plan/t0=0.3/cooling=0.95, pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.1, t0: 0.3, cooling: 0.95, temperatureUnit: per-node}}}}
+        - {name: pipeline, label: anneal-plan/t0=1/cooling=0.95, pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.1, t0: 1, cooling: 0.95, temperatureUnit: per-node}}}}
+        - {name: pipeline, label: anneal-plan/t0=3/cooling=0.95, pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.1, t0: 3, cooling: 0.95, temperatureUnit: per-node}}}}
+        - {name: pipeline, label: anneal-plan/t0=0.3/cooling=0.98, pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.1, t0: 0.3, cooling: 0.98, temperatureUnit: per-node}}}}
+        - {name: pipeline, label: anneal-plan/t0=1/cooling=0.98, pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.1, t0: 1, cooling: 0.98, temperatureUnit: per-node}}}}
+        - {name: pipeline, label: anneal-plan/t0=3/cooling=0.98, pipeline: {<<: [*common, *random], planner: {name: anneal-plan, params: {lambda: 0.1, t0: 3, cooling: 0.98, temperatureUnit: per-node}}}}
+        - {name: pipeline, label: anneal-online/t0=0.3, pipeline: {<<: [*common, *random], planner: {name: anneal-online, params: {lambda: 0.1, t0: 0.3, cooling: 0.99, temperatureUnit: per-node}}}}
+        - {name: pipeline, label: anneal-online/t0=1, pipeline: {<<: [*common, *random], planner: {name: anneal-online, params: {lambda: 0.1, t0: 1, cooling: 0.99, temperatureUnit: per-node}}}}
+        - {name: pipeline, label: anneal-online/t0=3, pipeline: {<<: [*common, *random], planner: {name: anneal-online, params: {lambda: 0.1, t0: 3, cooling: 0.99, temperatureUnit: per-node}}}}
       seed: *seeds
   # --- Exp 7 (H7): decision latency vs cluster size (200 and 1,000 nodes reuse Exp 1's entropy-greedy cells) ----
   - name: exp7-n50
@@ -141,10 +143,35 @@ groups:
       scenario.name: [W1, W2]
       arm:
         - {name: pipeline, label: full, pipeline: {<<: [*common, *random], planner: *p2, budgets: *budget-lo}}
-        - {name: pipeline, label: no-potential, pipeline: {<<: [*search, *random], executor: {name: shift-evict}, potential: {name: none}, planner: {name: anneal-plan, params: {alpha: 0, lambda: 0.5, t0: 0.3, cooling: 0.98, temperatureUnit: per-node}}, budgets: *budget-lo}}
+        - {name: pipeline, label: no-potential, pipeline: {<<: [*search, *random], executor: {name: shift-evict}, potential: {name: none}, planner: {name: anneal-plan, params: {alpha: 0, lambda: 0.1, t0: 1, cooling: 0.98, temperatureUnit: per-node}}, budgets: *budget-lo}}
         - {name: pipeline, label: no-eviction-budget, pipeline: {<<: [*common, *random], planner: *p2}}
         - {name: pipeline, label: no-annealing, pipeline: {<<: [*common, *random], planner: *p1, budgets: *budget-lo}}
         - {name: pipeline, label: no-randomness, pipeline: {<<: [*common, *heuristic], planner: *p2, budgets: *budget-lo}}
+      seed: *seeds
+  # --- Realism checks (threats to validity): Exp 1's entropy-guided cells and the upstream baselines on W5
+  # (PDBs, hostname spread, anti-affinity, do-not-disrupt) and W6 (Google 2011 trace replay) at 200 nodes. Cut after
+  # the 1,000-node reference groups: W6 first, then W5 (plan's cut order).
+  - name: realism-w5
+    set: {scenario: {name: W5}}
+    vary:
+      arm:
+        - *b2
+        - *b3
+        - {name: pipeline, label: heuristic/entropy-greedy, pipeline: {<<: [*common, *heuristic], planner: *p1}}
+        - {name: pipeline, label: heuristic/anneal-plan, pipeline: {<<: [*common, *heuristic], planner: *p2}}
+        - {name: pipeline, label: random/entropy-greedy, pipeline: {<<: [*common, *random], planner: *p1}}
+        - {name: pipeline, label: random/anneal-plan, pipeline: {<<: [*common, *random], planner: *p2}}
+      seed: *seeds
+  - name: realism-w6
+    set: {scenario: {name: W6}}
+    vary:
+      arm:
+        - *b2
+        - *b3
+        - {name: pipeline, label: heuristic/entropy-greedy, pipeline: {<<: [*common, *heuristic], planner: *p1}}
+        - {name: pipeline, label: heuristic/anneal-plan, pipeline: {<<: [*common, *heuristic], planner: *p2}}
+        - {name: pipeline, label: random/entropy-greedy, pipeline: {<<: [*common, *random], planner: *p1}}
+        - {name: pipeline, label: random/anneal-plan, pipeline: {<<: [*common, *random], planner: *p2}}
       seed: *seeds
   # --- Exp 8: optimality gap to the offline packing bound (B6) at 50 nodes ---------------------------------------
   - name: exp8

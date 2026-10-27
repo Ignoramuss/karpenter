@@ -3,25 +3,34 @@
 Everything here reads the runs' ``timeseries.csv`` (one row per simulated minute).
 
 **Exp 2 (H2).** Does a drop in the potential over a window predict node removals and a cost decrease in the next
-window? The runs are every valid run of W2, W3 and (when present) W6 in the groups ``EXP2_GROUPS`` (remapped by
-ANALYSIS_GROUP_MAP), without B0, which never consolidates. Runs whose configuration is identical apart from the label
-(e.g. Exp 6's lambda=0.5 point is Exp 1's random/entropy-greedy) are the same simulation, so only the first of them
-(in group order) is kept. Per run, after warmup (t >= 10 min) and with window w (10 min; 5 and 20 as sensitivity),
-at t = 10 + w, 10 + 2w, ... while t + w is in the run (non-overlapping windows):
+window? The runs are every valid W2 and W3 run of the registry's ``exp2`` groups (experiments.yaml; remapped by
+ANALYSIS_GROUP_MAP), as the preregistration says ("computed from the logs of the W2 and W3 runs above"), without B0,
+which never consolidates. Runs whose configuration is identical apart from the label (e.g. Exp 6's lambda=0.5 point
+is Exp 1's random/entropy-greedy, Exp 5's least-allocated/spread cells are Exp 1's) are the same simulation, so only
+the first of them (in registry group order) is kept. Per run, after warmup (t >= 10 min) and with window w (10 min;
+5 and 20 as sensitivity), at t = 10 + w, 10 + 2w, ... while t + w is in the run (non-overlapping windows):
 
-- x(t) = Phi(t) - Phi(t - w) for Phi in P1 = p1_norm, P2 = p2_norm, P3 = p3_norm;
+- x(t) = Phi(t) - Phi(t - w) for the potentials as the plan's formal model defines them (the registry's
+  ``exp2.params.potentials``): P1 = p1_load_entropy (H of the load shares), P2 = p2_util_entropy (sum of price x
+  h(u)), P3 = p3_quadratic (sum of price x u(1 - u)). An empty node adds nothing to any of them, so removing one
+  leaves them unchanged. The simulator's normalized forms (p1_norm = P1 / ln(ready nodes), p2_norm and p3_norm = P2
+  and P3 / ready fleet price) are a sensitivity analysis (``form`` "norm", families ``H2-norm/...``): their
+  denominators shrink at every removal of an empty node, so they rise mechanically when nodes are removed;
 - y_removals(t) = nodes_removed_cum(t + w) - nodes_removed_cum(t);
 - y_cost(t) = cost_per_hour(t) - cost_per_hour(t + w);
 
 and the run's Spearman correlation of -x with each y (undefined, and the run skipped, when either series is constant
-or has fewer than ``MIN_WINDOWS`` windows). Across runs, per (window, outcome, potential, scenario): the median and
-mean correlation with 95% percentile bootstrap CIs over runs, the share of positive correlations, and a one-sided sign
-test that it exceeds one half (zeros dropped). Holm runs within each (outcome, window) over potentials x scenarios
-(the preregistered family for removals at w = 10). H2 holds for a potential in a scenario when its sign test rejects
+or has fewer than ``MIN_WINDOWS`` windows). x uses only minutes up to t and y only minutes after t, so there is no
+look-ahead. Across runs, per (form, window, outcome, potential, scenario): the median and mean correlation with 95%
+percentile bootstrap CIs over runs, the share of positive correlations, and a one-sided sign test that it exceeds one
+half (zeros dropped). Holm runs within each (form, outcome, window) over potentials x scenarios (the preregistered
+family is the raw potentials, removals, w = 10). H2 holds for a potential in a scenario when its sign test rejects
 after Holm and its median is positive. Potentials are compared pairwise on the same runs with a two-sided Wilcoxon
-signed-rank test of the per-run correlation differences, Holm within each (outcome, window) over pairs x scenarios.
+signed-rank test of the per-run correlation differences, Holm within each (form, outcome, window) over pairs x
+scenarios.
 
-**Lead-lag (figure 6).** On per-minute differences after warmup, dPhi(t) = Phi(t) - Phi(t - 1) and dRemovals(t) =
+**Lead-lag (figure 6).** For the raw potentials, on per-minute differences after warmup, dPhi(t) = Phi(t) -
+Phi(t - 1) and dRemovals(t) =
 nodes_removed_cum(t) - nodes_removed_cum(t - 1): per run and lag k in -30..30 min, the Pearson correlation of
 -dPhi(t) with dRemovals(t + k) over the overlapping minutes; then the median across runs with a bootstrap CI.
 Positive mass at k > 0 means the potential's drop comes first.
@@ -30,14 +39,15 @@ Positive mass at k > 0 means the potential's drop comes first.
 random/anneal-plan when present), W1 and W2 at 200 nodes: one heatmap per arm and scenario (share of ready nodes in
 each 10% bin, averaged over seeds), plus the share of nodes in the 20%-80% band (band_share_cpu) per arm.
 
-**Figure 2.** P2 potential (p2_norm), node count and cost ($/hr) on shared time axes for B2, B3,
+**Figure 2.** P2 potential (p2_norm: P2 per $/hr of ready fleet, so arms with different fleets compare), node count
+and cost ($/hr) on shared time axes for B2, B3,
 heuristic/entropy-greedy, random/entropy-greedy and random/anneal-plan at 200 nodes, mean across seeds with a 95%
 bootstrap band: W2 (``fig2_potential_nodes_cost``) and W1 (``fig2_potential_nodes_cost_w1``).
 
 Outputs under ``out_root`` (nothing is written for a part without runs; it logs "skipped <name>: no runs"):
 
-- ``tables/exp2_correlation.{csv,md}``: one row per (window, outcome, potential, scenario).
-- ``tables/exp2_potential_comparison.{csv,md}``: one row per (window, outcome, scenario, potential pair).
+- ``tables/exp2_correlation.{csv,md}``: one row per (form, window, outcome, potential, scenario).
+- ``tables/exp2_potential_comparison.{csv,md}``: one row per (form, window, outcome, scenario, potential pair).
 - ``tables/exp2_leadlag.{csv,md}``: the data behind figure 6, one row per (scenario, potential, lag).
 - ``tables/timeseries_figures.json``: selection and validity counts, H2 verdicts, lead-lag summaries, and the
   late-run (last 20%) numbers behind figures 1 and 2.
@@ -69,10 +79,16 @@ ALPHA = common.ALPHA
 
 # --- Exp 2 -----------------------------------------------------------------------------------------------------------
 EXP2 = "exp2"
-EXP2_GROUPS = ("exp1-n200", "exp1-n1000", "exp3", "exp6", "exp6-baselines")  # session names, remapped
-EXP2_SCENARIOS = ("W2", "W3", "W6")  # W6 only if it ran
+_EXP2 = common.experiment(EXP2)
+EXP2_GROUPS = tuple(_EXP2["groups"])  # session names (registry order), remapped by ANALYSIS_GROUP_MAP
+EXP2_SCENARIOS = tuple(_EXP2["scenarios"])  # W2, W3 (the registry's select)
 EXP2_EXCLUDED_LABELS = ("B0",)  # never consolidates
-POTENTIALS = {"P1": "p1_norm", "P2": "p2_norm", "P3": "p3_norm"}
+# Primary: the potentials as defined (registry exp2.params.potentials, the raw sums). Sensitivity: the simulator's
+# normalized forms, whose denominators shrink whenever an empty node is removed (see the module docstring).
+POTENTIALS = {str(k): str(v) for k, v in _EXP2["params"]["potentials"].items()}
+POTENTIALS_NORM = {"P1": "p1_norm", "P2": "p2_norm", "P3": "p3_norm"}
+FORMS = {"raw": POTENTIALS, "norm": POTENTIALS_NORM}
+PRIMARY_FORM = "raw"
 OUTCOMES = ("removals", "cost_decrease")
 PRIMARY_WINDOW = 10
 WINDOWS = (PRIMARY_WINDOW, 5, 20)  # primary first, then the sensitivity windows
@@ -92,7 +108,7 @@ FIG1_SCENARIOS = ("W1", "W2")
 FIG1_ARMS = ("B2", "random/entropy-greedy", "random/anneal-plan")
 FIG2_ARMS = ("B2", "B3", "heuristic/entropy-greedy", "random/entropy-greedy", "random/anneal-plan")
 FIG2 = {"W2": "fig2_potential_nodes_cost", "W1": "fig2_potential_nodes_cost_w1"}
-FIG2_PANELS = (("p2_norm", "P2 potential (norm.)"), ("nodes", "Nodes"), ("cost_per_hour", "Cost ($/hr)"))
+FIG2_PANELS = (("p2_norm", "P2 / fleet price\n(mean h(u))"), ("nodes", "Nodes"), ("cost_per_hour", "Cost ($/hr)"))
 FIG6 = "fig6_leadlag"
 HIST_BINS = 10
 # Histogram bins reported in the JSON: nearly empty ([0, 0.2)) and packed ([0.8, 1.0]) nodes, the two modes the
@@ -196,7 +212,8 @@ def per_minute(ts: pd.DataFrame) -> pd.DataFrame:
 
 
 def load_series(rows: pd.DataFrame) -> tuple[dict[str, pd.DataFrame], list[str]]:
-    """Per-minute timeseries (``per_minute``) of each row's run, by run_id, and the run_ids without a timeseries.csv.
+    """Per-minute timeseries (``per_minute``) of each row's run, by run_id, and the run_ids without a usable one
+    (no timeseries.csv, an unreadable one, or one without samples; counted as missing, not dropped silently).
 
     Only call with valid rows: abandoned cells have no run files.
     """
@@ -209,7 +226,17 @@ def load_series(rows: pd.DataFrame) -> tuple[dict[str, pd.DataFrame], list[str]]
             common.logger.info("no timeseries.csv for %s", run_id)
             missing.append(run_id)
             continue
-        series[run_id] = per_minute(common.load_timeseries(Path(path)))
+        try:
+            pm = per_minute(common.load_timeseries(Path(path)))
+        except (ValueError, KeyError, pd.errors.ParserError) as err:
+            common.logger.warning("unreadable timeseries.csv for %s (%s)", run_id, err)
+            missing.append(run_id)
+            continue
+        if pm.empty:  # a header without samples: nothing to plot or correlate
+            common.logger.info("empty timeseries.csv for %s", run_id)
+            missing.append(run_id)
+            continue
+        series[run_id] = pm
     return series, missing
 
 
@@ -242,14 +269,15 @@ def _validity(rows: pd.DataFrame, by: Sequence[str] = ("group",)) -> list[dict[s
 def exp2_select(runs: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
     """Exp 2's runs: (candidates, used, counts).
 
-    ``candidates`` are every row (abandoned cells included) of the remapped ``EXP2_GROUPS`` on ``EXP2_SCENARIOS``.
-    ``used`` are the valid ones, without ``EXP2_EXCLUDED_LABELS`` and with duplicate configurations dropped (the
-    first in group order, then run_id, is kept), sorted by run_id. ``counts`` reports every exclusion.
+    ``candidates`` are every row (abandoned cells included) the registry selects for ``exp2``
+    (``common.select_runs``: the remapped ``EXP2_GROUPS`` on ``EXP2_SCENARIOS``). ``used`` are the valid ones,
+    without ``EXP2_EXCLUDED_LABELS`` and with duplicate configurations dropped (the first in group order, then
+    run_id, is kept), sorted by run_id. ``counts`` reports every exclusion.
     """
-    groups = common.map_groups(EXP2_GROUPS)
+    groups = common.experiment_groups(EXP2)
     if runs.empty:
         return runs.copy(), runs.copy(), {}
-    cand = runs.loc[runs["group"].isin(groups) & runs["scenario"].isin(EXP2_SCENARIOS)].copy()
+    cand = common.select_runs(runs, EXP2)
     excluded = cand["label"].isin(EXP2_EXCLUDED_LABELS)
     rest = cand.loc[~excluded]
     valid = rest.loc[rest["valid"].astype(bool)].copy()
@@ -273,11 +301,15 @@ def exp2_select(runs: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, dict[st
     return cand, used, counts
 
 
-def window_samples(pm: pd.DataFrame, w: int, warmup: float = WARMUP_MIN) -> pd.DataFrame:
+def window_samples(pm: pd.DataFrame, w: int, warmup: float = WARMUP_MIN,
+                   potentials: Mapping[str, str] | None = None) -> pd.DataFrame:
     """Non-overlapping window samples of one run (``per_minute`` frame) at t = warmup + w, warmup + 2w, ... while
-    t + w is in the run. Columns: t, ``drop_<P>`` = -(Phi(t) - Phi(t - w)) per potential, ``removals`` = removals in
-    (t, t + w], ``cost_decrease`` = cost_per_hour(t) - cost_per_hour(t + w). A sample with a missing minute is NaN."""
-    columns = ["t", *(f"drop_{p}" for p in POTENTIALS), *OUTCOMES]
+    t + w is in the run. Columns: t, ``drop_<P>`` = -(Phi(t) - Phi(t - w)) per potential (``potentials``: name ->
+    timeseries column, default ``POTENTIALS``), ``removals`` = removals in (t, t + w], ``cost_decrease`` =
+    cost_per_hour(t) - cost_per_hour(t + w). The predictor only reads minutes <= t and the outcomes only minutes >= t,
+    and consecutive samples' predictor windows do not overlap. A sample with a missing minute is NaN."""
+    potentials = POTENTIALS if potentials is None else potentials
+    columns = ["t", *(f"drop_{p}" for p in potentials), *OUTCOMES]
     if pm.empty:
         return pd.DataFrame(columns=columns)
     start, last = int(math.ceil(warmup)) + w, int(pm.index.max())
@@ -287,7 +319,7 @@ def window_samples(pm: pd.DataFrame, w: int, warmup: float = WARMUP_MIN) -> pd.D
         return _column(pm, col).reindex(minutes).to_numpy(dtype=float)
 
     out: dict[str, Any] = {"t": t}
-    for p, col in POTENTIALS.items():
+    for p, col in potentials.items():
         out[f"drop_{p}"] = -(at(col, t) - at(col, t - w))
     out["removals"] = at("nodes_removed_cum", t + w) - at("nodes_removed_cum", t)
     out["cost_decrease"] = at("cost_per_hour", t) - at("cost_per_hour", t + w)
@@ -310,22 +342,24 @@ def _warmup(row: Any) -> float:
 
 
 def exp2_per_run(used: pd.DataFrame, series: Mapping[str, pd.DataFrame]) -> pd.DataFrame:
-    """Per-run correlations: one row per (run, window, outcome, potential) with n_windows and ``rho`` (Spearman of
-    the potential's drop with the outcome in the next window; NaN when undefined). Runs without a series are absent."""
+    """Per-run correlations: one row per (run, form, window, outcome, potential) with n_windows and ``rho``
+    (Spearman of the potential's drop with the outcome in the next window; NaN when undefined), for each potential
+    form in ``FORMS`` (raw: primary; norm: sensitivity). Runs without a series are absent."""
     rows = []
     for r in used.itertuples(index=False):
         pm = series.get(r.run_id)
         if pm is None:
             continue
-        for w in WINDOWS:
-            s = window_samples(pm, w, _warmup(r))
-            for outcome in OUTCOMES:
-                for p in POTENTIALS:
-                    rows.append({"run_id": r.run_id, "group": r.group, "label": r.label, "scenario": r.scenario,
-                                 "nodes": r.nodes, "seed": r.seed, "window_min": w, "outcome": outcome,
-                                 "potential": p, "n_windows": int(len(s)),
-                                 "rho": spearman(s[f"drop_{p}"], s[outcome])})
-    return pd.DataFrame(rows, columns=["run_id", "group", "label", "scenario", "nodes", "seed", "window_min",
+        for form, potentials in FORMS.items():
+            for w in WINDOWS:
+                s = window_samples(pm, w, _warmup(r), potentials)
+                for outcome in OUTCOMES:
+                    for p in potentials:
+                        rows.append({"run_id": r.run_id, "group": r.group, "label": r.label, "scenario": r.scenario,
+                                     "nodes": r.nodes, "seed": r.seed, "form": form, "window_min": w,
+                                     "outcome": outcome, "potential": p, "n_windows": int(len(s)),
+                                     "rho": spearman(s[f"drop_{p}"], s[outcome])})
+    return pd.DataFrame(rows, columns=["run_id", "group", "label", "scenario", "nodes", "seed", "form", "window_min",
                                        "outcome", "potential", "n_windows", "rho"])
 
 
@@ -334,28 +368,37 @@ def exp2_per_run(used: pd.DataFrame, series: Mapping[str, pd.DataFrame]) -> pd.D
 # --------------------------------------------------------------------------------------------------------------------
 
 CORRELATION_COLUMNS = [
-    "role", "family", "window_min", "outcome", "potential", "column", "scenario", "nodes", "n_runs_total", "n_runs",
+    "role", "family", "form", "window_min", "outcome", "potential", "column", "scenario", "nodes", "n_runs_total",
+    "n_runs",
     "n_undefined", "median_rho", "median_rho_lo", "median_rho_hi", "mean_rho", "mean_rho_lo", "mean_rho_hi",
     "n_positive", "n_negative", "n_zero", "share_positive", "p_sign", "p_holm", "significant", "supports_h2",
 ]
 COMPARISON_COLUMNS = [
-    "role", "family", "window_min", "outcome", "scenario", "a", "b", "n_runs_total", "n_pairs", "n_dropped",
+    "role", "family", "form", "window_min", "outcome", "scenario", "a", "b", "n_runs_total", "n_pairs", "n_dropped",
     "median_a", "median_b", "mean_diff", "mean_diff_lo", "mean_diff_hi", "median_diff", "median_diff_lo",
     "median_diff_hi", "p_wilcoxon", "p_holm", "significant", "favours",
 ]
 
 
-def _role(window: int, outcome: str) -> str:
-    if window != PRIMARY_WINDOW:
+def _role(window: int, outcome: str, form: str = PRIMARY_FORM) -> str:
+    if form != PRIMARY_FORM or window != PRIMARY_WINDOW:
         return "sensitivity"
     return "primary" if outcome == PRIMARY_OUTCOME else "secondary"
 
 
-def _cells(per_run: pd.DataFrame) -> list[tuple[int, str, str]]:
-    """(window, outcome, scenario) combinations present, in display order (primary window and outcome first)."""
+def _family(kind: str, form: str, outcome: str, window: int) -> str:
+    """Holm family name: ``H2/<outcome>/w<window>`` (sign tests) or ``H2-compare/...`` (potential comparisons) for
+    the raw potentials, with ``-norm`` after ``H2`` for the normalized sensitivity forms."""
+    return f"H2{'' if form == PRIMARY_FORM else '-' + form}{kind}/{outcome}/w{window}"
+
+
+def _cells(per_run: pd.DataFrame) -> list[tuple[str, int, str, str]]:
+    """(form, window, outcome, scenario) combinations present, in display order (primary form, window and outcome
+    first)."""
     scenarios = _ordered(per_run["scenario"], EXP2_SCENARIOS)
-    return [(w, o, s) for w in WINDOWS for o in OUTCOMES for s in scenarios
-            if ((per_run["window_min"] == w) & (per_run["outcome"] == o) & (per_run["scenario"] == s)).any()]
+    return [(f, w, o, s) for f in FORMS for w in WINDOWS for o in OUTCOMES for s in scenarios
+            if ((per_run["form"] == f) & (per_run["window_min"] == w) & (per_run["outcome"] == o)
+                & (per_run["scenario"] == s)).any()]
 
 
 def _add_holm(df: pd.DataFrame, p_col: str) -> pd.DataFrame:
@@ -369,22 +412,24 @@ def _add_holm(df: pd.DataFrame, p_col: str) -> pd.DataFrame:
 
 
 def correlation_table(per_run: pd.DataFrame) -> pd.DataFrame:
-    """Across-run aggregates per (window, outcome, potential, scenario): median and mean correlation with bootstrap
-    CIs over runs, the sign test, Holm within (outcome, window) over potentials x scenarios, and ``supports_h2``
-    (significant after Holm with a positive median)."""
+    """Across-run aggregates per (form, window, outcome, potential, scenario): median and mean correlation with
+    bootstrap CIs over runs, the sign test, Holm within (form, outcome, window) over potentials x scenarios, and
+    ``supports_h2`` (significant after Holm with a positive median)."""
     rows = []
-    for w, outcome, scenario in _cells(per_run):
-        for p, col in POTENTIALS.items():
-            part = per_run.loc[(per_run["window_min"] == w) & (per_run["outcome"] == outcome)
-                               & (per_run["scenario"] == scenario) & (per_run["potential"] == p)]
+    for form, w, outcome, scenario in _cells(per_run):
+        for p, col in FORMS[form].items():
+            part = per_run.loc[(per_run["form"] == form) & (per_run["window_min"] == w)
+                               & (per_run["outcome"] == outcome) & (per_run["scenario"] == scenario)
+                               & (per_run["potential"] == p)]
             rho = part["rho"].to_numpy(dtype=float)
             med = common.bootstrap_ci(rho, "median")
             mean = common.bootstrap_ci(rho, "mean")
             n = int(np.isfinite(rho).sum())
             sign = sign_test(rho)
             rows.append({
-                "role": _role(w, outcome), "family": f"H2/{outcome}/w{w}", "window_min": w, "outcome": outcome,
-                "potential": p, "column": col, "scenario": scenario, "nodes": _nodes_text(part["nodes"]),
+                "role": _role(w, outcome, form), "family": _family("", form, outcome, w), "form": form,
+                "window_min": w, "outcome": outcome, "potential": p, "column": col, "scenario": scenario,
+                "nodes": _nodes_text(part["nodes"]),
                 "n_runs_total": int(len(part)), "n_runs": n, "n_undefined": int(len(part) - n),
                 "median_rho": med[0], "median_rho_lo": med[1], "median_rho_hi": med[2],
                 "mean_rho": mean[0], "mean_rho_lo": mean[1], "mean_rho_hi": mean[2], **sign,
@@ -398,15 +443,15 @@ def correlation_table(per_run: pd.DataFrame) -> pd.DataFrame:
 
 
 def potential_comparison_table(per_run: pd.DataFrame) -> pd.DataFrame:
-    """Pairwise potential comparisons per (window, outcome, scenario), paired by run: per-run correlation
+    """Pairwise potential comparisons per (form, window, outcome, scenario), paired by run: per-run correlation
     differences a - b with mean and median and bootstrap CIs, two-sided Wilcoxon signed-rank p, Holm within
-    (outcome, window) over pairs x scenarios, and ``favours`` (the potential the signed ranks favour)."""
+    (form, outcome, window) over pairs x scenarios, and ``favours`` (the potential the signed ranks favour)."""
     rows = []
-    for w, outcome, scenario in _cells(per_run):
-        part = per_run.loc[(per_run["window_min"] == w) & (per_run["outcome"] == outcome)
-                           & (per_run["scenario"] == scenario)]
+    for form, w, outcome, scenario in _cells(per_run):
+        part = per_run.loc[(per_run["form"] == form) & (per_run["window_min"] == w)
+                           & (per_run["outcome"] == outcome) & (per_run["scenario"] == scenario)]
         wide = part.pivot(index="run_id", columns="potential", values="rho").sort_index()
-        for a, b in itertools.combinations(POTENTIALS, 2):
+        for a, b in itertools.combinations(FORMS[form], 2):
             ra = wide[a].to_numpy(dtype=float) if a in wide else np.full(len(wide), np.nan)
             rb = wide[b].to_numpy(dtype=float) if b in wide else np.full(len(wide), np.nan)
             ok = np.isfinite(ra) & np.isfinite(rb)
@@ -415,8 +460,9 @@ def potential_comparison_table(per_run: pd.DataFrame) -> pd.DataFrame:
             med = common.bootstrap_ci(d, "median")
             direction = signed_rank_direction(d)
             rows.append({
-                "role": _role(w, outcome), "family": f"H2-compare/{outcome}/w{w}", "window_min": w,
-                "outcome": outcome, "scenario": scenario, "a": a, "b": b, "n_runs_total": int(len(wide)),
+                "role": _role(w, outcome, form), "family": _family("-compare", form, outcome, w), "form": form,
+                "window_min": w, "outcome": outcome, "scenario": scenario, "a": a, "b": b,
+                "n_runs_total": int(len(wide)),
                 "n_pairs": int(ok.sum()), "n_dropped": int(len(wide) - ok.sum()),
                 "median_a": float(np.median(ra[ok])) if ok.any() else math.nan,
                 "median_b": float(np.median(rb[ok])) if ok.any() else math.nan,
@@ -435,7 +481,7 @@ def verdicts(corr: pd.DataFrame) -> dict[str, dict[str, Any]]:
     significant after Holm, positive median), and a verdict: "holds" (every scenario), "partial" (some), or "not
     supported" (none)."""
     out: dict[str, dict[str, Any]] = {}
-    for family in _ordered(corr["family"], [f"H2/{o}/w{w}" for w in WINDOWS for o in OUTCOMES]):
+    for family in _ordered(corr["family"], [_family("", f, o, w) for f in FORMS for w in WINDOWS for o in OUTCOMES]):
         fam = corr.loc[corr["family"] == family]
         per_potential = {}
         for p in POTENTIALS:
@@ -471,8 +517,8 @@ def cross_correlation(u: Any, v: Any, lags: Sequence[int] = LAGS, min_pairs: int
 
 
 def run_leadlag(pm: pd.DataFrame, warmup: float = WARMUP_MIN, lags: Sequence[int] = LAGS) -> dict[str, np.ndarray]:
-    """Per potential: the cross-correlation of -dPhi(t) with dRemovals(t + k) over lags, on per-minute differences
-    of the run's post-warmup minutes (t - 1 >= warmup)."""
+    """Per potential (the primary, raw ``POTENTIALS``): the cross-correlation of -dPhi(t) with dRemovals(t + k)
+    over lags, on per-minute differences of the run's post-warmup minutes (t - 1 >= warmup)."""
     seg = pm.loc[pm.index >= int(math.ceil(warmup))]
     rem = _column(seg, "nodes_removed_cum").diff().to_numpy()[1:]
     return {p: cross_correlation(-_column(seg, col).diff().to_numpy()[1:], rem, lags)
@@ -596,9 +642,11 @@ def run_exp2(series: Mapping[str, pd.DataFrame], missing: Sequence[str], used: p
         common.write_table(ll, out_root, "exp2_leadlag")
     figure6(ll, out_root)
     primary = corr.loc[corr["role"] == "primary"]
+    norm_family = _family("", "norm", PRIMARY_OUTCOME, PRIMARY_WINDOW)
     head.update({
-        "primary_family": f"H2/{PRIMARY_OUTCOME}/w{PRIMARY_WINDOW}",
+        "primary_family": _family("", PRIMARY_FORM, PRIMARY_OUTCOME, PRIMARY_WINDOW),
         "primary": primary.drop(columns=["role"]),
+        "sensitivity_normalized_primary": corr.loc[corr["family"] == norm_family].drop(columns=["role"]),
         "verdicts": verdicts(corr),
         "potential_comparisons_primary": comp.loc[comp["role"] == "primary"].drop(columns=["role"]),
         "potential_comparisons_significant": comp.loc[comp["significant"].astype(bool),
@@ -621,14 +669,18 @@ def _counts(df: pd.DataFrame, by: Sequence[str]) -> list[dict[str, Any]]:
 def _method() -> dict[str, Any]:
     """The statistical settings, recorded next to the numbers."""
     return {
-        "potentials": POTENTIALS, "outcomes": {"removals": "nodes_removed_cum(t+w) - nodes_removed_cum(t)",
+        "potentials": POTENTIALS, "potentials_sensitivity_normalized": POTENTIALS_NORM,
+        "why_raw": "the potentials as defined (registry exp2.params.potentials); the normalized forms divide by "
+                   "ln(ready nodes) or the ready fleet price, which shrink whenever an empty node is removed, so they "
+                   "rise mechanically at removals",
+        "outcomes": {"removals": "nodes_removed_cum(t+w) - nodes_removed_cum(t)",
                                                "cost_decrease": "cost_per_hour(t) - cost_per_hour(t+w)"},
         "windows_min": list(WINDOWS), "primary_window_min": PRIMARY_WINDOW, "warmup_min": WARMUP_MIN,
         "min_windows_per_run": MIN_WINDOWS, "per_run_statistic": "Spearman of -(Phi(t) - Phi(t-w)) with y(t)",
         "aggregate": "median and mean over runs, 95% percentile bootstrap (10,000 resamples, seed 0)",
         "sign_test": "exact binomial, one-sided (share positive > 1/2), zeros dropped",
-        "holm_families": "per (outcome, window): potentials x scenarios for the sign tests, potential pairs x "
-                         "scenarios for the Wilcoxon comparisons",
+        "holm_families": "per (form, outcome, window): potentials x scenarios for the sign tests, potential pairs "
+                         "x scenarios for the Wilcoxon comparisons",
         "comparison_test": "two-sided Wilcoxon signed-rank on per-run correlation differences, paired by run",
         "deduplication": "runs with identical manifest config apart from label/runID/maxWall count once",
         "leadlag": {"lags_min": [min(LAGS), max(LAGS)], "statistic": "Pearson of -dPhi(t) with dRemovals(t+k) over "

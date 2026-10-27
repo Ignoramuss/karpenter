@@ -141,7 +141,7 @@ def _session_tree(root: Path, exp1_seeds: int = 5, seeds: int = 10, only: tuple[
                 cost, ev = 40.0 + rng.normal(0, 1), 300.0 + rng.normal(0, 10)
                 for label in labels:
                     c, n = cost, ev
-                    if label == "anneal-plan/t0=0.3/cooling=0.98":
+                    if label == "anneal-plan/t0=1/cooling=0.98":
                         c = cost * 0.97
                     elif label.startswith("anneal-online/"):
                         c, n = cost * (1 + 0.0005 * alternating[i]), ev * 1.5
@@ -286,7 +286,7 @@ def _check_exp3(doc: dict[str, Any]) -> None:
 
 def _check_exp4(out: Path, doc: dict[str, Any]) -> None:
     h4 = doc["h4"]
-    assert doc["default_anneal_label"] == "anneal-plan/t0=0.3/cooling=0.98"
+    assert doc["default_anneal_label"] == "anneal-plan/t0=1/cooling=0.98"
     assert h4["verdict"] == "supported" and h4["plan_clause"] == "supported" and h4["online_clause"] == "supported"
     assert all(p["cost_significantly_lower"] for p in h4["plan"]) and len(h4["online"]) == 6
     table = pd.read_csv(out / "tables" / "exp4_h4.csv")
@@ -296,9 +296,9 @@ def _check_exp4(out: Path, doc: dict[str, Any]) -> None:
     assert (table["p_holm_all"] >= 36 * 2 / 1024 - 1e-12).all()
     sweep = pd.read_csv(out / "tables" / "exp4_sweep.csv")
     assert len(sweep) == 20 and sweep.loc[sweep["default"], "label"].unique().tolist() == [
-        "anneal-plan/t0=0.3/cooling=0.98"]
+        "anneal-plan/t0=1/cooling=0.98"]
     online = sweep.loc[sweep["planner"] == "anneal-online"]
-    assert (online["cooling"] == 0.99).all() and sorted(online["t0"].unique()) == [0.1, 0.3, 1.0]
+    assert (online["cooling"] == 0.99).all() and sorted(online["t0"].unique()) == [0.3, 1.0, 3.0]
 
 
 def _check_ablation(out: Path, doc: dict[str, Any]) -> None:
@@ -339,6 +339,24 @@ def test_partial_data() -> None:
         w2 = abl.loc[(abl["scenario"] == "W2") & (abl["configuration"] != "full")]
         assert (w2["outcome"] == "no data").all() and (w2["n_valid"] == 0).all()
         assert (out / "figures" / "out" / "fig8_ablation.png").exists()
+
+
+def test_h4_underpowered_at_nine_seeds() -> None:
+    """With 9 pairs the exact Wilcoxon floor is 2/512 and Holm over H4's 16 tests cannot reject (16 * 2/512 > 0.05):
+    the "not higher" clauses then rest on tests that could not have been significant, and the verdict says so."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "runs"
+        _session_tree(root, only=("exp4",), seeds=9)
+        out = Path(tmp) / "out"
+        ce.main(root, out)
+        table = pd.read_csv(out / "tables" / "exp4_h4.csv")
+        h4 = table.loc[table["family"] == "H4"]
+        assert (h4["p_floor"] >= 2 / 512 - 1e-15).all() and not h4["holm_reachable"].astype(bool).any(), h4
+        assert not h4["significant"].astype(bool).any()
+        doc = json.loads((out / "tables" / "cost_experiments.json").read_text())["exp4"]["h4"]
+        assert doc["verdict"] == "not supported" and doc["online_clause"] == "not supported", doc
+        assert len(doc["underpowered"]) == 2 + 6, doc["underpowered"]  # 2 scenarios x (plan + 3 online configs)
+        assert all(p["underpowered"] == ["steady_cost_per_hour", "evictions"] for p in doc["plan"]), doc["plan"]
 
 
 def test_group_map_pilot_layout() -> None:

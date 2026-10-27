@@ -1,0 +1,386 @@
+"""Plain-assert tests for paper.analysis.latency_optimality, on a synthetic runs tree with known latencies and known
+optimality gaps, plus a smoke run on the pilot. Run from the repository root:
+
+    /opt/research-venv/bin/python -m paper.analysis.test_latency_optimality
+
+``--write-synthetic DIR`` only writes the synthetic tree (``DIR/session/<run_id>/...``), e.g. to point
+``paper/make_figures.py --runs DIR`` at it.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import io
+import json
+import math
+import os
+import sys
+import tempfile
+import traceback
+import zlib
+from collections.abc import Callable, Iterator
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import pandas as pd
+
+from paper.analysis import common
+from paper.analysis import latency_optimality as lo
+
+PILOT = common.REPO_ROOT / "experiments" / "runs" / "pilot"
+SEEDS = list(range(101, 111))
+EXP8_SEEDS = [101, 102, 103, 104]
+C7I_2XL = 0.357  # four (1975m, 4093Mi) pods fill a c7i.2xlarge, the catalog's cheapest CPU: k nodes cost k * this
+POD = (1975, 4093)
+SNAP_TIMES = (10, 40, 70, 100, 130, 160, 180)
+GAPS = {"B2": 0.20, "B3": 0.12, "B5": 0.15, "heuristic/entropy-greedy": 0.10, "random/entropy-greedy": 0.05,
+        "random/savings-only": 0.08}
+EARLY_GAP = 0.5  # every run's gap at the t = 10 snapshot, before consolidation
+ARMS = {"B2": "B2-when-empty-or-underutilized", "B3": "B3-balanced", "B5": "B5-descheduler"}
+OUTPUTS = ["tables/exp7_latency.csv", "tables/exp7_latency.md", "tables/exp7_tests.csv", "tables/exp7_tests.md",
+           "tables/exp8_gap.csv", "tables/exp8_gap.md", "tables/exp8_gap_snapshots.csv",
+           "tables/exp8_gap_snapshots.md", "tables/latency_optimality.json", "figures/out/fig4_latency.png",
+           "figures/out/fig4_latency.pdf", "figures/out/fig7_optimality_gap.png",
+           "figures/out/fig7_optimality_gap.pdf"]
+
+
+# --- synthetic runs tree -------------------------------------------------------------------------------------------
+
+
+def _slug(text: str) -> str:
+    return "".join(c if c.isalnum() else "-" for c in text.lower()).strip("-")
+
+
+def latency_ms(label: str, nodes: int) -> float:
+    """Synthetic mean pass latency: random grows as sqrt(n), heuristic linearly, B2 as n^1.2."""
+    base, exponent = {"random": (20.0, 0.5), "heuristic": (40.0, 1.0), "B2": (60.0, 1.2)}[label.split("/")[0]]
+    return base * (nodes / 50) ** exponent
+
+
+def _write_run(matrix: Path, group: str, label: str, scenario: str, nodes: int, seed: int, index: list[dict[str, Any]],
+               rng: np.random.Generator, podsets: list[dict[str, Any]] | None = None, duration: str = "3h0m0s",
+               placement: str = "least-allocated", drop: tuple[str, ...] = (), **metrics: Any) -> None:
+    desc = f"arm-{_slug(label)}_scenario-{scenario.lower()}_seed-{seed}"
+    run_id = f"{group}__{desc}__{zlib.crc32((group + desc).encode()):08x}"
+    d = matrix / run_id
+    d.mkdir(parents=True)
+    pipeline = label not in ARMS
+    arm_cfg: dict[str, Any] = {"name": "pipeline" if pipeline else ARMS[label], "label": label}
+    if pipeline:
+        arm_cfg["pipeline"] = {"planner": {"name": label.split("/")[1], "params": {"lambda": 0.5}},
+                               "candidates": {"name": "uniform-random" if label.startswith("random") else "upstream"},
+                               "moves": [{"name": "random-merge"}], "executor": {"name": "shift-evict"},
+                               "potential": {"name": "util-entropy"}, "search": {"maxFullSimulations": 16}}
+    cell = {"arm": arm_cfg, "runID": run_id, "scenario": {"name": scenario, "nodes": nodes}, "seed": seed,
+            "placement": placement}
+    (d / "cell.json").write_text(json.dumps(cell, indent=2) + "\n", encoding="utf-8")
+    manifest = {"run_id": run_id, "git_sha": "0" * 40, "git_dirty": False, "seed": seed, "scenario": scenario,
+                "config": {"runID": run_id, "seed": seed, "scenario": {"name": scenario, "nodes": nodes},
+                           "arm": arm_cfg, "placement": placement, "scaleDown": "spread", "duration": duration,
+                           "warmup": "10m0s"}}
+    (d / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    mean = latency_ms(label, nodes) * (1 + rng.normal(0, 0.05)) if label.split("/")[0] in ("random", "heuristic",
+                                                                                           "B2") else 10.0
+    passes = 900 + int(rng.integers(0, 50))
+    summary: dict[str, Any] = {
+        "run_id": run_id, "label": label, "arm": arm_cfg["name"], "scenario": scenario, "scenario_nodes": nodes,
+        "seed": seed, "placement": placement, "scale_down": "spread", "sim_minutes": 180,
+        "integrated_cost": 100.0, "integrated_cost_post": 90.0, "steady_cost_per_hour": 30.0, "final_nodes": nodes // 2,
+        "peak_nodes": nodes, "evictions": 100, "eviction_cost": 100.0, "disruption_passes": passes,
+        "full_simulations": 6 * passes if pipeline else 0, "search_timeouts": 0, "fidelity_hits": 0,
+        "fidelity_misses": 0, "fidelity": 0.0, "invalid": False, "invalid_reasons": [], "timed_out": False,
+        "wall_seconds": 100.0, "wall_pass_mean_ms": mean, "wall_pass_p95_ms": 3 * mean, "wall_pass_max_ms": 6 * mean,
+        "wall_pass_total_s": mean * passes / 1000, "wall_passes_over_1m": 0, "wall_passes_over_3m": 0,
+    }
+    summary.update(metrics)
+    for key in drop:
+        summary.pop(key, None)
+    (d / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    if podsets is not None:
+        with open(d / "podsets.jsonl", "w", encoding="utf-8") as f:
+            f.writelines(json.dumps(snap) + "\n" for snap in podsets)
+    index.append({"run_id": run_id, "group": group, "status": "done", "exit_code": 0, "attempt": 1})
+
+
+def _podsets(label: str, ks: list[int], final_only: bool = False) -> list[dict[str, Any]]:
+    """Snapshots with ``ks[i]`` full c7i.2xlarge nodes of pods at SNAP_TIMES[i]: cost = bound * (1 + gap), gap
+    EARLY_GAP at t = 10 and GAPS[label] after."""
+    out = []
+    for t, k in zip(SNAP_TIMES, ks):
+        if final_only and t != SNAP_TIMES[-1]:
+            continue
+        gap = EARLY_GAP if t == SNAP_TIMES[0] else GAPS[label]
+        out.append({"t_min": float(t), "cost_per_hour": k * C7I_2XL * (1 + gap), "nodes": k,
+                    "shapes": [[POD[0], POD[1], 4 * k]]})
+    return out[::-1]  # written newest first: the loader must sort
+
+
+def exp8_ks(scenario: str, seed: int) -> list[int]:
+    """Nodes' worth of pods per snapshot at 50 nodes: W1 constant per seed, W2 scaling down after t = 40."""
+    if scenario == "W1":
+        return [3 + seed % 2] * len(SNAP_TIMES)
+    return [4, 4, 3, 3, 3, 3, 3]
+
+
+def write_synthetic_tree(root: Path) -> None:
+    """A session-like runs tree under ``root/session`` with known Exp 7 and Exp 8 effects.
+
+    Exp 7 (W1; 50, 200, 1,000 nodes): latencies per ``latency_ms`` (random fastest), p95 = 3x and max = 6x the mean.
+    At 1,000 nodes heuristic seed 103 is invalid; B2 seeds 101-103 have 2 passes over 1 minute each and seed 104 does
+    not report the counts but its slowest pass took 70 s (count unknown); B2 at 200 nodes does not report them either
+    but never passed 60 s (count 0). Exp 1 cells outside Exp 7 (W2, random/savings-only) exist and must be ignored.
+
+    Exp 8 (W1, W2 at 50 nodes; B2, heuristic and random entropy-greedy, and B5 under most-allocated placement, seeds
+    101-104): every snapshot holds 4k (1975m, 4093Mi) pods, whose optimum is k c7i.2xlarge; the run's cost is
+    bound * (1 + gap) with gap 0.5 at t = 10 and ``GAPS[label]`` later. W1 random seed 104 is invalid; W2 B2 seed 102
+    has no podsets.jsonl. The LP scales reuse Exp 1's 200- and 1,000-node cells (final snapshots, k = 20 and 100).
+    """
+    rng = np.random.default_rng(0)
+    matrix = Path(root) / "session"
+    matrix.mkdir(parents=True)
+    index: list[dict[str, Any]] = []
+    for seed in SEEDS:
+        for label in ("B2", "heuristic/entropy-greedy", "random/entropy-greedy"):
+            _write_run(matrix, "exp7-n50", label, "W1", 50, seed, index, rng)
+        _write_run(matrix, "exp7-b2", "B2", "W1", 200, seed, index, rng,
+                   drop=("wall_passes_over_1m", "wall_passes_over_3m"))
+        extra: dict[str, Any] = {}
+        drop: tuple[str, ...] = ()
+        if seed <= 103:
+            extra = {"wall_passes_over_1m": 2, "wall_pass_max_ms": 75_000.0}
+        elif seed == 104:
+            extra, drop = {"wall_pass_max_ms": 70_000.0}, ("wall_passes_over_1m", "wall_passes_over_3m")
+        _write_run(matrix, "exp7-b2-n1000", "B2", "W1", 1000, seed, index, rng, duration="1h0m0s", drop=drop,
+                   **extra)
+        for group, nodes, k in (("exp1-n200", 200, 20), ("exp1-n1000", 1000, 100)):
+            for label in ("heuristic/entropy-greedy", "random/entropy-greedy", "random/savings-only"):
+                bad = group == "exp1-n1000" and label == "heuristic/entropy-greedy" and seed == 103
+                _write_run(matrix, group, label, "W1", nodes, seed, index, rng,
+                           podsets=_podsets(label, [k] * len(SNAP_TIMES)), invalid=bad,
+                           invalid_reasons=["pdb violation"] if bad else [])
+            _write_run(matrix, group, "heuristic/entropy-greedy", "W2", nodes, seed, index, rng,
+                       podsets=_podsets("heuristic/entropy-greedy", [k] * len(SNAP_TIMES), final_only=True))
+    for scenario in ("W1", "W2"):
+        for seed in EXP8_SEEDS:
+            ks = exp8_ks(scenario, seed)
+            for label in ("B2", "heuristic/entropy-greedy", "random/entropy-greedy"):
+                bad = scenario == "W1" and label == "random/entropy-greedy" and seed == 104
+                missing = scenario == "W2" and label == "B2" and seed == 102
+                _write_run(matrix, "exp8", label, scenario, 50, seed, index, rng,
+                           podsets=None if missing else _podsets(label, ks), invalid=bad)
+            if scenario == "W1":
+                _write_run(matrix, "exp8-b5", "B5", scenario, 50, seed, index, rng, placement="most-allocated",
+                           podsets=_podsets("B5", ks))
+    with open(matrix / "index.jsonl", "w", encoding="utf-8") as fh:
+        fh.writelines(json.dumps(entry) + "\n" for entry in index)
+
+
+@contextlib.contextmanager
+def _synthetic() -> Iterator[tuple[Path, Path]]:
+    with tempfile.TemporaryDirectory() as tmp:
+        runs, out = Path(tmp) / "runs", Path(tmp) / "out"
+        write_synthetic_tree(runs)
+        yield runs, out
+
+
+def _quiet(fn: Callable[[], Any]) -> tuple[Any, str]:
+    buf = io.StringIO()
+    handler = common.logger.handlers[0]
+    old = handler.setStream(buf)
+    try:
+        return fn(), buf.getvalue()
+    finally:
+        handler.setStream(old)
+
+
+def _run_main(runs: Path, out: Path) -> str:
+    common.apply_style()
+    return _quiet(lambda: lo.main(runs, out))[1]
+
+
+def _files(out: Path) -> dict[str, bytes]:
+    return {p.relative_to(out).as_posix(): p.read_bytes() for p in sorted(out.rglob("*")) if p.is_file()}
+
+
+def _row(df: pd.DataFrame, **match: Any) -> pd.Series:
+    mask = pd.Series(True, index=df.index)
+    for k, v in match.items():
+        mask &= df[k] == v
+    rows = df.loc[mask]
+    assert len(rows) == 1, (match, len(rows))
+    return rows.iloc[0]
+
+
+# --- tests ---------------------------------------------------------------------------------------------------------
+
+
+def test_empty_runs_write_nothing() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "out"
+        log = _run_main(Path(tmp) / "none", out)
+        assert "skipped exp7: no runs" in log and "skipped exp8: no runs" in log
+        assert not out.exists() or not any(out.rglob("*"))
+
+
+def test_synthetic_outputs() -> None:
+    with _synthetic() as (runs, out):
+        log = _run_main(runs, out)
+        files = _files(out)
+        for name in OUTPUTS:
+            assert name in files, (name, log)
+        tmp = str(runs.parent)
+        for name, data in files.items():
+            assert tmp.encode() not in data, f"{name} embeds an absolute path"
+
+        lat = pd.read_csv(out / "tables" / "exp7_latency.csv")
+        assert len(lat) == 9 and set(lat["scenario"]) == {"W1"}, lat[["nodes", "label"]]
+        assert set(lat["label"]) == {"B2", "heuristic/entropy-greedy", "random/entropy-greedy"}
+        assert lat["nodes"].tolist() == [50] * 3 + [200] * 3 + [1000] * 3
+        assert lat["label"].tolist()[:3] == ["heuristic/entropy-greedy", "random/entropy-greedy", "B2"]
+        b2k = _row(lat, nodes=1000, label="B2")
+        assert b2k["duration_min"] == 60 and math.isnan(b2k["full_simulations_per_pass_mean"])
+        assert b2k["passes_over_1m_total"] == 6 and b2k["runs_over_1m"] == 4 and b2k["runs_over_1m_unknown"] == 1
+        assert b2k["runs_over_3m"] == 0 or b2k["runs_over_3m_unknown"] == 0
+        b2 = _row(lat, nodes=200, label="B2")
+        assert b2["passes_over_1m_total"] == 0 and b2["runs_over_1m"] == 0 and b2["runs_over_1m_unknown"] == 0
+        h = _row(lat, nodes=1000, label="heuristic/entropy-greedy")
+        assert h["n_runs"] == 10 and h["n_valid"] == 9 and h["n_invalid"] == 1
+        assert abs(h["full_simulations_per_pass_mean"] - 6.0) < 1e-9 and h["peak_nodes_mean"] == 1000
+        r = _row(lat, nodes=1000, label="random/entropy-greedy")
+        assert abs(r["wall_pass_mean_ms_mean"] / latency_ms("random", 1000) - 1) < 0.05
+        assert r["wall_pass_mean_ms_mean_lo"] <= r["wall_pass_mean_ms_mean"] <= r["wall_pass_mean_ms_mean_hi"]
+        assert abs(r["wall_pass_p95_ms_mean"] / r["wall_pass_mean_ms_mean"] - 3) < 1e-4  # CSV keeps 6 digits
+
+        tests = pd.read_csv(out / "tables" / "exp7_tests.csv")
+        assert len(tests) == 4 and set(tests["nodes"]) == {1000}, tests
+        assert (tests["outcome"] == "as expected").all() and (tests["direction"] == "lower").all()
+        assert set(tests["family"]) == {"H7"} and (tests["p_holm"] >= tests["p_wilcoxon"]).all()
+        vs_h = tests.loc[tests["b"] == "heuristic/entropy-greedy"]
+        assert (vs_h["n_pairs"] == 9).all() and (vs_h["n_dropped_invalid"] == 1).all()
+        assert (tests.loc[tests["b"] == "B2", "n_pairs"] == 10).all()
+        assert (tests["speedup"] > 1).all() and "p_tost" not in tests.columns
+
+        head = json.loads((out / "tables" / "latency_optimality.json").read_text(encoding="utf-8"))
+        assert head["exp7"]["verdict"] == "supported", head["exp7"]["verdict"]
+        assert head["exp7"]["timeouts_at_tested_nodes"]["1m"] == {"passes_total": 0.0, "runs_over": 0,
+                                                                   "runs_unknown": 0}
+
+        gap = pd.read_csv(out / "tables" / "exp8_gap.csv")  # CSV floats keep 6 significant digits
+        assert gap["nodes"].tolist() == sorted(gap["nodes"].tolist())
+        small = gap.loc[gap["nodes"] == 50]
+        assert set(small["bound"]) == {"cpsat"} and set(gap.loc[gap["nodes"] > 50, "bound"]) == {"lp"}
+        assert len(small) == 7, small[["scenario", "label"]]
+        for _, row in gap.iterrows():
+            want = GAPS[row["label"]]
+            assert abs(row["gap_final_mean"] - want) < 1e-6, (row["nodes"], row["scenario"], row["label"])
+            assert row["gap_final_mean_lo"] <= row["gap_final_mean"] + 1e-12 <= row["gap_final_mean_hi"] + 2e-12
+            assert abs(row["gap_lp_final_mean"] - want) < 1e-6  # the LP bound is exact for these pods
+            if row["bound"] == "cpsat":
+                assert abs(row["gap_all_mean"] - (EARLY_GAP + 6 * want) / 7) < 1e-6
+                assert row["n_final_proven_optimal"] == row["n_with_podsets"]
+                assert abs(row["bound_slack_final_mean"]) < 1e-6
+            else:
+                assert math.isnan(row["gap_all_mean"])
+        rw1 = _row(gap, nodes=50, scenario="W1", label="random/entropy-greedy")
+        assert rw1["n_runs"] == 4 and rw1["n_valid"] == 3 and rw1["n_with_podsets"] == 3
+        bw2 = _row(gap, nodes=50, scenario="W2", label="B2")
+        assert bw2["n_valid"] == 4 and bw2["n_with_podsets"] == 3
+        b5 = _row(gap, nodes=50, scenario="W1", label="B5")
+        assert b5["n_with_podsets"] == 4
+        lp200 = _row(gap, nodes=200, scenario="W1", label="heuristic/entropy-greedy")
+        assert lp200["n_with_podsets"] == 10 and abs(lp200["bound_final_mean"] - 20 * C7I_2XL) < 1e-6
+        lp1k = _row(gap, nodes=1000, scenario="W1", label="heuristic/entropy-greedy")
+        assert lp1k["n_valid"] == 9 and abs(lp1k["bound_final_mean"] - 100 * C7I_2XL) < 1e-6
+
+        snaps = pd.read_csv(out / "tables" / "exp8_gap_snapshots.csv")
+        assert set(snaps["nodes"]) == {50} and sorted(set(snaps["t_min"])) == list(map(float, SNAP_TIMES))
+        early = snaps.loc[snaps["t_min"] == 10]
+        assert (abs(early["gap_mean"] - EARLY_GAP) < 1e-6).all()
+
+        b = head["exp8"]["bounds"]
+        assert b["cpsat_bound_below_lp"] == 0 and b["cpsat_wall_limited"] == 0
+        assert abs(b["mean_cpsat_over_lp_final"] - 1) < 1e-9
+        # 50 nodes: two multisets (k = 3 and 4, shared by W1 and W2); LP scales: k = 20 and 100, no CP-SAT.
+        assert b["cpsat_status_counts"] == {"OPTIMAL": 2, "not requested": 2}, b["cpsat_status_counts"]
+        assert len(gap) == 15
+        assert (out / "tables" / "cache" / "lower_bounds.json").exists()
+
+
+def test_reproducible_and_cache_neutral() -> None:
+    with _synthetic() as (runs, out):
+        _run_main(runs, out)
+        first = _files(out)
+        _run_main(runs, out)  # with the cache in place
+        assert _files(out) == first
+        cache = out / "tables" / "cache" / "lower_bounds.json"
+        cache.unlink()
+        _run_main(runs, out)  # cache deleted: recomputed, same outputs and the same cache file
+        assert _files(out) == first
+
+
+def test_latency_columns() -> None:
+    df = pd.DataFrame({
+        "arm_name": ["pipeline", "pipeline", "B2-when-empty-or-underutilized"],
+        "full_simulations": [600, 0, 0], "disruption_passes": [100, 0, 100],
+        "wall_pass_max_ms": [61_000.0, 1_000.0, 200_000.0],
+        "wall_passes_over_1m": [1, np.nan, np.nan], "wall_passes_over_3m": [0, np.nan, np.nan],
+    })
+    out = lo.add_latency_columns(df)
+    assert out["full_simulations_per_pass"].tolist()[0] == 6.0
+    assert np.isnan(out["full_simulations_per_pass"].tolist()[1:]).all()
+    assert out["passes_over_1m"].tolist()[:2] == [1.0, 0.0] and math.isnan(out["passes_over_1m"].tolist()[2])
+    assert out["passes_over_3m"].tolist()[:2] == [0.0, 0.0] and math.isnan(out["passes_over_3m"].tolist()[2])
+    assert lo.rank_direction([-1, -2, 0.5]) == -1 and lo.rank_direction([0, 0]) == 0
+
+
+def test_pilot_smoke() -> None:
+    if not PILOT.is_dir() or not any(PILOT.glob("*/summary.json")):
+        print("    (no pilot runs; skipped)")
+        return
+    mapping = {"exp1-n200": "pilot-exp1", "exp1-baselines-n200": "pilot-baselines", "exp7-b2": "pilot-baselines"}
+    old = os.environ.get(common.GROUP_MAP_ENV)
+    os.environ[common.GROUP_MAP_ENV] = json.dumps(mapping)
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "out"
+            log = _run_main(PILOT.parent, out)
+            assert "skipped exp8 at 50 nodes (CP-SAT): no runs" in log, log
+            lat = pd.read_csv(out / "tables" / "exp7_latency.csv")
+            assert set(lat["nodes"]) == {200} and set(lat["scenario"]) == {"W1"}
+            assert "B2" in set(lat["label"])
+            gap = pd.read_csv(out / "tables" / "exp8_gap.csv")
+            assert set(gap["bound"]) == {"lp"} and set(gap["nodes"]) == {200}
+            assert (gap["gap_final_mean"] > 0).all() and (gap["n_with_podsets"] == gap["n_valid"]).all()
+            assert (out / "figures" / "out" / "fig7_optimality_gap.png").exists()
+            assert not (out / "tables" / "exp7_tests.csv").exists()  # no 1,000-node pilot cells
+    finally:
+        if old is None:
+            os.environ.pop(common.GROUP_MAP_ENV, None)
+        else:
+            os.environ[common.GROUP_MAP_ENV] = old
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = sys.argv[1:] if argv is None else argv
+    if len(args) == 2 and args[0] == "--write-synthetic":
+        write_synthetic_tree(Path(args[1]))
+        return 0
+    tests: list[tuple[str, Callable[[], None]]] = [
+        (name, fn) for name, fn in globals().items() if name.startswith("test_") and callable(fn)]
+    failed = []
+    for name, fn in tests:
+        try:
+            fn()
+        except Exception:  # noqa: BLE001 - report every failing test
+            failed.append(name)
+            print(f"FAIL {name}")
+            traceback.print_exc()
+        else:
+            print(f"ok   {name}")
+    print(f"{len(tests) - len(failed)}/{len(tests)} passed")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

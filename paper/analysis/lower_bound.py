@@ -13,28 +13,45 @@ Every pod takes its CPU and memory request and one pod slot. All results are in 
 - ``cpsat_bound``: for instances with at most ``CPSAT_MAX_PODS`` pods, an exact typed bin-packing model solved by
   OR-Tools CP-SAT. ``cpsat_bound`` is the solver's best objective bound (a valid lower bound even when optimality is
   not proven), ``cpsat_objective`` the cost of its best packing (an upper bound), ``cpsat_status`` the solver status
-  (OPTIMAL means the two are equal). Larger instances get status ``skipped`` and NaN.
-- ``bound``: the best valid lower bound, ``max(lp_bound, cpsat_bound)``. Both are valid, so their maximum is too; with
-  the aggregate-capacity constraint in the model the CP-SAT bound is normally the larger.
+  (OPTIMAL: the two are equal). Larger instances get status ``skipped`` and NaN.
+- ``agg_bound``: the integer aggregate relaxation that the CP-SAT model uses as a redundant cut (below); reported so a
+  CP-SAT bound that did not move past it can be recognized.
+- ``bound``: the best valid lower bound, ``max(lp_bound, agg_bound, cpsat_bound)``. Each is valid, so the maximum is;
+  with the redundant cuts the CP-SAT bound is normally the largest when it is computed.
 
 The CP-SAT model, for bins ``b = 0..B-1``: ``y[b,t]`` in {0,1} with ``sum_t y[b,t] <= 1`` (bin b is of type t);
 integer ``x[b,s] >= 0`` pods of shape s in bin b; ``sum_s x[b,s] r_{s,d} <= sum_t y[b,t] cap_{t,d}`` for each
 dimension d; ``sum_b x[b,s] = count_s``; symmetry breaking (bin cost non-increasing in b, and a bin is used only if the
-previous one is); the redundant aggregate constraint ``sum_{b,t} y[b,t] cap_{t,d} >= demand_d`` (it tightens the
-solver's LP relaxation to at least ``lp_bound``); objective ``sum_{b,t} price_t y[b,t]`` with prices in integer units
-of ``1 / PRICE_SCALE`` dollars (rounded down, so the scaled bound stays a valid bound; the catalog's prices are exact
-at this scale). Instance types dominated by another (no more capacity in any dimension at no lower price) are left
-out: any bin of a dominated type can switch to its dominator at no extra cost, so the optimum is unchanged.
+previous one is); objective ``sum_{b,t} price_t y[b,t]`` with prices in integer units of ``1 / PRICE_SCALE`` dollars
+(rounded down, so a scaled bound is still a bound in dollars; the catalog's prices are exact at this scale). On top of
+the brief's model, every addition below is valid, i.e. keeps at least one optimal fleet feasible, so the solver's
+bound stays a lower bound of the true optimum:
 
-``B`` comes from the first-fit-decreasing packing: an optimal fleet costs at most ``ffd_cost`` and every node costs at
-least the cheapest price, so it has at most ``floor(ffd_cost / min_price)`` nodes (and never more nodes than pods).
-The number of bins of the FFD packing itself would not do: an optimal fleet may use more, smaller nodes, and a model
-capped at fewer bins would overstate the bound. The FFD packing is the solver's starting hint.
+- instance types dominated by another (no more capacity in any dimension at no lower price) are left out: a node of a
+  dominated type can switch to its dominator at no extra cost;
+- consider an optimal fleet with the fewest nodes among the optimal ones. For a type u where some type w holds twice
+  u's capacity at no more than twice u's price (``self_mergeable``: c7i.large, c7i.xlarge, c7i.4xlarge, ... in this
+  catalog), that fleet has at most one u node, since two would merge into a w. So ``sum_b y[b,u] <= 1`` for those
+  types, and ``sum_b y[b,t] <= floor(UB / price_t)`` for the others, where UB is the cost of a feasible packing;
+- the aggregate capacity cut ``sum_{b,t} y[b,t] cap_{t,d} >= demand_d`` (it lifts the solver's LP to ``lp_bound``)
+  and the objective cut ``objective >= agg_bound``: the optimum of the integer aggregate relaxation (integer node
+  counts per type and pod counts per (type, shape) with per-type capacity, solved first by CP-SAT; it only ignores how
+  a type's pods split across its nodes, so every packing satisfies it).
 
-Results are deterministic for a given input: one search worker, a fixed seed, and a deterministic-time limit
-(``CPSAT_PARAMS``; the wall-clock limit is a far looser safety net, and a result it cut short is flagged
-``cpsat_wall_limited`` and logged). ``BoundCache`` keeps results in ``<out>/tables/cache/lower_bounds.json`` keyed by a
-hash of the shape multiset, the catalog and the model settings; the file is derived and safe to delete.
+``B`` must bound the node count of that fewest-nodes optimal fleet: it costs at most UB, has at most one node of each
+self-mergeable type, and every other node costs at least the cheapest other price, so
+``B = #self-mergeable + floor(UB / cheapest other price)``, capped at the pod count. The node count of a heuristic
+packing would not do: an optimal fleet can use more, smaller nodes (11 c7i.2xlarge and 3 m7i.8xlarge where first-fit
+decreasing uses 6 m7i.8xlarge), and a model capped at fewer bins overstates the bound. UB is the cheaper of the FFD
+packing and a packing repaired from the aggregate relaxation's solution, both improved by ``merge_pass``; that packing
+is also the solver's starting hint.
+
+Results are deterministic for a given input: one search worker (two workers share solutions across threads, so their
+result depends on timing; the deterministic interleaved mode reached weaker bounds in the same budget), a fixed seed,
+and a deterministic-time limit of 10 (``CPSAT_PARAMS``; the wall-clock limit is a loose safety net, since a loaded VM
+needs well over 20 s for 10 deterministic seconds, and a search it cut short is flagged ``cpsat_wall_limited`` and
+logged). ``BoundCache`` keeps results in ``<out>/tables/cache/lower_bounds.json`` keyed by a hash of the shape
+multiset, the catalog and the model settings; the file is derived and safe to delete.
 
 Run ``/opt/research-venv/bin/python -m paper.analysis.lower_bound SHAPES_JSON`` to bound one multiset (a JSON list of
 ``[cpu_millicores, memory_mib, count]``) against experiments/catalog.json.
@@ -58,11 +75,11 @@ from scipy.optimize import linprog
 
 from paper.analysis import common
 
-MODEL_VERSION = "b6-v1"  # part of the cache key: bump when the model or any parameter below changes meaning
+MODEL_VERSION = "b6-v2"  # part of the cache key: bump when the model or any parameter below changes meaning
 CPSAT_MAX_PODS = 600
 PRICE_SCALE = 100_000  # integer price units per dollar in the CP-SAT objective
 CPSAT_PARAMS: dict[str, Any] = {
-    "num_workers": 1,  # two workers interleave nondeterministically; one worker is reproducible
+    "num_workers": 1,  # parallel workers share solutions across threads, so their result depends on timing
     "random_seed": 0,
     "max_deterministic_time": 10.0,
     "max_time_in_seconds": 120.0,  # safety net only; the deterministic limit is the one meant to bind
@@ -314,7 +331,7 @@ def merge_pass(packing: Packing, shapes: Sequence[Shape], types: Sequence[Instan
 
 def _scaled(price: float) -> int:
     """A price in integer objective units, rounded down (so a scaled bound is still a bound in dollars)."""
-    return int(math.floor(price * PRICE_SCALE + 1e-6))
+    return math.floor(price * PRICE_SCALE + 1e-6)
 
 
 def self_mergeable(types: Sequence[InstanceType]) -> list[InstanceType]:
@@ -371,12 +388,15 @@ def aggregate_relaxation(shapes: Sequence[Shape], types: Sequence[InstanceType],
     model.minimize(sum(p * v for p, v in zip(prices, n)))
     solver = _solver(params)
     status = solver.solve(model)
+    def proven() -> int | None:
+        # The objective is integral, so the bound rounds up; a search stopped before any bound (-inf) gives none.
+        b = float(solver.best_objective_bound)
+        return math.ceil(b - 1e-6) if math.isfinite(b) else None
+
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-        bound = None if status in (cp_model.INFEASIBLE, cp_model.MODEL_INVALID) else math.ceil(
-            solver.best_objective_bound - 1e-6)
+        bound = None if status in (cp_model.INFEASIBLE, cp_model.MODEL_INVALID) else proven()
         return bound, solver.status_name(status), [], []
-    bound = int(math.ceil(solver.best_objective_bound - 1e-6))
-    return (bound, solver.status_name(status), [int(solver.value(v)) for v in n],
+    return (proven(), solver.status_name(status), [int(solver.value(v)) for v in n],
             [[int(solver.value(v)) for v in row] for row in z])
 
 
@@ -424,16 +444,16 @@ def cpsat_bound(shapes: Iterable[Sequence[Any]], types: Sequence[InstanceType], 
     single = {t.name for t in self_mergeable(kept)}
     # Upper bound and node-count caps valid for some optimal fleet with the fewest nodes (module docstring).
     upper = merge_pass(packing, shapes, kept)
-    n_cap = [1 if t.name in single else int(math.floor(upper.cost / t.price + 1e-9)) for t in kept]
+    n_cap = [1 if t.name in single else math.floor(upper.cost / t.price + 1e-9) for t in kept]
     agg, agg_status, _, z = aggregate_relaxation(shapes, kept, n_cap, p)
     repaired = _repair(shapes, kept, z)
     if repaired is not None:
         repaired = merge_pass(repaired, shapes, kept)
         if repaired.cost < upper.cost:
             upper = repaired
-            n_cap = [1 if t.name in single else int(math.floor(upper.cost / t.price + 1e-9)) for t in kept]
+            n_cap = [1 if t.name in single else math.floor(upper.cost / t.price + 1e-9) for t in kept]
     others = [t.price for t in kept if t.name not in single]
-    n_bins = len(single) + (int(math.floor(upper.cost / min(others) + 1e-9)) if others else 0)
+    n_bins = len(single) + (math.floor(upper.cost / min(others) + 1e-9) if others else 0)
     n_bins = max(min(n_bins, n_pods), len(upper.bins))
     prices = [_scaled(t.price) for t in kept]
     caps = [t.caps for t in kept]
@@ -609,6 +629,7 @@ def compute_bounds(shape_sets: Iterable[Iterable[Sequence[Any]]], types: Sequenc
                 solved += 1
                 if save_every and solved % save_every == 0:
                     cache.save()
+                    common.logger.info("lower_bound: %d/%d CP-SAT solves done", solved, n_solves)
     finally:
         cache.save()
     return {key: cache.get(key) for key in sorted(distinct)}

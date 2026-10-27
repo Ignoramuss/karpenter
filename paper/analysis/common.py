@@ -149,7 +149,13 @@ def load_runs(runs_root: Path, include_abandoned: bool = False) -> pd.DataFrame:
     metrics NaN, so per-experiment invalid counts include them. Their ``path`` may hold no run files.
     """
     root = Path(runs_root)
-    records = [_run_record(d) for d in discover_runs(root)]
+    records = []
+    for d in discover_runs(root):
+        try:
+            records.append(_run_record(d))
+        except (OSError, ValueError) as err:
+            # A summary.json still being written by a running cell (or a corrupt one): not a finished run yet.
+            logger.warning("skipping %s: unreadable run files (%s: %s)", d.name, type(err).__name__, err)
     if include_abandoned:
         records += _abandoned_records(root, {r["run_id"] for r in records})
     df = pd.DataFrame.from_records(records) if records else pd.DataFrame()
@@ -261,7 +267,19 @@ def _run_record(run_dir: Path) -> dict[str, Any]:
     for key in SUMMARY_LIST_FIELDS:
         rec.setdefault(key, "")
     rec.setdefault("error", "")
-    rec["nodes"] = summary.get("scenario_nodes")
+    # Identity fields a summary lacks come from the run's own config (manifest.json, else cell.json), so a run with
+    # a partial summary still pairs with its arms instead of colliding with them on a missing key.
+    cfg = manifest.get("config") or {}
+    if not cfg and (run_dir / "cell.json").exists():
+        cfg = _read_json(run_dir / "cell.json")
+    scenario = cfg.get("scenario") or {}
+    for key, value in (("label", (cfg.get("arm") or {}).get("label")), ("scenario", scenario.get("name")),
+                       ("scenario_nodes", scenario.get("nodes")), ("seed", cfg.get("seed")),
+                       ("placement", cfg.get("placement") or "least-allocated"),
+                       ("scale_down", cfg.get("scaleDown") or "spread")):
+        if rec.get(key) is None and value is not None:
+            rec[key] = value
+    rec["nodes"] = rec.get("scenario_nodes")
     if _num(summary.get("fidelity_hits")) + _num(summary.get("fidelity_misses")) == 0:
         rec["fidelity"] = math.nan
     rec.update(_config_columns(manifest))
@@ -321,8 +339,14 @@ def _abandoned_records(root: Path, finished: set[str]) -> list[dict[str, Any]]:
         with open(index, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
-                if line:
+                if not line:
+                    continue
+                try:
                     entry = json.loads(line)
+                except json.JSONDecodeError:  # a line the runner is still appending
+                    logger.warning("%s: skipping a partial line", index.name)
+                    continue
+                if isinstance(entry, dict) and "run_id" in entry:
                     last[entry["run_id"]] = entry
         matrix_dir = index.parent
         for run_id in sorted(last):
@@ -785,6 +809,25 @@ def paired(df: pd.DataFrame, keys: Sequence[str] = PAIR_KEYS, label_col: str = "
                   dropped_invalid=al.dropped_invalid, dropped_missing=al.dropped_missing)
 
 
+def paired_lenient(df: pd.DataFrame, keys: Sequence[str] = PAIR_KEYS, label_col: str = "label",
+                   a: ArmSelector | None = None, b: ArmSelector | None = None, metric: str | None = None,
+                   where: str = "", log: bool = True) -> Paired:
+    """``paired``, except that an arm with two runs on the same keys (no pairing is defined) logs a warning (unless
+    ``log`` is False, for a stratum already reported) and gives no pairs, with every key counted as dropped
+    (``dropped_invalid``), instead of raising, so one bad stratum does not abandon a whole analysis."""
+    try:
+        return paired(df, keys, label_col, a, b, metric)
+    except ValueError as err:
+        if "sharing keys" not in str(err):
+            raise
+        if log:
+            logger.warning("%s%s", f"{where}: " if where else "", err)
+        n_keys = len({_key_tuple(t) for t in df[list(keys)].itertuples(index=False, name=None)})
+        return Paired(a=np.array([], dtype=float), b=np.array([], dtype=float),
+                      keys=pd.DataFrame({k: [] for k in keys}), dropped=n_keys, dropped_invalid=n_keys,
+                      dropped_missing=0)
+
+
 def wilcoxon_paired(a: Any, b: Any) -> float:
     """Two-sided Wilcoxon signed-rank p-value for the paired differences a - b (scipy.stats.wilcoxon defaults).
 
@@ -799,6 +842,30 @@ def wilcoxon_paired(a: Any, b: Any) -> float:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         return float(stats.wilcoxon(d, alternative="two-sided").pvalue)
+
+
+def wilcoxon_floor(n_nonzero: Any) -> float:
+    """The smallest two-sided p-value an exact Wilcoxon signed-rank test can return with ``n_nonzero`` non-zero
+    paired differences: 2 / 2^n (all differences of one sign), 1.0 without any, NaN when ``n_nonzero`` is missing.
+
+    Below six differences it exceeds 0.05, so no difference can be significant; under Holm over m tests a test can
+    be rejected on its own only when ``m * wilcoxon_floor(n) < alpha`` (10 pairs: m <= 25; 9 pairs: m <= 12).
+    """
+    n = _num(n_nonzero)
+    if not math.isfinite(n):
+        return math.nan
+    return float(min(1.0, 2.0 ** (1 - int(n)))) if n > 0 else 1.0
+
+
+def holm_reachable(p_floor: Any, pvalues: Any, alpha: float = ALPHA) -> np.ndarray:
+    """Per test of one Holm family: whether its smallest attainable p-value (``p_floor``) times the family size m
+    (the tests with a finite p-value in ``pvalues``) is below ``alpha``, i.e. whether the test could come out
+    significant after Holm whatever the other tests show. False flags a test whose non-significance says nothing
+    (too few non-zero pairs for the family size); NaN floors give False."""
+    floor = np.asarray(p_floor, dtype=float).ravel()
+    m = int(np.isfinite(np.asarray(pvalues, dtype=float)).sum())
+    with np.errstate(invalid="ignore"):
+        return np.isfinite(floor) & (floor * m < alpha)
 
 
 def tost_paired(a: Any, b: Any, margin: float, alpha: float = ALPHA) -> dict[str, Any]:
@@ -855,25 +922,28 @@ def holm(pvalues: Any) -> np.ndarray:
 def paired_effect(a: Any, b: Any, n: int = N_BOOT, alpha: float = ALPHA, seed: int = BOOT_SEED) -> dict[str, float]:
     """Effect sizes of paired a - b: means, mean and median difference with bootstrap CIs, percent of b's mean with
     CI, and the Wilcoxon p-value. Keys: n_pairs, mean_a, mean_b, mean_diff(_lo/_hi), median_diff(_lo/_hi),
-    pct_diff(_lo/_hi), p_wilcoxon."""
+    pct_diff(_lo/_hi), p_wilcoxon, and p_floor (``wilcoxon_floor`` of the non-zero differences; NaN without
+    pairs)."""
     a = np.asarray(a, dtype=float).ravel()
     b = np.asarray(b, dtype=float).ravel()
     d = a - b
     md, md_lo, md_hi = bootstrap_ci(d, "mean", n, alpha, seed)
     med, med_lo, med_hi = bootstrap_ci(d, "median", n, alpha, seed)
     pct, pct_lo, pct_hi = bootstrap_pct_ci(a, b, n, alpha, seed)
-    return {"n_pairs": int(np.isfinite(d).sum()), "mean_a": float(a.mean()) if a.size else math.nan,
+    finite = d[np.isfinite(d)]
+    return {"n_pairs": int(finite.size), "mean_a": float(a.mean()) if a.size else math.nan,
             "mean_b": float(b.mean()) if b.size else math.nan, "mean_diff": md, "mean_diff_lo": md_lo,
             "mean_diff_hi": md_hi, "median_diff": med, "median_diff_lo": med_lo, "median_diff_hi": med_hi,
-            "pct_diff": pct, "pct_diff_lo": pct_lo, "pct_diff_hi": pct_hi, "p_wilcoxon": wilcoxon_paired(a, b)}
+            "pct_diff": pct, "pct_diff_lo": pct_lo, "pct_diff_hi": pct_hi, "p_wilcoxon": wilcoxon_paired(a, b),
+            "p_floor": wilcoxon_floor(int((finite != 0).sum())) if finite.size else math.nan}
 
 
 COMPARISON_COLUMNS = [
     "experiment", "family", "comparison", "test", "metric", "a", "b", "expect", "stratum", "n_pairs", "n_dropped",
     "n_dropped_invalid", "n_dropped_missing", "mean_a", "mean_b", "mean_diff", "mean_diff_lo", "mean_diff_hi",
     "median_diff", "median_diff_lo", "median_diff_hi", "pct_diff", "pct_diff_lo", "pct_diff_hi", "p_wilcoxon",
-    "margin", "ci90_lo", "ci90_hi", "p_lower", "p_upper", "p_tost", "equivalent", "noninferior", "p", "p_holm",
-    "significant", "equivalent_holm",
+    "p_floor", "margin", "ci90_lo", "ci90_hi", "p_lower", "p_upper", "p_tost", "equivalent", "noninferior", "p",
+    "p_holm", "significant", "holm_reachable", "equivalent_holm",
 ]
 
 
@@ -907,7 +977,8 @@ def compare(runs: pd.DataFrame, comparison: Comparison, n: int = N_BOOT, alpha: 
     rows = []
     for values in (_strata(df, c.by) if len(df) else []):
         part = _stratum_rows(df, c.by, values)
-        p = paired(part, c.keys, c.label_col, c.a, c.b, c.metric)
+        p = paired_lenient(part, c.keys, c.label_col, c.a, c.b, c.metric,
+                           where=f"{c.experiment}: {c.name}, " + ", ".join(f"{k}={v}" for k, v in zip(c.by, values)))
         row: dict[str, Any] = {
             "experiment": c.experiment, "family": c.family, "comparison": c.name, "test": c.test,
             "metric": c.metric, "a": describe_arm(c.a), "b": describe_arm(c.b), "expect": c.expect,
@@ -918,6 +989,7 @@ def compare(runs: pd.DataFrame, comparison: Comparison, n: int = N_BOOT, alpha: 
         row.update(paired_effect(p.a, p.b, n, alpha, seed))
         row["p"] = row["p_wilcoxon"]
         if c.test == "tost":
+            row["p_floor"] = math.nan  # a t-test p-value has no floor
             ref = row["mean_b"]
             margin = c.margin * abs(ref) if c.margin_type == "relative" else c.margin
             t = tost_paired(p.a, p.b, margin if margin is not None and np.isfinite(margin) else math.nan, alpha)
@@ -936,8 +1008,10 @@ def compare(runs: pd.DataFrame, comparison: Comparison, n: int = N_BOOT, alpha: 
 def evaluate(runs: pd.DataFrame, comps: Sequence[Comparison], n: int = N_BOOT, alpha: float = ALPHA,
              seed: int = BOOT_SEED) -> pd.DataFrame:
     """Every comparison in ``comps`` (``compare``), concatenated in order, with Holm correction applied to ``p``
-    within each (experiment, family): ``p_holm``, ``significant`` (p_holm < alpha) and, for TOST rows,
-    ``equivalent_holm`` (p_tost after Holm < alpha). Strata with no pairs have NaN p and do not count toward m.
+    within each (experiment, family): ``p_holm``, ``significant`` (p_holm < alpha), ``holm_reachable`` (Wilcoxon
+    rows: whether the test has enough non-zero pairs to be significant after Holm on its own, ``holm_reachable``;
+    None for TOST rows) and, for TOST rows, ``equivalent_holm`` (p_tost after Holm < alpha). Strata with no pairs
+    have NaN p and do not count toward m.
     """
     frames = [compare(runs, c, n, alpha, seed) for c in comps]
     frames = [f for f in frames if len(f)]
@@ -945,10 +1019,15 @@ def evaluate(runs: pd.DataFrame, comps: Sequence[Comparison], n: int = N_BOOT, a
         return pd.DataFrame(columns=COMPARISON_COLUMNS)
     out = pd.concat(frames, ignore_index=True, sort=False)
     out["p_holm"] = np.nan
-    for _, idx in out.groupby(["experiment", "family"], sort=True, dropna=False).groups.items():
-        out.loc[idx, "p_holm"] = holm(out.loc[idx, "p"].to_numpy(dtype=float))
+    reachable = np.zeros(len(out), dtype=bool)
+    for _, idx in out.groupby(["experiment", "family"], sort=True, dropna=False).indices.items():
+        p = out["p"].to_numpy(dtype=float)[idx]
+        out.loc[out.index[idx], "p_holm"] = holm(p)
+        reachable[idx] = holm_reachable(out["p_floor"].to_numpy(dtype=float)[idx], p, alpha)
     p_holm = out["p_holm"].to_numpy(dtype=float)
     out["significant"] = np.isfinite(p_holm) & (p_holm < alpha)
+    out["holm_reachable"] = pd.Series([bool(r) if t != "tost" else None for r, t in zip(reachable, out["test"])],
+                                      dtype=object)
     out["equivalent_holm"] = pd.Series([bool(s) if t == "tost" else None
                                         for s, t in zip(out["significant"], out["test"])], dtype=object)
     strata_cols = [c for c in out.columns if c not in COMPARISON_COLUMNS]

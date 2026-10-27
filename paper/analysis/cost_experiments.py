@@ -33,6 +33,10 @@ Statistical conventions (beyond ``experiments/PREREGISTRATION.md``):
   registry's ``expect``.
 - Rows exist for every preregistered stratum even before its runs do (``n_pairs`` 0, outcome "no data"), so
   verdicts can say how much of the design is in.
+- ``p_floor`` is the smallest p-value the exact Wilcoxon test can give with the row's non-zero pairs and
+  ``holm_reachable`` whether that floor times the Holm family size is below 0.05. A "no significant difference" where
+  it is false says nothing (e.g. H4's 16 tests cannot reach significance once a seed drops to 9 pairs); H4's verdict
+  lists such clauses under ``underpowered``.
 """
 
 from __future__ import annotations
@@ -63,7 +67,7 @@ ABL_METRICS = ["steady_cost_per_hour", "integrated_cost_post", "evictions", "evi
 ABL_HEADERS = {"steady_cost_per_hour": "Steady-state\ncost ($/hr)", "integrated_cost_post": "Cost after\nwarmup ($)",
                "evictions": "Pod\nevictions", "eviction_cost": "Eviction\ncost"}
 ABL_DECIMALS = {"steady_cost_per_hour": 2, "integrated_cost_post": 1, "evictions": 0, "eviction_cost": 0}
-FAMILY_ORDER = ["H1", "H1-P0-contrast", "reference", "H3", "H3-evictions", "H3-eviction-cost", "H4", "H4-sweep",
+FAMILY_ORDER = ["H1", "H1-P0-contrast", "H1-realism", "reference", "H3", "H3-evictions", "H3-eviction-cost", "H4", "H4-sweep",
                 "ablation", "ablation-eviction-cost"]
 MINUS = "−"
 
@@ -71,6 +75,7 @@ ARM_STAT_COLUMNS = ["mean_a", "mean_a_lo", "mean_a_hi", "median_a", "median_a_lo
                     "mean_b", "mean_b_lo", "mean_b_hi", "median_b", "median_b_lo", "median_b_hi"]
 EFFECT_COLUMNS = ["mean_diff", "mean_diff_lo", "mean_diff_hi", "median_diff", "median_diff_lo", "median_diff_hi",
                   "pct_diff", "pct_diff_lo", "pct_diff_hi", "p_wilcoxon"]
+WILCOXON_EXTRA = ["p_floor"]
 PAIR_COUNT_COLUMNS = ["n_pairs", "n_dropped_invalid", "n_dropped_missing"]
 H1_COLUMNS = [
     "family", "comparison", "scenario", "nodes", "planner", "a", "b", *PAIR_COUNT_COLUMNS, "n_runs", "n_invalid",
@@ -79,7 +84,8 @@ H1_COLUMNS = [
     "noninferior_holm", "outcome",
 ]
 WILCOXON_COLUMNS = ["family", "comparison", "metric", "scenario", "nodes", "a", "b", "expect", *PAIR_COUNT_COLUMNS,
-                    *ARM_STAT_COLUMNS, *EFFECT_COLUMNS, "p_holm", "significant", "direction", "outcome", "expect_met"]
+                    *ARM_STAT_COLUMNS, *EFFECT_COLUMNS, *WILCOXON_EXTRA, "p_holm", "significant", "holm_reachable",
+                    "direction", "outcome", "expect_met"]
 ARM_TABLE_COLUMNS = ["scenario", "nodes", "label", "metric", "n_runs", "n_valid", "n_invalid", "mean", "mean_lo",
                      "mean_hi", "median", "median_lo", "median_hi", "ref", *PAIR_COUNT_COLUMNS, "diff_mean",
                      "diff_mean_lo", "diff_mean_hi", "diff_median", "diff_median_lo", "diff_median_hi", "diff_pct",
@@ -99,8 +105,8 @@ def main(runs_root: Path, out_root: Path) -> None:
     """
     runs = prepare_runs(common.load_runs(Path(runs_root), include_abandoned=True))
     headline: dict[str, Any] = {}
-    for key, analyse in (("exp1", analyse_exp1), ("exp3", analyse_exp3), ("exp4", analyse_exp4),
-                         ("abl", analyse_ablation)):
+    for key, analyse in (("exp1", analyse_exp1), ("realism", analyse_realism), ("exp3", analyse_exp3),
+                         ("exp4", analyse_exp4), ("abl", analyse_ablation)):
         sel = common.select_runs(runs, key)
         if sel.empty:
             common.skipped(key)
@@ -192,7 +198,7 @@ def _pair_extras(sel: pd.DataFrame, c: common.Comparison, stratum: Mapping[str, 
     part = sel
     for col, allowed in c.where.items():
         part = part.loc[part[col].isin(allowed)]
-    p = common.paired(_stratum_rows(part, stratum), c.keys, c.label_col, c.a, c.b, c.metric)
+    p = common.paired_lenient(_stratum_rows(part, stratum), c.keys, c.label_col, c.a, c.b, c.metric, log=False)
     out: dict[str, Any] = {}
     for side, x in (("a", p.a), ("b", p.b)):
         for stat in ("mean", "median"):
@@ -260,6 +266,15 @@ def _add_holm(out: pd.DataFrame) -> None:
     p_holm = out["p_holm"].to_numpy(dtype=float)
     out["significant"] = np.isfinite(p_holm) & (p_holm < alpha)
     tost = out["test"] == "tost"
+    # Whether a Wilcoxon test has enough non-zero pairs to reach significance after Holm in its family at all
+    # (common.holm_reachable); a "not significant" outcome of a test that cannot is uninformative.
+    reachable = np.zeros(len(out), dtype=bool)
+    p_all = pd.to_numeric(out["p"], errors="coerce").to_numpy(dtype=float)
+    floors = pd.to_numeric(out["p_floor"], errors="coerce").to_numpy(dtype=float)
+    for _, idx in out.groupby(["experiment", "family"], sort=True, dropna=False).indices.items():
+        reachable[idx] = common.holm_reachable(floors[idx], p_all[idx], alpha)
+    out["holm_reachable"] = pd.Series([None if t or not math.isfinite(p) else bool(r)
+                                       for r, t, p in zip(reachable, tost, p_all)], dtype=object)
     out["p_upper_holm"] = _holm_by_family(out, "p_upper", tost)
     p_up = out["p_upper_holm"].to_numpy(dtype=float)
     # TOST verdict columns are None (not False) where no test could run, and absent for Wilcoxon rows.
@@ -379,7 +394,8 @@ def arm_table(df: pd.DataFrame, key: str, metrics: Sequence[str], refs: Mapping[
                     rec[f"{stat}{suffix}"] = s[f"{m}_{stat}{suffix}"]
             ref = refs.get(s["label"])
             if ref is not None:
-                p = common.paired(part, keys, "label", s["label"], ref, m)
+                p = common.paired_lenient(part, keys, "label", s["label"], ref, m,
+                                          where=f"{key} {s['scenario']}/{s['nodes']} {m}")
                 eff = common.paired_effect(p.a, p.b)
                 rec.update(ref=ref, n_pairs=p.n, n_dropped_invalid=p.dropped_invalid,
                            n_dropped_missing=p.dropped_missing, p_wilcoxon=eff["p_wilcoxon"])
@@ -431,6 +447,25 @@ def analyse_exp1(sel: pd.DataFrame, out_root: Path) -> dict[str, Any]:
             "h1": h1_verdict(h1_rows, int(params["h1_tests"]), int(params["h1_min_equivalent"])),
             "p0_contrast": tost_counts(p0_rows) | {"tests": _tost_brief(p0_rows)},
             "phases": check}
+
+
+def analyse_realism(sel: pd.DataFrame, out_root: Path) -> dict[str, Any]:
+    """Write realism_h1 and realism_secondary: Exp 1's entropy-guided random vs heuristic TOSTs on W5 and W6, a
+    realism check reported beside H1 in its own Holm family (it does not enter H1's verdict)."""
+    e = common.experiment("realism")
+    tests = comparison_table(sel, "realism", common.comparisons("realism"))
+    tests["planner"] = tests["a"].astype(str).str.split("/").str[-1]
+    tests = tests.rename(columns={"p_holm": "p_tost_holm"})
+    table = pd.concat([tests.reindex(columns=H1_COLUMNS), reference_rows(sel, e)], ignore_index=True)
+    planners = [lab.split("/", 1)[1] for lab in e["labels"] if lab.startswith("heuristic/")]
+    table = tidy(_sort(table, [("family", FAMILY_ORDER), ("scenario", e["scenarios"]), ("planner", planners),
+                               ("a", e["baselines"])]))
+    common.write_table(table, out_root, "realism_h1")
+    refs = generation_refs(e["labels"])
+    metrics = EXP1_SECONDARY + [m for m in e["secondary_metrics"] if m not in EXP1_SECONDARY]
+    common.write_table(tidy(arm_table(sel, "realism", metrics, refs)), out_root, "realism_secondary")
+    rows = table.loc[table["family"] == "H1-realism"]
+    return {"tables": ["realism_h1", "realism_secondary"], "tost": tost_counts(rows) | {"tests": _tost_brief(rows)}}
 
 
 def reference_rows(sel: pd.DataFrame, e: Mapping[str, Any]) -> pd.DataFrame:
@@ -711,7 +746,8 @@ def h4_verdict(table: pd.DataFrame, e: Mapping[str, Any]) -> dict[str, Any]:
                              "cost_significantly_lower": cost["outcome"] == "lower",
                              "evictions_pct_diff": ev["pct_diff"], "evictions_outcome": ev["outcome"],
                              "evictions_not_higher": ev["outcome"] != "higher",
-                             "holds": cost["outcome"] != "higher" and ev["outcome"] != "higher"})
+                             "holds": cost["outcome"] != "higher" and ev["outcome"] != "higher",
+                             "underpowered": _underpowered({"steady_cost_per_hour": cost, "evictions": ev})})
             for label in online:
                 cost, ev = cell(label, "steady_cost_per_hour", scenario, nodes), cell(label, "evictions", scenario,
                                                                                        nodes)
@@ -723,7 +759,8 @@ def h4_verdict(table: pd.DataFrame, e: Mapping[str, Any]) -> dict[str, Any]:
                             "evictions_pct_diff": ev["pct_diff"], "evictions_outcome": ev["outcome"],
                             "evictions_higher": ev["outcome"] == "higher", "cost_pct_diff": cost["pct_diff"],
                             "cost_outcome": cost["outcome"], "cost_not_lower": cost["outcome"] != "lower",
-                            "holds": ev["outcome"] == "higher" and cost["outcome"] != "lower"})
+                            "holds": ev["outcome"] == "higher" and cost["outcome"] != "lower",
+                            "underpowered": _underpowered({"steady_cost_per_hour": cost})})
 
     def clause(items: list[dict[str, Any]]) -> str:
         if not items or any(i["holds"] is None for i in items):
@@ -733,10 +770,25 @@ def h4_verdict(table: pd.DataFrame, e: Mapping[str, Any]) -> dict[str, Any]:
     plan_v, online_v = clause(plan), clause(onl)
     overall = ("incomplete" if not complete else
                "supported" if plan_v == online_v == "supported" else "not supported")
+    weak = [f"{i.get('config', default)} {i['scenario']}/{i['nodes']}: {', '.join(i['underpowered'])}"
+            for i in plan + onl if i.get("underpowered")]
     return {"rule": "anneal-plan default vs entropy-greedy: cost not significantly higher and evictions not "
                     "significantly higher; each anneal-online vs entropy-greedy: evictions significantly higher and "
                     "cost not significantly lower (paired Wilcoxon, Holm within H4)",
-            "plan_clause": plan_v, "online_clause": online_v, "verdict": overall, "plan": plan, "online": onl}
+            "plan_clause": plan_v, "online_clause": online_v, "verdict": overall,
+            "underpowered": weak,
+            "underpowered_note": "clauses that rest on a non-significant test that could not have been significant "
+                                 "after Holm with its number of non-zero pairs (holm_reachable false); such a 'not "
+                                 "higher' / 'not lower' is uninformative",
+            "plan": plan, "online": onl}
+
+
+def _underpowered(tests: Mapping[str, Mapping[str, Any]]) -> list[str]:
+    """The metrics among ``tests`` (metric -> comparison row) whose non-significant result could not have been
+    significant after Holm (``holm_reachable`` false), so a "not higher" / "not lower" clause resting on it is
+    uninformative."""
+    return [m for m, r in tests.items() if r.get("outcome") == "no significant difference"
+            and r.get("holm_reachable") is False]
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -760,8 +812,8 @@ def ablation_comparisons() -> list[common.Comparison]:
 ABL_COLUMNS = ["scenario", "nodes", "configuration", "metric", "family", "n_runs", "n_valid", "n_invalid",
                "mean", "mean_lo", "mean_hi", "median", "median_lo", "median_hi", *PAIR_COUNT_COLUMNS,
                "diff_mean", "diff_mean_lo", "diff_mean_hi", "diff_median", "diff_median_lo", "diff_median_hi",
-               "diff_pct", "diff_pct_lo", "diff_pct_hi", "p_wilcoxon", "p_holm", "p_holm_all", "significant",
-               "direction", "outcome"]
+               "diff_pct", "diff_pct_lo", "diff_pct_hi", "p_wilcoxon", "p_floor", "p_holm", "p_holm_all",
+               "significant", "holm_reachable", "direction", "outcome"]
 
 
 def ablation_table(sel: pd.DataFrame) -> pd.DataFrame:
@@ -795,8 +847,9 @@ def ablation_table(sel: pd.DataFrame) -> pd.DataFrame:
         if len(t):
             t0 = t.iloc[0]
             rec.update(family=t0["family"], **{c: t0[c] for c in PAIR_COUNT_COLUMNS},
-                       p_wilcoxon=t0["p_wilcoxon"], p_holm=t0["p_holm"], p_holm_all=t0["p_holm_all"],
-                       significant=bool(t0["significant"]), direction=t0["direction"], outcome=t0["outcome"])
+                       p_wilcoxon=t0["p_wilcoxon"], p_floor=t0["p_floor"], p_holm=t0["p_holm"],
+                       p_holm_all=t0["p_holm_all"], significant=bool(t0["significant"]),
+                       holm_reachable=t0["holm_reachable"], direction=t0["direction"], outcome=t0["outcome"])
             for name in ("mean", "median", "pct"):
                 for suffix in ("", "_lo", "_hi"):
                     rec[f"diff_{name}{suffix}"] = t0[f"{name}_diff{suffix}"]
@@ -894,7 +947,10 @@ def ablation_figure(table: pd.DataFrame, out_root: Path, name: str = "fig8_ablat
     widths = [0.16, 0.21, 0.21, 0.21, 0.21]
     align = ["left", "right", "right", "right", "right"]
     heights = {"header": 0.36, "section": 0.22, "body": 0.36}  # inches
-    foot_h = 0.48
+    # Footnote: wrapped to the figure width (about 0.58 em per character at 6.5 pt), height from its line count.
+    note_pt = 6.5
+    note = textwrap.wrap(_ablation_note(table), int(common.FIGSIZE["double"][0] * 72 / (0.58 * note_pt)) - 4)
+    foot_h = 0.14 + len(note) * note_pt * 1.25 / 72
     table_h = heights["header"] + sum(heights[kind] for kind, _ in rows)
     width, height = common.FIGSIZE["double"][0], table_h + foot_h
     last_body = max(i for i, (kind, _) in enumerate(rows) if kind == "body")
@@ -927,8 +983,8 @@ def ablation_figure(table: pd.DataFrame, out_root: Path, name: str = "fig8_ablat
         for cell in tbl.get_celld().values():
             cell.get_text().set_color(common.NEUTRAL)
         ax.add_table(tbl)
-        fig.text(0.005, 0.02, "\n".join(textwrap.wrap(_ablation_note(table), 150)), ha="left", va="bottom",
-                 fontsize=6.5, color=common.NEUTRAL)
+        fig.text(0.005, 0.06 / height, "\n".join(note), ha="left", va="bottom", fontsize=note_pt,
+                 color=common.NEUTRAL)
         common.save_figure(fig, out_root, name)
 
 

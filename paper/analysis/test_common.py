@@ -93,6 +93,21 @@ def test_wilcoxon() -> None:
     assert common.wilcoxon_paired(a, a + 1) == p
 
 
+def test_wilcoxon_floor_and_reachability() -> None:
+    assert common.wilcoxon_floor(5) == 2 / 32 and common.wilcoxon_floor(10) == 2 / 1024
+    assert common.wilcoxon_floor(0) == 1.0 and math.isnan(common.wilcoxon_floor(float("nan")))
+    # The floor is what the exact test returns when every difference has the same sign.
+    assert _close(common.wilcoxon_paired(np.arange(1.0, 11.0), np.zeros(10)), 2 / 1024)
+    assert _close(common.wilcoxon_paired(np.arange(1.0, 6.0), np.zeros(5)), common.wilcoxon_floor(5))
+    # Holm over 16 tests: 10 pairs can reach significance on their own, 9 cannot (16 * 2/512 = 0.0625).
+    p = [0.5] * 16
+    assert common.holm_reachable([2 / 1024] * 16, p).all() and not common.holm_reachable([2 / 512] * 16, p).any()
+    assert not common.holm_reachable([math.nan], [math.nan]).any()
+    e = common.paired_effect([1.0, 2.0, 3.0, 4.0, 5.0, 5.0], [0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
+    assert e["p_floor"] == common.wilcoxon_floor(5), e  # the zero difference does not count
+    assert math.isnan(common.paired_effect([], [])["p_floor"])
+
+
 def test_holm() -> None:
     # Sorted 0.005, 0.01, 0.03, 0.04 with m = 4: 0.02, 0.03, 0.06, max(0.06, 0.04) = 0.06; back in input order.
     adj = common.holm([0.01, 0.04, 0.03, 0.005])
@@ -162,6 +177,8 @@ def test_evaluate() -> None:
     w = common.evaluate(df, [common.Comparison(experiment="t", name="w", family="G", test="wilcoxon", metric="cost",
                                                a="random/x", b="heuristic/x")])
     assert w.loc[1, "p_wilcoxon"] < 0.01 and w.loc[1, "significant"] and w["equivalent_holm"].isna().all()
+    assert list(w["p_floor"]) == [2 / 1024] * 2 and list(w["holm_reachable"]) == [True, True], w
+    assert out["holm_reachable"].isna().all() and out["p_floor"].isna().all(), "no floor for t-based TOST rows"
     assert common.evaluate(df.iloc[0:0], [comp]).empty
 
 
@@ -219,6 +236,28 @@ def _fake_tree(root: Path) -> None:
         {"run_id": gone, "group": "exp1-n200", "status": "abandoned", "attempt": 2, "error": "exit status 2"},
         {"run_id": base.name, "group": "exp1-baselines-n200", "status": "done", "attempt": 2},
     ]) + "\n", encoding="utf-8")
+
+
+def test_partial_summary_and_duplicate_runs() -> None:
+    # A summary without its identity fields takes them from the run's config instead of loading as NaN (which would
+    # make it collide with its arm's other runs), and an arm with two runs on one seed leaves that stratum unpaired
+    # (counted, logged) rather than crashing the analysis.
+    with tempfile.TemporaryDirectory() as tmp:
+        m = Path(tmp) / "session"
+        for seed, nodes in ((101, 200), (101, 1000)):
+            d = m / f"exp1-n{nodes}__arm-x_seed-{seed}__{nodes}"
+            _write(d / "summary.json", {"run_id": d.name, "label": "random/x", "seed": seed, "scenario": "W1"})
+            _write(d / "manifest.json", {"run_id": d.name, "config": {
+                "seed": seed, "scenario": {"name": "W1", "nodes": nodes}, "arm": {"name": "pipeline", "label": "random/x"},
+                "placement": "most-allocated", "scaleDown": "spread"}})
+        runs = common.load_runs(Path(tmp))
+        assert sorted(runs["nodes"].tolist()) == [200, 1000] and set(runs["placement"]) == {"most-allocated"}, runs
+    df = pd.DataFrame({"scenario": ["W1"] * 4, "nodes": [200] * 4, "seed": [1, 1, 1, 2], "valid": True,
+                       "label": ["a", "a", "b", "b"], "m": [1.0, 2.0, 3.0, 4.0]})
+    c = common.Comparison(experiment="t", name="a vs b", family="F", test="wilcoxon", metric="m", a="a", b="b")
+    out = common.evaluate(df, [c])
+    assert len(out) == 1 and out.loc[0, "n_pairs"] == 0 and out.loc[0, "n_dropped_invalid"] == 2, out
+    assert common.paired_lenient(df, a="a", b="b", metric="m", log=False).n == 0
 
 
 def test_load_runs_synthetic() -> None:
@@ -302,7 +341,8 @@ def test_load_runs_pilot() -> None:
 
 
 def test_registry_and_group_map() -> None:
-    assert set(common.EXPERIMENTS) == {"exp1", "exp2", "exp3", "exp4", "exp5", "exp6", "exp7", "exp8", "abl"}
+    assert set(common.EXPERIMENTS) == {"exp1", "realism", "exp2", "exp3", "exp4", "exp5", "exp6", "exp7", "exp8",
+                                       "abl"}
     exp1 = common.comparisons("exp1")
     assert [(c.a, c.b, c.family) for c in exp1] == [
         ("random/entropy-greedy", "heuristic/entropy-greedy", "H1"),
@@ -312,7 +352,7 @@ def test_registry_and_group_map() -> None:
     assert all(c.test == "tost" and c.margin == 0.03 and c.margin_type == "relative" for c in exp1)
     assert all(c.by == ("scenario", "nodes") for c in exp1)
     assert len(common.comparisons("abl")) == 12
-    assert [c.a for c in common.comparisons("exp4")][2:5] == [f"anneal-online/t0={t}" for t in ("0.1", "0.3", "1")]
+    assert [c.a for c in common.comparisons("exp4")][2:5] == [f"anneal-online/t0={t}" for t in ("0.3", "1", "3")]
     h7 = common.comparisons("exp7")
     assert len(h7) == 4 and h7[0].where == {"nodes": [1000]} and h7[1].metric == "wall_pass_p95_ms"
     assert common.comparisons("exp5")[0].a == {"label": "random/entropy-greedy", "placement": "most-allocated"}
@@ -420,6 +460,30 @@ def test_outputs_reproducible() -> None:
             assert not (Path(tmp) / "tables").exists(), "a refused write leaves nothing behind"
         else:
             raise AssertionError("paths must not be written to JSON")
+
+
+def test_make_figures_clears_stale_outputs() -> None:
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("make_figures", common.REPO_ROOT / "paper" / "make_figures.py")
+    mf = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mf)
+    with tempfile.TemporaryDirectory() as tmp, _group_map(None):
+        out = Path(tmp) / "out"
+        stale = [out / "tables" / "exp1_h1.csv", out / "tables" / "exp1_h1.md", out / "tables" / "x.json",
+                 out / "figures" / "out" / "fig3_frontier.png", out / "figures" / "out" / "fig3_frontier.pdf"]
+        kept = [out / "tables" / "cache" / "lower_bounds.json", out / "figures" / "fig_script.py",
+                out / "tables" / "notes.txt"]
+        for f in stale + kept:
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text("old", encoding="utf-8")
+        with open(os.devnull, "w", encoding="utf-8") as devnull, contextlib.redirect_stdout(devnull):
+            # --only leaves other modules' files alone; a full run removes every earlier output first.
+            assert mf.main(["--runs", str(Path(tmp) / "none"), "--out", str(out), "--only", "frontier_fidelity"]) == 0
+            assert all(f.exists() for f in stale)
+            assert mf.main(["--runs", str(Path(tmp) / "none"), "--out", str(out)]) == 0
+        assert not any(f.exists() for f in stale), "a skipped experiment must not leave stale outputs behind"
+        assert all(f.exists() for f in kept), "only generated tables and figures are removed"
 
 
 def main() -> int:

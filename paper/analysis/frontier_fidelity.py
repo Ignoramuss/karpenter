@@ -201,8 +201,8 @@ DOMINANCE_COLUMNS = [
     "experiment", "family", "scenario", "nodes", "baseline", "matched_label", "matched_lambda", "selection", "metric",
     "better_if", "n_pairs", "n_dropped", "n_dropped_invalid", "n_dropped_missing", "mean_matched", "mean_baseline",
     "mean_diff", "mean_diff_lo", "mean_diff_hi", "median_diff", "median_diff_lo", "median_diff_hi", "pct_diff",
-    "pct_diff_lo", "pct_diff_hi", "p_wilcoxon", "p_holm", "direction", "significant", "outcome", "p_better",
-    "p_better_holm", "p_worse", "p_worse_holm", "verdict", "verdict_one_sided",
+    "pct_diff_lo", "pct_diff_hi", "p_wilcoxon", "p_floor", "p_holm", "direction", "significant", "holm_reachable",
+    "outcome", "p_better", "p_better_holm", "p_worse", "p_worse_holm", "verdict", "verdict_one_sided", "underpowered",
 ]
 _LAMBDA_IN_LABEL = re.compile(r"(?:^|/)lambda=([^/]+)$")
 
@@ -211,13 +211,15 @@ def add_savings(df: pd.DataFrame, keys: Sequence[str], zero_label: str, cost_met
     """A copy of ``df`` with ``b0_cost`` (``cost_metric`` of the valid ``zero_label`` run sharing the row's ``keys``,
     NaN when there is none) and ``savings`` = b0_cost - the row's own ``cost_metric`` ($ saved by consolidation).
 
-    Raises ValueError when two ``zero_label`` runs share the same keys.
+    Keys on which two ``zero_label`` runs collide have no defined reference: they are logged and get NaN savings.
     """
     keys = list(keys)
     zero = df.loc[df["label"] == zero_label]
     dup = zero.duplicated(keys, keep=False)
     if dup.any():
-        raise ValueError(f"{int(dup.sum())} {zero_label} runs share keys {keys}")
+        common.logger.warning("exp6: %d %s runs share keys %s; their seeds get no savings", int(dup.sum()),
+                              zero_label, keys)
+        zero = zero.loc[~dup]
     cost = pd.to_numeric(zero[cost_metric], errors="coerce")
     ok = zero["valid"].astype(bool) & np.isfinite(cost.to_numpy(dtype=float))
     ref = {tuple(k): float(c) for k, c in zip(zero.loc[ok, keys].itertuples(index=False, name=None), cost[ok])}
@@ -352,7 +354,8 @@ def _dominance_rows(part: pd.DataFrame, keys: Sequence[str], matched: pd.Series,
             "n_dropped": al.dropped, "n_dropped_invalid": al.dropped_invalid, "n_dropped_missing": al.dropped_missing,
             "mean_matched": eff["mean_a"], "mean_baseline": eff["mean_b"],
             **{k: eff[k] for k in ("mean_diff", "mean_diff_lo", "mean_diff_hi", "median_diff", "median_diff_lo",
-                                   "median_diff_hi", "pct_diff", "pct_diff_lo", "pct_diff_hi", "p_wilcoxon")},
+                                   "median_diff_hi", "pct_diff", "pct_diff_lo", "pct_diff_hi", "p_wilcoxon",
+                                   "p_floor")},
             "_dir": rank_direction(d),
             "p_better": greater if better_if == "higher" else less,
             "p_worse": less if better_if == "higher" else greater,
@@ -402,25 +405,36 @@ def dominance_table(df: pd.DataFrame, frontier: pd.DataFrame, exp: dict[str, Any
             if matched is None:
                 common.skipped(f"exp6 dominance {baseline} {where}", "no lambda sweep runs paired with B0")
                 continue
-            rows += _dominance_rows(part, keys, matched, baseline, zero, selection, cost_metric)
+            try:
+                rows += _dominance_rows(part, keys, matched, baseline, zero, selection, cost_metric)
+            except ValueError as err:  # an arm with two runs on the same seed: no pairing is defined
+                common.skipped(f"exp6 dominance {baseline} {where}", str(err))
     if not rows:
         return pd.DataFrame(columns=DOMINANCE_COLUMNS)
     out = pd.DataFrame(rows)
     for col in ("p_holm", "p_better_holm", "p_worse_holm"):
         out[col] = math.nan
+    out["holm_reachable"] = False
     for _, idx in out.groupby("family", sort=True).groups.items():
         for src, dst in (("p_wilcoxon", "p_holm"), ("p_better", "p_better_holm"), ("p_worse", "p_worse_holm")):
             out.loc[idx, dst] = common.holm(out.loc[idx, src].to_numpy(dtype=float))
+        out.loc[idx, "holm_reachable"] = common.holm_reachable(out.loc[idx, "p_floor"].to_numpy(dtype=float),
+                                                               out.loc[idx, "p_wilcoxon"].to_numpy(dtype=float))
+    out["holm_reachable"] = out["holm_reachable"].astype(bool)
     p_holm = out["p_holm"].to_numpy(dtype=float)
     out["significant"] = np.isfinite(p_holm) & (p_holm < ALPHA)
     out["direction"] = out["_dir"].map({1: "higher", -1: "lower", 0: "none"})
     good = np.where(out["better_if"] == "higher", out["_dir"] > 0, out["_dir"] < 0)
     out["outcome"] = np.where(~out["significant"], "no difference", np.where(good, "better", "worse"))
-    out["verdict"], out["verdict_one_sided"] = "", ""
+    out["verdict"], out["verdict_one_sided"], out["underpowered"] = "", "", False
     for _, idx in out.groupby(["scenario", "nodes", "baseline"], sort=False).groups.items():
         g = out.loc[idx]
         dec = g.loc[g["family"] == VERDICT_FAMILY]
-        out.loc[idx, "verdict"] = _verdict(dec["outcome"].tolist(), dec["n_pairs"].tolist())
+        verdict = _verdict(dec["outcome"].tolist(), dec["n_pairs"].tolist())
+        out.loc[idx, "verdict"] = verdict
+        # "matches" from tests that could not have been significant (too few non-zero pairs for Holm over the
+        # family) is no evidence of matching.
+        out.loc[idx, "underpowered"] = bool(verdict == "matches" and not dec["holm_reachable"].all())
         one = ["worse" if pw < ALPHA else ("better" if pb < ALPHA else "no difference")
                for pw, pb in zip(dec["p_worse_holm"].fillna(1.0), dec["p_better_holm"].fillna(1.0))]
         out.loc[idx, "verdict_one_sided"] = _verdict(one, dec["n_pairs"].tolist())
@@ -493,30 +507,40 @@ def exp6_headline(sel: pd.DataFrame, frontier: pd.DataFrame, dominance: pd.DataF
             e: dict[str, Any] = {"scenario": scenario, "nodes": nodes, "baseline": baseline,
                                  "matched_label": g["matched_label"].iloc[0],
                                  "matched_lambda": g["matched_lambda"].iloc[0], "selection": g["selection"].iloc[0],
-                                 "verdict": g["verdict"].iloc[0], "verdict_one_sided": g["verdict_one_sided"].iloc[0]}
+                                 "verdict": g["verdict"].iloc[0], "verdict_one_sided": g["verdict_one_sided"].iloc[0],
+                                 "underpowered": bool(g["underpowered"].iloc[0])}
             for r in g.itertuples(index=False):
                 e[r.metric] = {"n_pairs": r.n_pairs, "n_dropped": r.n_dropped, "mean_matched": r.mean_matched,
                                "mean_baseline": r.mean_baseline, "mean_diff": r.mean_diff, "ci": [r.mean_diff_lo,
                                r.mean_diff_hi], "pct_diff": r.pct_diff, "pct_ci": [r.pct_diff_lo, r.pct_diff_hi],
-                               "p_wilcoxon": r.p_wilcoxon, "p_holm": r.p_holm, "outcome": r.outcome,
-                               "family": r.family}
+                               "p_wilcoxon": r.p_wilcoxon, "p_floor": r.p_floor, "p_holm": r.p_holm,
+                               "holm_reachable": r.holm_reachable, "outcome": r.outcome, "family": r.family}
             entries.append(e)
     verdicts = [e["verdict"] for e in entries]
-    expected = len(frontier[["scenario", "nodes"]].drop_duplicates()) * len(exp["params"]["operating_points"])
+    # The preregistered design, not just the strata that have runs: a missing scenario leaves H6 open.
+    design = {(s, float(n), b) for s in exp["scenarios"] for n in exp["nodes"]
+              for b in exp["params"]["operating_points"]}
+    evaluated = {(e["scenario"], float(e["nodes"]), e["baseline"]) for e in entries
+                 if e["verdict"] in ("matches", "dominates", "dominated")}
+    expected = len(design)
     if "dominated" in verdicts:
         supported: bool | None = False
-    elif verdicts and len(verdicts) == expected and all(v in ("matches", "dominates") for v in verdicts):
+    elif design <= evaluated and not any(e["underpowered"] for e in entries):
         supported = True
     else:
         supported = None
     return {
         "hypothesis": exp["hypothesis"], "validity": _validity(sel), "pareto": pareto, "dominance": entries,
         "verdict_counts": {v: verdicts.count(v) for v in sorted(set(verdicts))},
-        "comparisons_expected": expected, "comparisons_evaluated": len(entries), "h6_supported": supported,
+        "comparisons_expected": expected, "comparisons_evaluated": len(entries),
+        "comparisons_missing": [f"{s}/{_fmt_nodes(n)}/{b}" for s, n, b in sorted(design - evaluated, key=str)],
+        "n_underpowered": sum(bool(e["underpowered"]) for e in entries), "h6_supported": supported,
         "rule": "per operating point and stratum: the lambda point with the highest mean savings among those with "
                 "mean eviction cost <= the operating point's (else the lowest-disruption point); paired two-sided "
                 "Wilcoxon on savings and eviction cost, Holm within H6; dominated if either is significantly worse, "
-                "dominates if either is significantly better and neither worse, else matches",
+                "dominates if either is significantly better and neither worse, else matches. h6_supported is None "
+                "(open) while a design comparison is missing or a 'matches' rests on tests too small to reach "
+                "significance after Holm (underpowered)",
     }
 
 
@@ -590,7 +614,8 @@ def fidelity_table(df: pd.DataFrame, exp: dict[str, Any]) -> pd.DataFrame:
     that tracked at least one evicted pod; ``fidelity_pooled``: all tracked pods' hit share (sum of hits over sum of
     hits and misses); ``off_plan_share_*`` = 1 - fidelity (mean and its CI). ``delta_p2_ratio_*``: mean and median of
     per-run realized / predicted P2 change over the ``n_ratio`` valid runs with a non-zero prediction;
-    ``delta_p2_ratio_of_sums``: sum realized / sum predicted over the same runs, CI by resampling runs. Then the
+    ``delta_p2_ratio_of_sums``: sum realized / sum predicted over every valid run with both values (the ratio of
+    the cell's mean changes, so runs with a zero prediction still count), CI by resampling runs. Then the
     predicted and realized P2 change, steady-state $/hr and evictions. Sorted by registry order of label, placement
     and scale-down model.
     """
@@ -622,8 +647,11 @@ def fidelity_table(df: pd.DataFrame, exp: dict[str, Any]) -> pd.DataFrame:
                     ok = np.isfinite(ratio)
                     row["n_ratio"] = int(ok.sum())
                     row.update(ci_columns(RATIO, ratio))
-                    est, lo, hi = ratio_of_sums_ci(_floats(valid["realized_delta_p2"])[ok],
-                                                   _floats(valid["predicted_delta_p2"])[ok])
+                    # Ratio of sums over every valid run with both values (zero predictions included: they add
+                    # nothing to the denominator but their realized change still counts); the per-run ratios above
+                    # need a non-zero prediction.
+                    est, lo, hi = ratio_of_sums_ci(_floats(valid["realized_delta_p2"]),
+                                                   _floats(valid["predicted_delta_p2"]))
                     row.update(delta_p2_ratio_of_sums=est, delta_p2_ratio_of_sums_lo=lo, delta_p2_ratio_of_sums_hi=hi)
                     for m in ("predicted_delta_p2", "realized_delta_p2"):
                         est, lo, hi = common.bootstrap_ci(_floats(valid[m]), "mean")
@@ -651,7 +679,7 @@ def fidelity_tests(df: pd.DataFrame, comps: Sequence[common.Comparison]) -> pd.D
             part = part.loc[part[col].isin(allowed)]
         for col in c.by:
             part = part.loc[part[col] == row[col]]
-        p = common.paired(part, c.keys, c.label_col, c.a, c.b, c.metric)
+        p = common.paired_lenient(part, c.keys, c.label_col, c.a, c.b, c.metric, log=False)
         sign = rank_direction(p.a - p.b)
         directions.append({1: "higher", -1: "lower", 0: "none"}[sign])
         want = EXPECT_SIGN.get(c.expect or "")
