@@ -401,3 +401,7 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   `make figures`, with tests) collects every verdict and its key effects from the modules' JSON headlines into
   `tables/summary.{md,json}`, which `experiments/RESULTS.md` will quote, so the write-up cannot drift from the
   tables.
+- **index.jsonl snapshots.** The runner appends to each matrix's `index.jsonl` with every finished cell (every 30 s
+  or so at 200 nodes), so a tracked copy is always modified. The live file is untracked during the session;
+  `commit_runs.sh` commits a snapshot as `experiments/session-driver/index-<matrix>.jsonl` with every data commit,
+  and the final file goes back in place at the end (`FINAL=1 commit_runs.sh`), where the analysis reads it.
