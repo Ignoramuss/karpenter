@@ -1,0 +1,53 @@
+{
+  "arm": {
+    "label": "anneal-online/t0=3",
+    "name": "pipeline",
+    "pipeline": {
+      "candidates": {
+        "name": "uniform-random",
+        "params": {
+          "sourceFraction": 0.25
+        }
+      },
+      "executor": {
+        "name": "shift-evict"
+      },
+      "moves": [
+        {
+          "name": "random-merge",
+          "params": {
+            "confirm": true
+          }
+        },
+        {
+          "name": "random-shift"
+        }
+      ],
+      "movesMode": "pooled",
+      "planner": {
+        "name": "anneal-online",
+        "params": {
+          "cooling": 0.99,
+          "lambda": 0.1,
+          "t0": 3,
+          "temperatureUnit": "per-node"
+        }
+      },
+      "potential": {
+        "name": "util-entropy"
+      },
+      "search": {
+        "maxAttempts": 500,
+        "maxFullSimulations": 16
+      }
+    }
+  },
+  "duration": "3h",
+  "maxWall": "0s",
+  "runID": "exp4__arm-anneal-online-t0-3_scenario-w4_seed-101__3dea6458",
+  "scenario": {
+    "name": "W4",
+    "nodes": 200
+  },
+  "seed": 101
+}
