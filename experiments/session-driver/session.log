@@ -394,3 +394,47 @@ matrix session: 180 cells, 106 done, 0 failed, 74 pending; 4 workers, wall budge
 [126/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w1_seed-106__5a8bac9e in 720.8s
 matrix session: wall budget 1h0m0s spent; re-invoke to continue
 matrix session: 126/180 done, 0 failed, 54 pending
+matrix session: 180 cells, 126 done, 0 failed, 54 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+[127/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w1_seed-107__1835dbfa in 665.2s
+[128/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w1_seed-108__d0060c5e in 723.5s
+[129/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w1_seed-109__0d3ee85f in 734.8s
+[130/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w1_seed-110__196b2fe4 in 740.7s
+[131/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w2_seed-102__83a9babf in 1043.3s
+[132/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w2_seed-101__4e7c2a43 in 1175.1s
+[133/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w2_seed-104__97296a06 in 1207.0s
+[134/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w2_seed-103__89e77c22 in 1339.1s
+[135/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w2_seed-105__3c763cad in 1467.6s
+[136/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w2_seed-108__3bfba910 in 1306.9s
+[137/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w2_seed-106__d5262e79 in 1573.6s
+[138/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w2_seed-107__60c0c8b4 in 1484.8s
+[139/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w4_seed-101__4751b502 in 461.6s
+[140/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w4_seed-102__76b30eca in 444.3s
+[141/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w2_seed-109__7e10b900 in 1044.0s
+[142/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w2_seed-110__fd48038e in 1088.2s
+matrix session: wall budget 1h0m0s spent; re-invoke to continue
+matrix session: 142/180 done, 0 failed, 38 pending
+matrix session: 180 cells, 142 done, 0 failed, 38 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+[143/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w4_seed-103__a782e5b5 in 426.6s
+[144/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w4_seed-104__4bb9944e in 454.0s
+[145/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w4_seed-106__21c5ea18 in 463.1s
+[146/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w4_seed-105__d1447374 in 483.1s
+[147/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w4_seed-107__4386b3d7 in 451.1s
+[148/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w4_seed-108__96c91f1b in 446.6s
+[149/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w4_seed-109__5186314e in 490.4s
+[150/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w4_seed-110__51b552f4 in 482.4s
+[151/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w1_seed-102__b12ba1ab in 792.9s
+[152/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w1_seed-101__f7c98836 in 876.3s
+[153/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w1_seed-104__e962ba71 in 833.4s
+[154/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w1_seed-103__526c9b9e in 900.3s
+[155/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w1_seed-107__bdbc077d in 778.0s
+[156/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w1_seed-106__a5f4d81c in 839.0s
+[157/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w1_seed-105__143e56ef in 923.1s
+[158/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w1_seed-108__69cd96b0 in 825.7s
+[159/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w1_seed-109__344750f7 in 828.2s
+[160/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w1_seed-110__fb5d5b2c in 849.2s
+[161/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w2_seed-102__08aefa6e in 971.7s
+[162/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w2_seed-101__b016210a in 1076.7s
+[163/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w2_seed-104__24fc29de in 877.7s
+[164/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w2_seed-103__b51ca0be in 986.3s
+matrix session: wall budget 1h0m0s spent; re-invoke to continue
+matrix session: 164/180 done, 0 failed, 16 pending
