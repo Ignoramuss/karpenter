@@ -8,3 +8,4 @@
 2026-10-27T20:52:41Z boot_id=unknown btime=unknown cpu="Intel(R) Xeon(R) Processor @ 2.10GHz" nproc=4 (epoch A; reconstructed: the VM the session started on)
 2026-10-27T23:53:31Z boot_id=unknown btime=2026-10-27T23:52:00Z cpu="Intel(R) Xeon(R) Processor @ 2.80GHz" nproc=4 (epoch B; reconstructed: boot time approximate, from the driver restart at 23:53:31Z after the last line written before the restart; CPU from lscpu at the time, not otherwise recorded)
 2026-10-28T04:51:13Z boot_id=e05cb26c-773c-454e-8aaf-5d14362982b1 btime=2026-10-28T03:29:38Z cpu="Intel(R) Xeon(R) Processor @ 2.10GHz" nproc=4 (epoch C; logged by hand before driver v3)
+2026-10-28T23:24:51Z boot_id=e21797db-4fdf-439d-93c4-94c72f8c6f71 btime=2026-10-28T23:23:55Z cpu="Intel(R) Xeon(R) Processor @ 2.80GHz" nproc=4

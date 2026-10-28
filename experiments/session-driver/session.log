@@ -1647,3 +1647,71 @@ matrix session: 60/60 done, 0 failed, 0 pending
 2026-10-28T23:08:40Z DONE b4 :: matrix session: 60/60 done, 0 failed, 0 pending
 2026-10-28T23:08:40Z CUT-RULE 2026-10-28T23:08:40Z START realism-w5 :: START realism-w5: projected end 2026-10-28T23:38Z vs deadline 2026-10-29T02:52Z (now 2026-10-28T23:08Z; W5@200: 60 cells x median 2.0 min (fallback: all 200-node cells, n=1070); /4 workers)
 2026-10-28T23:08:40Z START realism-w5
+=== restart after container restart #3 2026-10-28T23:24:51Z cpu: Intel(R) Xeon(R) Processor @ 2.80GHz boot e21797db-4fdf-439d-93c4-94c72f8c6f71
+2026-10-28T23:24:51Z DRIVER v3 takes over (boot e21797db-4fdf-439d-93c4-94c72f8c6f71, cpu: Intel(R) Xeon(R) Processor @ 2.80GHz)
+2026-10-28T23:24:51Z START exp1-n200
+matrix session: 180 cells, 180 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 180/180 done, 0 failed, 0 pending
+2026-10-28T23:24:54Z DONE exp1-n200 :: matrix session: 180/180 done, 0 failed, 0 pending
+2026-10-28T23:24:54Z START exp1-baselines-n200
+matrix session: 60 cells, 60 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 60/60 done, 0 failed, 0 pending
+2026-10-28T23:24:54Z DONE exp1-baselines-n200 :: matrix session: 60/60 done, 0 failed, 0 pending
+2026-10-28T23:24:54Z START exp1-n1000
+matrix session: 180 cells, 180 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 180/180 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z DONE exp1-n1000 :: matrix session: 180/180 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z START exp6
+matrix session: 140 cells, 140 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 140/140 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z DONE exp6 :: matrix session: 140/140 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z START exp6-baselines
+matrix session: 60 cells, 60 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 60/60 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z DONE exp6-baselines :: matrix session: 60/60 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z START exp6-b5
+matrix session: 40 cells, 40 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 40/40 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z DONE exp6-b5 :: matrix session: 40/40 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z START exp5
+matrix session: 120 cells, 120 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 120/120 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z DONE exp5 :: matrix session: 120/120 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z START exp5-steered
+matrix session: 20 cells, 20 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 20/20 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z DONE exp5-steered :: matrix session: 20/20 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z START exp3
+matrix session: 80 cells, 80 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 80/80 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z DONE exp3 :: matrix session: 80/80 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z START exp4
+matrix session: 200 cells, 200 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 200/200 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z DONE exp4 :: matrix session: 200/200 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z START exp7-n50
+matrix session: 30 cells, 30 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 30/30 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z DONE exp7-n50 :: matrix session: 30/30 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z START exp7-b2
+matrix session: 10 cells, 10 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 10/10 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z DONE exp7-b2 :: matrix session: 10/10 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z START abl
+matrix session: 100 cells, 100 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 100/100 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z DONE abl :: matrix session: 100/100 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z START exp8
+matrix session: 240 cells, 240 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 240/240 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z DONE exp8 :: matrix session: 240/240 done, 0 failed, 0 pending
+2026-10-28T23:24:55Z START exp8-b5
+matrix session: 30 cells, 30 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 30/30 done, 0 failed, 0 pending
+2026-10-28T23:24:56Z DONE exp8-b5 :: matrix session: 30/30 done, 0 failed, 0 pending
+2026-10-28T23:24:56Z START b4
+matrix session: 60 cells, 60 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 60/60 done, 0 failed, 0 pending
+2026-10-28T23:24:56Z DONE b4 :: matrix session: 60/60 done, 0 failed, 0 pending
+2026-10-28T23:24:56Z CUT-RULE 2026-10-28T23:08:40Z START realism-w5 :: START realism-w5: projected end 2026-10-28T23:38Z vs deadline 2026-10-29T02:52Z (now 2026-10-28T23:08Z; W5@200: 60 cells x median 2.0 min (fallback: all 200-node cells, n=1070); /4 workers)
+2026-10-28T23:24:56Z START realism-w5
