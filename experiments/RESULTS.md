@@ -230,6 +230,36 @@ reaches the frontier at high lambda, where it evicts least. The descheduler base
 most-allocated scheduling) saves much less than either on W2. W3's batch churn is where the pipeline does worst
 relative to upstream.
 
+### Ablations (complete)
+
+**Design.** The "full" configuration (random generation, anneal-plan, the util-entropy potential, the low pod-eviction
+budget of 18 pods per minute) against four variants with one component removed: no potential (alpha = 0, potential
+`none`), no eviction budget, no annealing (entropy-greedy), no randomness (heuristic generation). W1 and W2 at 200
+nodes; family of 8 Wilcoxon tests on steady-state cost, Holm over the 8; no direction was preregistered.
+
+**Result** (`paper/tables/fig8_ablation.md`, figure `fig8_ablation`): removing any one component lowers steady-state
+cost in every cell, significantly after Holm in 6 of 8.
+
+| Removed (vs full) | W1 steady-state $/hr | W2 steady-state $/hr | Evictions, W1 / W2 |
+| --- | --- | --- | --- |
+| (full) | $50.18 | $39.52 | 1,973 / 1,448 |
+| potential | -9.7% (95% CI -12.4, -7.2) | -12.7% (-19.8, -4.6), Holm p = 0.07 | -41% / -76% |
+| eviction budget | -15.5% (-18.7, -12.5) | -30.7% (-36.7, -23.5) | +3% (-3, +10) / +33% |
+| annealing | -8.9% (-11.9, -5.8) | -9.5% (-18.9, +0.5), Holm p = 0.11 | -37% / -21% |
+| randomness | -7.5% (-11.2, -4.1) | -15.5% (-21.8, -8.7) | -48% / -73% |
+
+(Holm p = 0.016 or 0.018 where not shown.) Integrated cost after warmup is lower for every variant too (-3% to -27%;
+W2 without annealing -2.9%, 95% CI -6.4 to +0.4).
+
+**What it shows.** At the low eviction budget (18 pods per minute, the pilot's median eviction rate of
+random/entropy-greedy while consolidating, chosen so that it binds), the full configuration is the most expensive of
+the five. Each of the other three removals also cuts evictions (by 21-76%) and lowers cost, which suggests the
+potential, annealing and random generation each spend the capped budget on moves that do not pay off within it; that
+reading was not tested further. Removing the budget alone recovers most of the cost; the W1 variant
+without it is the same configuration as Exp 1's random/anneal-plan at 200 nodes and reproduces its steady-state cost
+exactly ($42.40). The ablation measures components under this one budget; it does not show that the components
+hurt without one (Exp 1 and Exp 4 run without a pod-eviction budget).
+
 ### H7. Decision cost at 1,000 nodes (Exp 7; primary family complete)
 
 **Hypothesis.** Random sampling with fast feasibility has lower decision cost than prefix binary search at 1,000
