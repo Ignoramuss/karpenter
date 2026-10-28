@@ -1,0 +1,158 @@
+# Supplementary H7 timing pass (experiments/RESEARCH_LOG.md, "H7 hardware confound"; declared before any
+# random/entropy-greedy W1 1,000-node session result existed). The session VM was replaced twice mid-session, with
+# CPUs of different speeds, and Exp 1's arm-major order put H7's heuristic arm on one machine and its random arm on
+# another. Here each seed is its own group: both arms of a seed run at the same time on the same machine, so each
+# pair shares hardware and load. Same Gate 3 binary; the configurations are byte-identical to the session's
+# heuristic/entropy-greedy and random/entropy-greedy W1 1,000-node cells, so their simulated outputs must match
+# those cells exactly (a determinism check). Run two seeds (four cells) at a time:
+#
+#   for p in "101,102" "103,104" "105,106" "107,108" "109,110"; do
+#     bin/csim matrix --matrix experiments/matrix/h7-timing.yaml --only "h7t-${p%,*},h7t-${p#*,}" --workers 4
+#   done
+name: h7-timing
+outDir: experiments/runs/h7-timing
+base:
+  duration: 3h
+  maxWall: 0s
+groups:
+- name: h7t-101
+  set:
+    seed: 101
+    scenario:
+      name: W1
+      nodes: 1000
+  vary:
+    arm:
+    - &id005
+      name: pipeline
+      label: heuristic/entropy-greedy
+      pipeline:
+        candidates:
+          name: upstream
+        moves:
+        - name: upstream-multi
+          params:
+            mode: fine
+        - name: upstream-single
+          params:
+            mode: fine
+        executor: &id001
+          name: shift-evict
+        potential: &id002
+          name: util-entropy
+        movesMode: pooled
+        search: &id003
+          maxFullSimulations: 16
+          maxAttempts: 500
+        planner: &id004
+          name: entropy-greedy
+          params:
+            lambda: 0.1
+    - &id006
+      name: pipeline
+      label: random/entropy-greedy
+      pipeline:
+        candidates:
+          name: uniform-random
+          params:
+            sourceFraction: 0.25
+        moves:
+        - name: random-merge
+          params:
+            confirm: true
+        - name: random-shift
+        executor: *id001
+        potential: *id002
+        movesMode: pooled
+        search: *id003
+        planner: *id004
+- name: h7t-102
+  set:
+    seed: 102
+    scenario:
+      name: W1
+      nodes: 1000
+  vary:
+    arm:
+    - *id005
+    - *id006
+- name: h7t-103
+  set:
+    seed: 103
+    scenario:
+      name: W1
+      nodes: 1000
+  vary:
+    arm:
+    - *id005
+    - *id006
+- name: h7t-104
+  set:
+    seed: 104
+    scenario:
+      name: W1
+      nodes: 1000
+  vary:
+    arm:
+    - *id005
+    - *id006
+- name: h7t-105
+  set:
+    seed: 105
+    scenario:
+      name: W1
+      nodes: 1000
+  vary:
+    arm:
+    - *id005
+    - *id006
+- name: h7t-106
+  set:
+    seed: 106
+    scenario:
+      name: W1
+      nodes: 1000
+  vary:
+    arm:
+    - *id005
+    - *id006
+- name: h7t-107
+  set:
+    seed: 107
+    scenario:
+      name: W1
+      nodes: 1000
+  vary:
+    arm:
+    - *id005
+    - *id006
+- name: h7t-108
+  set:
+    seed: 108
+    scenario:
+      name: W1
+      nodes: 1000
+  vary:
+    arm:
+    - *id005
+    - *id006
+- name: h7t-109
+  set:
+    seed: 109
+    scenario:
+      name: W1
+      nodes: 1000
+  vary:
+    arm:
+    - *id005
+    - *id006
+- name: h7t-110
+  set:
+    seed: 110
+    scenario:
+      name: W1
+      nodes: 1000
+  vary:
+    arm:
+    - *id005
+    - *id006

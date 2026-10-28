@@ -263,3 +263,26 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   2.80 GHz one. Decision-cost results that mix the two (latency against cluster size at 200 nodes vs 50 and 1,000)
   are reported with the machine noted, by each run's `started_at` relative to the restart. The cut rule's clock
   keeps its start, the first session cell at 20:52 UTC. Driver restarted at 23:53 UTC.
+- **Container restart #2, Oct 28 about 03:30 UTC.** The VM was replaced again during `exp1-n1000`, this time with a
+  2.10 GHz CPU (Intel Xeon @ 2.10 GHz, 4 vCPUs, 15 GiB), the same model as before restart #1. The driver and four
+  in-flight cells (heuristic/entropy-greedy W4, seeds 108-110, and the first heuristic/anneal-plan W1 cell) died
+  without a `summary.json` and were wiped and relaunched by the runner; 302 finished cells were intact. Driver
+  restarted at 03:30 UTC. Machine epochs, by each run's `started_at`: **A** before 2026-10-27T23:52Z (2.10 GHz),
+  **B** from then until 2026-10-28T03:30Z (2.80 GHz), **C** after (2.10 GHz). The cut rule's clock is unchanged.
+- **H7 hardware confound and a supplementary timing pass (declared before any random/entropy-greedy W1 1,000-node
+  result existed).** Exp 1 runs arm-major, so all ten heuristic/entropy-greedy W1 1,000-node cells, H7's reference
+  arm, ran in epoch B on the 2.80 GHz CPU, and every random/entropy-greedy cell will run in epoch C on the 2.10 GHz
+  one. A per-pass CPU-time comparison across the two machines is biased in random sampling's disfavor by roughly the
+  clock ratio (about 25%), which can mask a real advantage or invent a disadvantage. Decision:
+  1. The preregistered H7 analysis is run and reported exactly as specified, with the confound stated next to it.
+  2. A supplementary paired timing pass (`experiments/matrix/h7-timing.yaml`) reruns both arms of H7's W1 1,000-node
+     cells after the session matrix, with the Gate 3 binary, one group per seed and two seeds (four cells) at a
+     time, so each heuristic/random pair shares one machine and one load. Its configurations are byte-identical to
+     the session cells (same run-ID hashes, e.g. `0d7a1044` for heuristic/entropy-greedy W1 seed 101), so their
+     simulated outputs must equal the session cells' exactly; any difference is a determinism failure and voids
+     the pass. It is analysed with H7's own test (paired Wilcoxon on CPU time per pass, mean and p95, Holm m = 2)
+     and reported as H7-S, supplementary; it does not replace H7's verdict, but where the two disagree, RESULTS
+     says that H7's primary verdict is explained by hardware.
+  3. Other decision-cost results that compare cells across epochs (Exp 7's 50/200/1,000-node scaling, Exp 8's
+     decision cost) are reported with each run's epoch.
+  The pass runs only if session time allows after the 30-hour cut; otherwise it is listed under next steps.
