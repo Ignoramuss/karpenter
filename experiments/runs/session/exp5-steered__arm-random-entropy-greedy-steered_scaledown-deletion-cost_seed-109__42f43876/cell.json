@@ -1,0 +1,55 @@
+{
+  "arm": {
+    "label": "random/entropy-greedy/steered",
+    "name": "pipeline",
+    "pipeline": {
+      "candidates": {
+        "name": "uniform-random",
+        "params": {
+          "sourceFraction": 0.25
+        }
+      },
+      "executor": {
+        "name": "steered",
+        "params": {
+          "mode": "affinity"
+        }
+      },
+      "moves": [
+        {
+          "name": "random-merge",
+          "params": {
+            "confirm": true
+          }
+        },
+        {
+          "name": "random-shift"
+        }
+      ],
+      "movesMode": "pooled",
+      "planner": {
+        "name": "entropy-greedy",
+        "params": {
+          "lambda": 0.1
+        }
+      },
+      "potential": {
+        "name": "util-entropy"
+      },
+      "search": {
+        "maxAttempts": 500,
+        "maxFullSimulations": 16
+      }
+    }
+  },
+  "duration": "3h",
+  "maxWall": "0s",
+  "placement": "least-allocated",
+  "runID": "exp5-steered__arm-random-entropy-greedy-steered_scaledown-deletion-cost_seed-109__42f43876",
+  "scaleDown": "deletion-cost",
+  "scenario": {
+    "name": "W2",
+    "nodes": 200
+  },
+  "seed": 109
+}

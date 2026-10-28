@@ -873,3 +873,27 @@ matrix session: 120 cells, 0 done, 0 failed, 120 pending; 4 workers, wall budget
 matrix session: 120/120 done, 0 failed, 0 pending
 2026-10-28T17:15:53Z DONE exp5 :: matrix session: 120/120 done, 0 failed, 0 pending
 2026-10-28T17:15:53Z START exp5-steered
+matrix session: 20 cells, 0 done, 0 failed, 20 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+[1/20 done] done exp5-steered__arm-random-entropy-greedy-steered_scaledown-spread_seed-104__72f21939 in 83.2s
+[2/20 done] done exp5-steered__arm-random-entropy-greedy-steered_scaledown-spread_seed-101__c8efa860 in 92.0s
+[3/20 done] done exp5-steered__arm-random-entropy-greedy-steered_scaledown-spread_seed-102__cf32c185 in 103.3s
+[4/20 done] done exp5-steered__arm-random-entropy-greedy-steered_scaledown-spread_seed-103__3727acc5 in 124.9s
+[5/20 done] done exp5-steered__arm-random-entropy-greedy-steered_scaledown-spread_seed-105__f50211dd in 114.8s
+[6/20 done] done exp5-steered__arm-random-entropy-greedy-steered_scaledown-spread_seed-108__e2d98b44 in 89.1s
+[7/20 done] done exp5-steered__arm-random-entropy-greedy-steered_scaledown-spread_seed-107__a1f6ce6c in 121.1s
+[8/20 done] done exp5-steered__arm-random-entropy-greedy-steered_scaledown-spread_seed-106__3a463da4 in 133.0s
+[9/20 done] done exp5-steered__arm-random-entropy-greedy-steered_scaledown-spread_seed-109__b678db70 in 79.6s
+[10/20 done] done exp5-steered__arm-random-entropy-greedy-steered_scaledown-spread_seed-110__bd8b289f in 99.8s
+[11/20 done] done exp5-steered__arm-random-entropy-greedy-steered_scaledown-deletion-cost_seed-101__a0f8af43 in 92.9s
+[12/20 done] done exp5-steered__arm-random-entropy-greedy-steered_scaledown-deletion-cost_seed-102__a943eb99 in 105.0s
+[13/20 done] done exp5-steered__arm-random-entropy-greedy-steered_scaledown-deletion-cost_seed-103__a8bf42ea in 120.1s
+[14/20 done] done exp5-steered__arm-random-entropy-greedy-steered_scaledown-deletion-cost_seed-104__7ed435e6 in 84.1s
+[15/20 done] done exp5-steered__arm-random-entropy-greedy-steered_scaledown-deletion-cost_seed-105__48c62304 in 118.4s
+[16/20 done] done exp5-steered__arm-random-entropy-greedy-steered_scaledown-deletion-cost_seed-106__b894a6e1 in 120.1s
+[17/20 done] done exp5-steered__arm-random-entropy-greedy-steered_scaledown-deletion-cost_seed-108__c7d9556c in 85.1s
+[18/20 done] done exp5-steered__arm-random-entropy-greedy-steered_scaledown-deletion-cost_seed-107__c0d040f4 in 112.3s
+[19/20 done] done exp5-steered__arm-random-entropy-greedy-steered_scaledown-deletion-cost_seed-109__42f43876 in 82.7s
+[20/20 done] done exp5-steered__arm-random-entropy-greedy-steered_scaledown-deletion-cost_seed-110__0cca771b in 89.0s
+matrix session: 20/20 done, 0 failed, 0 pending
+2026-10-28T17:24:52Z DONE exp5-steered :: matrix session: 20/20 done, 0 failed, 0 pending
+2026-10-28T17:24:52Z START exp3
