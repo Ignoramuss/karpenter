@@ -12,6 +12,10 @@ after it, with its reason and when it was made relative to the data. How to rebu
 
 ## What ran
 
+- **Scale.** "n nodes" is `scenario.nodes = n`: each workload's demand equals n mid-size nodes at 70% fill. W1
+  and W4 start with exactly n nodes; W2, W3, W5 and W6 are provisioned by Karpenter and run fewer, larger nodes
+  (in Exp 6 at n = 200, W2 peaked at 42-50 nodes and W3 at 124-339). Analyses that plot against size use
+  the measured node count.
 - **Tier A only**, in the in-memory simulator (`hack/consolidation-sim`), on one 4-vCPU cloud VM, up to four cells
   at a time, every cell with the Gate 3 binary (`c78b5f9`; each manifest's `binary_revision`) and 10 workload seeds
   (101-110). Tier B (KWOK on kind) could not run: its images come from `registry.k8s.io` and `cgr.dev`, which the
@@ -99,14 +103,18 @@ figure `fig3_frontier`).
 | lambda 0.1 vs B5, W2 | +74.6% (+58.4, +94.5) | -10.1% (-25.6, +12.5), n.s. | dominates |
 | lambda 0.1 vs B5, W3 | +205.6% (+120.5, +328.6) | +529.6% (+299.3, +1128.5) | inconclusive (more saved, far more evictions) |
 
-**The frontier** (`paper/tables/exp6_frontier.md`, means over 10 seeds). Raising lambda trades evictions for
-savings: on W2 the pipeline saves $60.6-61.9 at lambda 0.05-2 while eviction cost falls from 1,182 to 748, then
-$49.5 at lambda 5 with 375; on W3 it saves $18.1-19.2 at lambda 0.05-1 (eviction cost 3,033 to 2,012) and $13.0 and
-$4.4 at lambda 2 and 5 (918 and 90). Only lambda 2 and 5 are Pareto-optimal; on W2 so is B3 ($66.9 saved at 822),
-which saves more than any pipeline point. On W3 the upstream methods save more than any pipeline point (B2 $26.2 at
-2,138; B3 $24.1 at 1,441), and B5 ($6.0 at 478) is also on the frontier.
+**The frontier** (`paper/tables/exp6_frontier.md`, means over 10 seeds). Raising lambda cuts eviction cost at no
+loss of savings up to lambda 2 on W2 and lambda 1 on W3, so within the sweep the lower lambdas, the matched 0.05,
+0.1 and 0.5 among them, are dominated by higher ones; only beyond that does it give up savings: on W2 the pipeline
+saves $60.6-61.9 at lambda 0.05-2 while eviction cost falls from 1,182 to 748, then $49.5 at lambda 5 with 375; on
+W3 it saves $18.1-19.2 at lambda 0.05-1 (eviction cost 3,033 to 2,012) and $13.0 and $4.4 at lambda 2 and 5 (918 and
+90). Only lambda 2 and 5 are Pareto-optimal; on W2 so is B3 ($66.9 saved at 822), which saves more than any pipeline
+point. On W3 the upstream methods save more than any pipeline point (B2 $26.2 at 2,138; B3 $24.1 at 1,441), and B5
+($6.0 at 478) is also on the frontier.
 
-**What it shows.** The matched points come from the baselines' own acceptance rules, not from results. Upstream
+**What it shows.** The matched points were fixed in advance, not chosen from results: B2's and B3's come from those
+baselines' acceptance rules (B3's up to the pipeline's alpha*dPhi term), and B5 runs at the calibrated default
+lambda = 0.1. Upstream
 Balanced consolidation (B3) is the stronger operating point on both workloads; the pipeline only
 reaches the frontier at high lambda, where it evicts least. The descheduler baseline (B5, HighNodeUtilization under
 most-allocated scheduling) saves much less than either on W2. W3's batch churn is where the pipeline does worst
