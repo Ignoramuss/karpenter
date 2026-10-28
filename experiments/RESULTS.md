@@ -80,6 +80,32 @@ question (within 3% or not); it does not say which arm is preferable, which depe
 6 measures that trade-off). Tier B did not run, so whether real kube-scheduler placement preserves the ranking is
 untested.
 
+### H3. Merge plus shift vs merge only (Exp 3; complete)
+
+**Hypothesis.** Merge plus shift beats merge-only on post-warmup integrated cost at an equal pod-eviction budget,
+under churn. Random generation with entropy-greedy planning, moves {random merge; random merge plus random shift},
+pod-eviction budget {lo: 18, hi: 36 pods per minute per NodePool}, on W2 (diurnal) and W3 (batch churn) at 200
+nodes. Four paired Wilcoxon tests, Holm over the 4; supported iff all four are significant with merge+shift lower.
+
+**Verdict: not supported, and the effect runs the other way** (`paper/tables/exp3_h3.md`): merge+shift has higher
+integrated cost in all four cells, significantly after Holm.
+
+| Merge+shift vs merge-only | Integrated cost after warmup | Evictions | Steady-state $/hr |
+| --- | --- | --- | --- |
+| W2, budget lo | +7.0% (95% CI +5.1, +9.0) | +241% (+188, +321) | +5.1% (-0.6, +11.6) |
+| W2, budget hi | +3.9% (+2.8, +5.0) | +23% (+14, +31) | +2.9% (+0.4, +5.6) |
+| W3, budget lo | +1.9% (+1.2, +2.7) | +34% (+23, +47) | +2.9% (+1.9, +3.9) |
+| W3, budget hi | +1.7% (+0.4, +3.0) | +38% (+21, +61) | +3.8% (+2.1, +5.7) |
+
+(Holm p = 0.008 for the first three, 0.027 for W3 budget hi; descriptive columns from
+`paper/tables/exp3_secondary.md`.)
+
+**What it shows.** "Equal budget" is an equal cap, not equal use: with shifts available the pipeline spends more of
+the eviction budget (on W2 at the low budget, 1,144 evictions against 335) and ends with a costlier fleet, with
+15-17% more nodes at the end of the W3 runs. Under these settings the shift moves, which relocate pods without
+deleting a node, cost more than they save; whether a stricter shift acceptance rule would change that was not
+tested.
+
 ### H5. Plan fidelity: where evicted pods land (Exp 5; complete)
 
 **Hypothesis.** Under least-allocated placement a measurable share of evicted pods land off-plan; most-allocated

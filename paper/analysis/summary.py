@@ -179,9 +179,11 @@ def cost_rows(cost: Mapping[str, Any]) -> list[dict[str, Any]]:
     clauses = h4.get("clauses")
     abl = cost.get("abl") or {}
     b4 = (cost.get("b4") or {}).get("b4") or {}
-    rows = [wilcoxon_row("H3 (merge+shift vs merge-only at equal eviction budgets)", e3.get("h3") or {},
-                         (e3.get("h3") or {}).get("tests"), ("scenario", "nodes", "budget"),
-                         "tables/exp3_h3, exp3_secondary"),
+    h3 = e3.get("h3") or {}
+    rows = [wilcoxon_row("H3 (merge+shift vs merge-only at equal eviction budgets)", h3, h3.get("tests"),
+                         ("scenario", "nodes", "budget"), "tables/exp3_h3, exp3_secondary",
+                         f"{h3.get('n_lower', 'n/a')} of {h3.get('n_tests', 4)} significant with merge+shift lower"
+                         if h3 else ""),
             _row("H4 (anneal at plan time vs greedy; anneal online)", h4.get("verdict") if h4 else None,
                  (f"plan clause {(h4.get('plan_clause') or {}).get('n_holds', 'n/a')} of "
                   f"{(h4.get('plan_clause') or {}).get('n', 'n/a')} hold; online clause "
