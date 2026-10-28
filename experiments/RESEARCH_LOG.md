@@ -428,6 +428,6 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   `summary.json` and are relaunched. The new VM reports "Intel(R) Xeon(R) Processor @ 2.80GHz" (boot
   `e21797db`, logged by driver v3 in `machine-log.txt`). Driver v3 was restarted alone at 23:24 UTC and followed the
   recorded decision: `realism-w5` continues and runs to completion. The cut rule projected it at 2.0 minutes per cell
-  (the same-scale fallback median); W5 cells are evidently slower, so the later candidates' projections will use
-  W5's actual times through the elapsed clock. The claim check of the RESULTS ablation, H2, Exp 8 and B4 sections
+  (the same-scale fallback median); W5 cells are evidently slower. The next candidates are decided when `realism-w5` ends, so its real
+  duration enters their decisions through the clock (and W5's finished cells enter W6's same-scale fallback median). The claim check of the RESULTS ablation, H2, Exp 8 and B4 sections
   that was running was lost and is rerun.
