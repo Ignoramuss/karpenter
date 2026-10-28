@@ -76,6 +76,43 @@ question (within 3% or not); it does not say which arm is preferable, which depe
 6 measures that trade-off). Tier B did not run, so whether real kube-scheduler placement preserves the ranking is
 untested.
 
+### H6. Savings vs disruption against upstream and the descheduler (Exp 6; complete)
+
+**Hypothesis.** Sweeping lambda traces a savings vs disruption frontier that matches or dominates B2, B3 and B5. Per
+baseline and
+workload (W2 diurnal, W3 batch churn, 200 nodes), random/entropy-greedy at the lambda fixed in advance for that
+baseline (B2: 0.05, since it accepts any saving; B3: 0.5, since Balanced at k = 2 is dE <= 0 with lambda/mu = 1/2;
+B5: 0.1, the calibrated default) vs the baseline on savings (B0's integrated cost after warmup on the same seed and
+placement minus the run's, most-allocated B0 for B5) and on eviction cost, paired exact Wilcoxon, Holm over the 12.
+A cell dominates iff one metric is significantly better and the other not significantly worse, and is dominated iff
+a metric is significantly worse and none significantly better. Supported iff no cell is dominated and at least 3 of
+6 dominate.
+
+**Verdict: not supported:** 3 cells dominated, 1 dominates, 2 inconclusive (`paper/tables/exp6_dominance.md`,
+figure `fig3_frontier`).
+
+| Matched point vs baseline | Savings | Eviction cost | Cell |
+| --- | --- | --- | --- |
+| lambda 0.05 vs B2, W2 | -5.2% (95% CI -6.0, -4.4) | -26.2% (-31.6, -20.7) | inconclusive (less saved, fewer evictions) |
+| lambda 0.05 vs B2, W3 | -30.8% (-38.4, -23.8) | +41.8% (+16.6, +72.7) | dominated |
+| lambda 0.5 vs B3, W2 | -8.0% (-10.0, -6.2) | +13.4% (+5.1, +22.8) | dominated |
+| lambda 0.5 vs B3, W3 | -22.2% (-34.0, -10.8) | +86.4% (+45.8, +146.7) | dominated |
+| lambda 0.1 vs B5, W2 | +74.6% (+58.4, +94.5) | -10.1% (-25.6, +12.5), n.s. | dominates |
+| lambda 0.1 vs B5, W3 | +205.6% (+120.5, +328.6) | +529.6% (+299.3, +1128.5) | inconclusive (more saved, far more evictions) |
+
+**The frontier** (`paper/tables/exp6_frontier.md`, means over 10 seeds). Raising lambda trades evictions for
+savings: on W2 the pipeline saves $60.6-61.9 at lambda 0.05-2 while eviction cost falls from 1,182 to 748, then
+$49.5 at lambda 5 with 375; on W3 it saves $18.1-19.2 at lambda 0.05-1 (eviction cost 3,033 to 2,012) and $13.0 and
+$4.4 at lambda 2 and 5 (918 and 90). Only lambda 2 and 5 are Pareto-optimal; on W2 so is B3 ($66.9 saved at 822),
+which saves more than any pipeline point. On W3 the upstream methods save more than any pipeline point (B2 $26.2 at
+2,138; B3 $24.1 at 1,441), and B5 ($6.0 at 478) is also on the frontier.
+
+**What it shows.** The matched points come from the baselines' own acceptance rules, not from results. Upstream
+Balanced consolidation (B3) is the stronger operating point on both workloads; the pipeline only
+reaches the frontier at high lambda, where it evicts least. The descheduler baseline (B5, HighNodeUtilization under
+most-allocated scheduling) saves much less than either on W2. W3's batch churn is where the pipeline does worst
+relative to upstream.
+
 ### H7. Decision cost at 1,000 nodes (Exp 7; primary family complete)
 
 **Hypothesis.** Random sampling with fast feasibility has lower decision cost than prefix binary search at 1,000
