@@ -690,3 +690,62 @@ matrix session: 60 cells, 0 done, 0 failed, 60 pending; 4 workers, wall budget 1
 [49/60 done] done exp6-baselines__arm-b2_scenario-w3_seed-107__43aff276 in 2739.4s
 matrix session: wall budget 1h0m0s spent; re-invoke to continue
 matrix session: 49/60 done, 0 failed, 11 pending
+matrix session: 60 cells, 49 done, 0 failed, 11 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+[50/60 done] done exp6-baselines__arm-b3_scenario-w2_seed-110__39910f1e in 87.4s
+[51/60 done] done exp6-baselines__arm-b3_scenario-w3_seed-103__608727fb in 479.2s
+[52/60 done] done exp6-baselines__arm-b3_scenario-w3_seed-104__78f91583 in 616.5s
+[53/60 done] done exp6-baselines__arm-b3_scenario-w3_seed-105__8e8abb2b in 398.8s
+[54/60 done] done exp6-baselines__arm-b3_scenario-w3_seed-101__8d254008 in 1048.9s
+[55/60 done] done exp6-baselines__arm-b3_scenario-w3_seed-102__39e68d6a in 2388.4s
+[56/60 done] done exp6-baselines__arm-b3_scenario-w3_seed-108__79c8542c in 1578.9s
+[57/60 done] done exp6-baselines__arm-b3_scenario-w3_seed-106__a4b5bf66 in 2252.6s
+[58/60 done] done exp6-baselines__arm-b3_scenario-w3_seed-109__36d1359e in 984.9s
+[59/60 done] done exp6-baselines__arm-b3_scenario-w3_seed-107__d586f4b1 in 2665.4s
+[60/60 done] done exp6-baselines__arm-b3_scenario-w3_seed-110__cc4bb5bd in 945.6s
+matrix session: 60/60 done, 0 failed, 0 pending
+2026-10-28T16:13:36Z DONE exp6-baselines :: matrix session: 60/60 done, 0 failed, 0 pending
+2026-10-28T16:13:36Z START exp6-b5
+matrix session: 40 cells, 0 done, 0 failed, 40 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+[1/40 done] done exp6-b5__arm-b0_scenario-w2_seed-104__b60853dc in 4.6s
+[2/40 done] done exp6-b5__arm-b0_scenario-w2_seed-101__070ba627 in 5.7s
+[3/40 done] done exp6-b5__arm-b0_scenario-w2_seed-102__7990fa8c in 6.0s
+[4/40 done] done exp6-b5__arm-b0_scenario-w2_seed-103__a7553f5b in 6.8s
+[5/40 done] done exp6-b5__arm-b0_scenario-w2_seed-105__272cb189 in 6.5s
+[6/40 done] done exp6-b5__arm-b0_scenario-w2_seed-108__2fc0081f in 5.2s
+[7/40 done] done exp6-b5__arm-b0_scenario-w2_seed-107__9d5ab594 in 7.1s
+[8/40 done] done exp6-b5__arm-b0_scenario-w2_seed-106__fd3d6150 in 7.8s
+[9/40 done] done exp6-b5__arm-b0_scenario-w2_seed-109__af552654 in 4.5s
+[10/40 done] done exp6-b5__arm-b0_scenario-w2_seed-110__75711d4e in 5.7s
+[11/40 done] done exp6-b5__arm-b0_scenario-w3_seed-103__cbb83c55 in 11.6s
+[12/40 done] done exp6-b5__arm-b0_scenario-w3_seed-104__c3732ab8 in 19.0s
+[13/40 done] done exp6-b5__arm-b0_scenario-w3_seed-105__11a92f9b in 12.0s
+[14/40 done] done exp6-b5__arm-b0_scenario-w3_seed-101__bbd1c79d in 55.9s
+[15/40 done] done exp6-b5__arm-b0_scenario-w3_seed-106__ffe7298f in 40.2s
+[16/40 done] done exp6-b5__arm-b0_scenario-w3_seed-108__8411c0c1 in 30.1s
+[17/40 done] done exp6-b5__arm-b0_scenario-w3_seed-102__ec1ae6a4 in 89.9s
+[18/40 done] done exp6-b5__arm-b0_scenario-w3_seed-109__9eeaef39 in 30.1s
+[19/40 done] done exp6-b5__arm-b5_scenario-w2_seed-101__1efc19b6 in 25.2s
+[20/40 done] done exp6-b5__arm-b0_scenario-w3_seed-110__7ed8543a in 29.9s
+[21/40 done] done exp6-b5__arm-b5_scenario-w2_seed-102__bacb6ae2 in 27.6s
+[22/40 done] done exp6-b5__arm-b0_scenario-w3_seed-107__59ecb100 in 110.3s
+[23/40 done] done exp6-b5__arm-b5_scenario-w2_seed-104__91fba3d0 in 22.2s
+[24/40 done] done exp6-b5__arm-b5_scenario-w2_seed-103__2cca3f76 in 30.1s
+[25/40 done] done exp6-b5__arm-b5_scenario-w2_seed-105__93d53934 in 29.4s
+[26/40 done] done exp6-b5__arm-b5_scenario-w2_seed-106__800ea0a9 in 31.4s
+[27/40 done] done exp6-b5__arm-b5_scenario-w2_seed-107__53b3b1b9 in 30.2s
+[28/40 done] done exp6-b5__arm-b5_scenario-w2_seed-108__05a31143 in 22.8s
+[29/40 done] done exp6-b5__arm-b5_scenario-w2_seed-109__eb8bb81b in 20.6s
+[30/40 done] done exp6-b5__arm-b5_scenario-w2_seed-110__a9f3bb30 in 24.7s
+[31/40 done] done exp6-b5__arm-b5_scenario-w3_seed-103__e9843d46 in 40.6s
+[32/40 done] done exp6-b5__arm-b5_scenario-w3_seed-104__2daac3a7 in 52.8s
+[33/40 done] done exp6-b5__arm-b5_scenario-w3_seed-105__6577b542 in 43.0s
+[34/40 done] done exp6-b5__arm-b5_scenario-w3_seed-101__17e21ecb in 112.9s
+[35/40 done] done exp6-b5__arm-b5_scenario-w3_seed-106__0caf4965 in 90.5s
+[36/40 done] done exp6-b5__arm-b5_scenario-w3_seed-102__495b6eda in 173.8s
+[37/40 done] done exp6-b5__arm-b5_scenario-w3_seed-108__7c5dd932 in 82.1s
+[38/40 done] done exp6-b5__arm-b5_scenario-w3_seed-109__4d1b6eb3 in 66.4s
+[39/40 done] done exp6-b5__arm-b5_scenario-w3_seed-110__b158000e in 69.0s
+[40/40 done] done exp6-b5__arm-b5_scenario-w3_seed-107__8ae48981 in 186.1s
+matrix session: 40/40 done, 0 failed, 0 pending
+2026-10-28T16:21:10Z DONE exp6-b5 :: matrix session: 40/40 done, 0 failed, 0 pending
+2026-10-28T16:21:10Z START exp5

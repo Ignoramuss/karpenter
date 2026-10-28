@@ -1,0 +1,15 @@
+{
+  "arm": {
+    "label": "B5",
+    "name": "B5-descheduler"
+  },
+  "duration": "3h",
+  "maxWall": "0s",
+  "placement": "most-allocated",
+  "runID": "exp6-b5__arm-b5_scenario-w2_seed-109__eb8bb81b",
+  "scenario": {
+    "name": "W2",
+    "nodes": 200
+  },
+  "seed": 109
+}

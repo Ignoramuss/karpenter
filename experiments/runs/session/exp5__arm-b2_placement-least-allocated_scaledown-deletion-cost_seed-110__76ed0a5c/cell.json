@@ -1,0 +1,16 @@
+{
+  "arm": {
+    "label": "B2",
+    "name": "B2-when-empty-or-underutilized"
+  },
+  "duration": "3h",
+  "maxWall": "0s",
+  "placement": "least-allocated",
+  "runID": "exp5__arm-b2_placement-least-allocated_scaledown-deletion-cost_seed-110__76ed0a5c",
+  "scaleDown": "deletion-cost",
+  "scenario": {
+    "name": "W2",
+    "nodes": 200
+  },
+  "seed": 110
+}

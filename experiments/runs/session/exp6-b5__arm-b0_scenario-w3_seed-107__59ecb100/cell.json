@@ -1,0 +1,15 @@
+{
+  "arm": {
+    "label": "B0",
+    "name": "B0-none"
+  },
+  "duration": "3h",
+  "maxWall": "0s",
+  "placement": "most-allocated",
+  "runID": "exp6-b5__arm-b0_scenario-w3_seed-107__59ecb100",
+  "scenario": {
+    "name": "W3",
+    "nodes": 200
+  },
+  "seed": 107
+}

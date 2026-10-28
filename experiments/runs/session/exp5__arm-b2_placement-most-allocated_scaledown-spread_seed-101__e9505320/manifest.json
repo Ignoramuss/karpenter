@@ -1,0 +1,63 @@
+{
+  "run_id": "exp5__arm-b2_placement-most-allocated_scaledown-spread_seed-101__e9505320",
+  "binary_revision": "c78b5f95063c1995b10fa6d66571a16d0a32b243",
+  "binary_modified": false,
+  "git_sha": "875da1ec77dbf8cab972f852866cc96d4ccd88f9",
+  "git_dirty": false,
+  "config": {
+    "runID": "exp5__arm-b2_placement-most-allocated_scaledown-spread_seed-101__e9505320",
+    "seed": 101,
+    "scenario": {
+      "name": "W2",
+      "nodes": 200
+    },
+    "arm": {
+      "name": "B2-when-empty-or-underutilized",
+      "label": "B2"
+    },
+    "placement": "most-allocated",
+    "scaleDown": "spread",
+    "duration": "3h0m0s",
+    "warmup": "10m0s",
+    "metricsInterval": "1m0s",
+    "catalog": {
+      "path": "",
+      "families": null,
+      "capacityTypes": null,
+      "zones": null,
+      "maxCPU": 32
+    },
+    "consolidateAfter": "30s",
+    "budget": "10%",
+    "latency": {
+      "launch": {
+        "min": "2s",
+        "max": "5s"
+      },
+      "registration": {
+        "min": "30s",
+        "max": "1m0s"
+      },
+      "podStartup": {
+        "min": "2s",
+        "max": "10s"
+      },
+      "podShutdown": {
+        "min": "1s",
+        "max": "5s"
+      }
+    },
+    "maxWall": "0s"
+  },
+  "seed": 101,
+  "scenario": "W2",
+  "environment": {
+    "go_version": "go1.26.10",
+    "os": "linux",
+    "arch": "amd64",
+    "cpus": 4,
+    "hostname": "vm"
+  },
+  "started_at": "2026-10-28T16:55:37.455236751Z",
+  "finished_at": "2026-10-28T16:57:17.43698197Z"
+}

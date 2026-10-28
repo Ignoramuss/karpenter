@@ -1,0 +1,14 @@
+{
+  "arm": {
+    "label": "B3",
+    "name": "B3-balanced"
+  },
+  "duration": "3h",
+  "maxWall": "0s",
+  "runID": "exp6-baselines__arm-b3_scenario-w3_seed-105__8e8abb2b",
+  "scenario": {
+    "name": "W3",
+    "nodes": 200
+  },
+  "seed": 105
+}
