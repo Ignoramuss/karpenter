@@ -438,3 +438,53 @@ matrix session: 180 cells, 142 done, 0 failed, 38 pending; 4 workers, wall budge
 [164/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w2_seed-103__b51ca0be in 986.3s
 matrix session: wall budget 1h0m0s spent; re-invoke to continue
 matrix session: 164/180 done, 0 failed, 16 pending
+matrix session: 180 cells, 164 done, 0 failed, 16 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+[165/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w2_seed-108__6dc40ae3 in 1108.3s
+[166/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w2_seed-105__dd3820d5 in 1230.8s
+[167/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w2_seed-107__94b5aa14 in 1298.9s
+[168/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w2_seed-106__3cac00be in 1326.2s
+[169/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w4_seed-101__f1f3e8b1 in 561.6s
+[170/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w4_seed-102__6d3ae9f5 in 571.6s
+[171/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w2_seed-109__a4cfb985 in 986.4s
+[172/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w2_seed-110__3a73c9d8 in 1212.7s
+[173/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w4_seed-103__578b1275 in 590.1s
+[174/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w4_seed-104__ba233ca7 in 578.2s
+[175/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w4_seed-105__065dd286 in 597.0s
+[176/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w4_seed-107__a5b4aa23 in 541.3s
+[177/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w4_seed-108__86c74dbd in 531.3s
+[178/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w4_seed-106__168c0a5e in 575.3s
+[179/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w4_seed-109__e8307ac2 in 501.7s
+[180/180 done] done exp1-n1000__arm-random-anneal-plan_scenario-w4_seed-110__a7a30020 in 503.2s
+matrix session: 180/180 done, 0 failed, 0 pending
+2026-10-28T11:27:56Z DONE exp1-n1000 :: matrix session: 180/180 done, 0 failed, 0 pending
+2026-10-28T11:27:56Z SKIP exp6
+2026-10-28T11:27:56Z SKIP exp6-baselines
+2026-10-28T11:27:56Z SKIP exp6-b5
+2026-10-28T11:27:56Z SKIP exp5
+2026-10-28T11:27:56Z SKIP exp5-steered
+2026-10-28T11:27:56Z SKIP exp3
+2026-10-28T11:27:56Z SKIP exp4
+2026-10-28T11:27:56Z SKIP exp7-n50
+2026-10-28T11:27:56Z SKIP exp7-b2
+2026-10-28T11:27:56Z SKIP abl
+2026-10-28T11:27:56Z SKIP exp8
+2026-10-28T11:27:57Z SKIP exp8-b5
+2026-10-28T11:27:57Z SKIP realism-w5
+2026-10-28T11:27:57Z SKIP realism-w6
+2026-10-28T11:27:57Z SKIP exp1-baselines-n1000
+2026-10-28T11:27:57Z SKIP exp7-b2-n1000
+2026-10-28T11:27:57Z SESSION COMPLETE
+2026-10-28T11:28:13Z DRIVER v3 takes over (boot e05cb26c-773c-454e-8aaf-5d14362982b1, cpu: Intel(R) Xeon(R) Processor @ 2.10GHz)
+2026-10-28T11:28:13Z START exp1-n200
+matrix session: 180 cells, 180 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 180/180 done, 0 failed, 0 pending
+2026-10-28T11:28:13Z DONE exp1-n200 :: matrix session: 180/180 done, 0 failed, 0 pending
+2026-10-28T11:28:13Z START exp1-baselines-n200
+matrix session: 60 cells, 60 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 60/60 done, 0 failed, 0 pending
+2026-10-28T11:28:13Z DONE exp1-baselines-n200 :: matrix session: 60/60 done, 0 failed, 0 pending
+2026-10-28T11:28:13Z START exp1-n1000
+matrix session: 180 cells, 180 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 180/180 done, 0 failed, 0 pending
+2026-10-28T11:28:13Z DONE exp1-n1000 :: matrix session: 180/180 done, 0 failed, 0 pending
+2026-10-28T11:28:13Z START exp6
