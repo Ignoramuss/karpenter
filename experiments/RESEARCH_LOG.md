@@ -386,3 +386,9 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   From now on, while cells whose decision cost enters a test or Exp 7 run (`exp1-n1000` random/entropy-greedy,
   `exp7-n50`, `exp7-b2`, `exp7-b2-n1000`, the H7 timing pass), I run no review workflows, test suites or builds on
   the VM: only the driver, monitoring and file edits.
+- **Correction: load average is not a contention measure here.** With nothing but the four cells running (08:43
+  UTC, no other process above 1% CPU), the load average is about 7: each Go process keeps several runnable threads
+  (GC workers). So the "load average about 7 instead of 4" in the first review entry does not show that the
+  reviewers perturbed the cells. Each run's `wall_cpu_ratio` (wall over CPU time across its passes) is the
+  contention indicator the analysis reports. top also shows 2-3% steal time from the hypervisor, which no session
+  process controls.
