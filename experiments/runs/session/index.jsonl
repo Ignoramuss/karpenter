@@ -323,3 +323,8 @@
 {"run_id":"exp1-n1000__arm-heuristic-anneal-plan_scenario-w4_seed-103__08c8ae26","group":"exp1-n1000","status":"done","exit_code":0,"wall_seconds":906.874,"finished_at":"2026-10-28T05:21:37.927713587Z","attempt":1}
 {"run_id":"exp1-n1000__arm-heuristic-anneal-plan_scenario-w4_seed-104__c1465c7b","group":"exp1-n1000","status":"done","exit_code":0,"wall_seconds":883.137,"finished_at":"2026-10-28T05:22:53.017995286Z","attempt":1}
 {"run_id":"exp1-n1000__arm-heuristic-anneal-plan_scenario-w4_seed-105__78f9e28b","group":"exp1-n1000","status":"done","exit_code":0,"wall_seconds":891.12,"finished_at":"2026-10-28T05:24:37.481436366Z","attempt":1}
+{"run_id":"exp1-n1000__arm-heuristic-anneal-plan_scenario-w4_seed-107__a502b3db","group":"exp1-n1000","status":"done","exit_code":0,"wall_seconds":884.509,"finished_at":"2026-10-28T05:36:22.437259356Z","attempt":1}
+{"run_id":"exp1-n1000__arm-heuristic-anneal-plan_scenario-w4_seed-106__ed95825b","group":"exp1-n1000","status":"done","exit_code":0,"wall_seconds":915.147,"finished_at":"2026-10-28T05:36:45.018762003Z","attempt":1}
+{"run_id":"exp1-n1000__arm-heuristic-anneal-plan_scenario-w4_seed-108__30ba8d11","group":"exp1-n1000","status":"done","exit_code":0,"wall_seconds":925.11,"finished_at":"2026-10-28T05:38:18.127857719Z","attempt":1}
+{"run_id":"exp1-n1000__arm-heuristic-anneal-plan_scenario-w4_seed-109__90c8c9ce","group":"exp1-n1000","status":"done","exit_code":0,"wall_seconds":932.673,"finished_at":"2026-10-28T05:40:10.15441886Z","attempt":1}
+{"run_id":"exp1-n1000__arm-heuristic-anneal-plan_scenario-w4_seed-110__08bc06e3","group":"exp1-n1000","status":"done","exit_code":0,"wall_seconds":785.583,"finished_at":"2026-10-28T05:49:28.020984642Z","attempt":1}

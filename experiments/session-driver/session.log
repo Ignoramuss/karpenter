@@ -331,3 +331,24 @@ matrix session: 180 cells, 57 done, 0 failed, 123 pending; 4 workers, wall budge
 matrix session: wall budget 1h0m0s spent; re-invoke to continue
 matrix session: 73/180 done, 0 failed, 107 pending
 === driver v2 (pid 1296) stopped before taking over; driver v3 armed 2026-10-28T04:52:34Z, waits on pid 269
+matrix session: 180 cells, 73 done, 0 failed, 107 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+[74/180 done] done exp1-n1000__arm-heuristic-anneal-plan_scenario-w2_seed-104__3f702220 in 803.1s
+[75/180 done] done exp1-n1000__arm-heuristic-anneal-plan_scenario-w2_seed-105__aee5759f in 894.1s
+[76/180 done] done exp1-n1000__arm-heuristic-anneal-plan_scenario-w2_seed-106__b50d6a1f in 952.4s
+[77/180 done] done exp1-n1000__arm-heuristic-anneal-plan_scenario-w2_seed-107__09941a1f in 989.1s
+[78/180 done] done exp1-n1000__arm-heuristic-anneal-plan_scenario-w2_seed-108__2eb6d849 in 936.2s
+[79/180 done] done exp1-n1000__arm-heuristic-anneal-plan_scenario-w2_seed-109__3b1abccb in 897.3s
+[80/180 done] done exp1-n1000__arm-heuristic-anneal-plan_scenario-w2_seed-110__2cbfa56f in 937.7s
+[81/180 done] done exp1-n1000__arm-heuristic-anneal-plan_scenario-w4_seed-101__66dfdb6f in 997.5s
+[82/180 done] done exp1-n1000__arm-heuristic-anneal-plan_scenario-w4_seed-102__c9887076 in 950.9s
+[83/180 done] done exp1-n1000__arm-heuristic-anneal-plan_scenario-w4_seed-103__08c8ae26 in 906.9s
+[84/180 done] done exp1-n1000__arm-heuristic-anneal-plan_scenario-w4_seed-104__c1465c7b in 883.1s
+[85/180 done] done exp1-n1000__arm-heuristic-anneal-plan_scenario-w4_seed-105__78f9e28b in 891.1s
+[86/180 done] done exp1-n1000__arm-heuristic-anneal-plan_scenario-w4_seed-107__a502b3db in 884.5s
+[87/180 done] done exp1-n1000__arm-heuristic-anneal-plan_scenario-w4_seed-106__ed95825b in 915.1s
+[88/180 done] done exp1-n1000__arm-heuristic-anneal-plan_scenario-w4_seed-108__30ba8d11 in 925.1s
+[89/180 done] done exp1-n1000__arm-heuristic-anneal-plan_scenario-w4_seed-109__90c8c9ce in 932.7s
+[90/180 done] done exp1-n1000__arm-heuristic-anneal-plan_scenario-w4_seed-110__08bc06e3 in 785.6s
+matrix session: wall budget 1h0m0s spent; re-invoke to continue
+matrix session: 90/180 done, 0 failed, 90 pending
+=== driver v3 restarted with review-2 fixes 2026-10-28T05:58:50Z, waits on pid 269
