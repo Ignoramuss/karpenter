@@ -286,3 +286,18 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   3. Other decision-cost results that compare cells across epochs (Exp 7's 50/200/1,000-node scaling, Exp 8's
      decision cost) are reported with each run's epoch.
   The pass runs only if session time allows after the 30-hour cut; otherwise it is listed under next steps.
+- **Driver order bug, found and fixed before it mattered (Oct 28, 03:40 UTC).** The session driver's group list
+  (`experiments/session-driver/run_session_v1.sh`) omitted `b4` and ran `exp1-baselines-n1000` before
+  `exp7-b2-n1000`, against the preregistered order. It was found during `exp1-n1000`, the third group, so no group
+  had run out of order. Fix: v1 stops after `exp1-n1000`, and `run_session_v2.sh` continues in the preregistered
+  order (it re-invokes the finished groups first, which the runner reports as `0 pending`).
+- **Cut rule, mechanized; fallback for W5 and W6 (declared before any W5 or W6 cell ran).** `cut_projection.py`
+  applies the preregistered rule before each cut-candidate group: pending cells x the median wall time of finished
+  session cells of the same scenario and scale, divided by 4 workers, must end by 2026-10-29T02:52Z (30 h after the
+  first cell), or that group and every later candidate are cut whole. No session group other than `realism-w5` and
+  `realism-w6` runs W5 or W6, so for them the rule has no same-scenario median; the fallback is the median over
+  finished session cells at the same scale (200 nodes). This is a time-only rule and uses no results. The rule as
+  written takes the median over all arms, so for the B2/B3 groups at 1,000 nodes it uses mostly pipeline cells,
+  which are much faster than B2 and B3 there; it is applied as written, and a candidate group that starts runs to
+  completion. Dry run at 03:36 UTC (all four would start if considered now): W5 and W6 60 cells x 2.1 min;
+  `exp7-b2-n1000` 10 x 19.5 min; `exp1-baselines-n1000` 60 x 14.5-19.5 min.
