@@ -1,7 +1,7 @@
 #!/bin/bash
 # Commits the session's records as it goes, and pushes with retries: finished cells (directories with summary.json)
-# and set-aside attempts (<run_id>.failed-<n>) of the session matrix and the H7 timing pass, each matrix's
-# index.jsonl, the timing pass's set-aside pairs (experiments/h7-timing-split), and the driver's records: a copy of
+# and set-aside attempts (<run_id>.failed-<n>) of the session matrix and the H7 timing pass, a snapshot of each
+# matrix's index.jsonl (the file itself with FINAL=1), the timing pass's set-aside pairs (experiments/h7-timing-split), and the driver's records: a copy of
 # its log (session.log), the machine log and the cut decisions. experiments/runs/session/ is in .git/info/exclude
 # (the runner writes there continuously), so its files are added with -f.
 cd /home/user/karpenter
@@ -15,7 +15,13 @@ for m in experiments/runs/session experiments/runs/h7-timing; do
       git add -f "$d"; n=$((n+1))
     fi
   done
-  [ -f "$m/index.jsonl" ] && git add -f "$m/index.jsonl"
+  # The runner appends to index.jsonl with every finished cell, so the live file is not tracked during the session
+  # (it would always show as modified); a snapshot is committed instead, and the final file goes in place at the end
+  # (FINAL=1).
+  if [ -f "$m/index.jsonl" ]; then
+    cp "$m/index.jsonl" "experiments/session-driver/index-$(basename "$m").jsonl"
+    [ "${FINAL:-0}" = 1 ] && git add -f "$m/index.jsonl"
+  fi
 done
 # Cells h7_pairs.py moved to experiments/h7-timing-split leave the timing pass's tree: stage their removal.
 git ls-files -- experiments/runs/h7-timing | while read -r f; do [ -e "$f" ] || git rm -q --cached -- "$f"; done

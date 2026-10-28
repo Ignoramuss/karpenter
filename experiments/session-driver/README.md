@@ -14,7 +14,7 @@ the session's scratch paths. Decisions and their reasons are in `experiments/RES
   (`experiments/matrix/h7-timing.yaml`, with `h7_pairs.py` setting aside any seed whose arms started on different
   VMs) and the remaining 10,000-state parity chunks. After a VM replacement it is restarted alone, without the pid
   argument. The running copy lives in the scratchpad, since bash reads a running script as it goes.
-- `commit_runs.sh` commits finished cells, set-aside attempts, each matrix's `index.jsonl`, the driver's log
+- `commit_runs.sh` commits finished cells, set-aside attempts, a snapshot of each matrix's `index.jsonl` (`index-<matrix>.jsonl`; the file itself at the end, with `FINAL=1`), the driver's log
   (`session.log`, copied from the scratchpad), the machine log and the cut decisions as the session goes.
 
 `session.log` holds the driver's `START`, `DONE`, `CUT-RULE`, `SKIP` and restart lines that RESULTS quotes.
