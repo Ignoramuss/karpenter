@@ -1,0 +1,53 @@
+{
+  "arm": {
+    "label": "no-eviction-budget",
+    "name": "pipeline",
+    "pipeline": {
+      "candidates": {
+        "name": "uniform-random",
+        "params": {
+          "sourceFraction": 0.25
+        }
+      },
+      "executor": {
+        "name": "shift-evict"
+      },
+      "moves": [
+        {
+          "name": "random-merge",
+          "params": {
+            "confirm": true
+          }
+        },
+        {
+          "name": "random-shift"
+        }
+      ],
+      "movesMode": "pooled",
+      "planner": {
+        "name": "anneal-plan",
+        "params": {
+          "cooling": 0.98,
+          "lambda": 0.1,
+          "t0": 1,
+          "temperatureUnit": "per-node"
+        }
+      },
+      "potential": {
+        "name": "util-entropy"
+      },
+      "search": {
+        "maxAttempts": 500,
+        "maxFullSimulations": 16
+      }
+    }
+  },
+  "duration": "3h",
+  "maxWall": "0s",
+  "runID": "abl__arm-no-eviction-budget_scenario-w2_seed-105__6ab9cb7a",
+  "scenario": {
+    "name": "W2",
+    "nodes": 200
+  },
+  "seed": 105
+}

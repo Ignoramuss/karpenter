@@ -1,0 +1,57 @@
+{
+  "arm": {
+    "label": "no-potential",
+    "name": "pipeline",
+    "pipeline": {
+      "budgets": {
+        "podEvictionsPerMinute": 18
+      },
+      "candidates": {
+        "name": "uniform-random",
+        "params": {
+          "sourceFraction": 0.25
+        }
+      },
+      "executor": {
+        "name": "shift-evict"
+      },
+      "moves": [
+        {
+          "name": "random-merge",
+          "params": {
+            "confirm": true
+          }
+        },
+        {
+          "name": "random-shift"
+        }
+      ],
+      "movesMode": "pooled",
+      "planner": {
+        "name": "anneal-plan",
+        "params": {
+          "alpha": 0,
+          "cooling": 0.98,
+          "lambda": 0.1,
+          "t0": 1,
+          "temperatureUnit": "per-node"
+        }
+      },
+      "potential": {
+        "name": "none"
+      },
+      "search": {
+        "maxAttempts": 500,
+        "maxFullSimulations": 16
+      }
+    }
+  },
+  "duration": "3h",
+  "maxWall": "0s",
+  "runID": "abl__arm-no-potential_scenario-w1_seed-102__b8355b8b",
+  "scenario": {
+    "name": "W1",
+    "nodes": 200
+  },
+  "seed": 102
+}

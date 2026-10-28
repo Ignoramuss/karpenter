@@ -1239,3 +1239,110 @@ matrix session: 10 cells, 0 done, 0 failed, 10 pending; 4 workers, wall budget 1
 matrix session: 10/10 done, 0 failed, 0 pending
 2026-10-28T20:42:04Z DONE exp7-b2 :: matrix session: 10/10 done, 0 failed, 0 pending
 2026-10-28T20:42:04Z START abl
+matrix session: 100 cells, 0 done, 0 failed, 100 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+[1/100 done] done abl__arm-full_scenario-w1_seed-104__483a13fe in 185.5s
+[2/100 done] done abl__arm-full_scenario-w1_seed-101__2d8776a8 in 229.5s
+[3/100 done] done abl__arm-full_scenario-w1_seed-102__f51c3e77 in 232.4s
+[4/100 done] done abl__arm-full_scenario-w1_seed-103__9c37aae5 in 255.3s
+[5/100 done] done abl__arm-full_scenario-w1_seed-105__9f2f770f in 176.0s
+[6/100 done] done abl__arm-full_scenario-w1_seed-106__c3b58111 in 203.8s
+[7/100 done] done abl__arm-full_scenario-w1_seed-107__cfd78fce in 211.7s
+[8/100 done] done abl__arm-full_scenario-w1_seed-108__54df2325 in 201.1s
+[9/100 done] done abl__arm-full_scenario-w1_seed-109__846f2b8a in 178.8s
+[10/100 done] done abl__arm-full_scenario-w2_seed-101__abe7c9ee in 238.9s
+[11/100 done] done abl__arm-full_scenario-w2_seed-102__8f2fce72 in 236.0s
+[12/100 done] done abl__arm-full_scenario-w1_seed-110__f935201d in 278.2s
+[13/100 done] done abl__arm-full_scenario-w2_seed-103__474b9ac2 in 290.6s
+[14/100 done] done abl__arm-full_scenario-w2_seed-104__55148bb2 in 259.3s
+[15/100 done] done abl__arm-full_scenario-w2_seed-105__fc7207a4 in 312.4s
+[16/100 done] done abl__arm-full_scenario-w2_seed-106__baa145c6 in 369.7s
+[17/100 done] done abl__arm-full_scenario-w2_seed-107__80cef768 in 253.7s
+[18/100 done] done abl__arm-full_scenario-w2_seed-108__fe91e260 in 165.3s
+[19/100 done] done abl__arm-full_scenario-w2_seed-109__f802943a in 136.9s
+[20/100 done] done abl__arm-full_scenario-w2_seed-110__6cf9ce70 in 183.2s
+[21/100 done] done abl__arm-no-potential_scenario-w1_seed-101__e28f35e0 in 201.0s
+[22/100 done] done abl__arm-no-potential_scenario-w1_seed-102__b8355b8b in 207.0s
+[23/100 done] done abl__arm-no-potential_scenario-w1_seed-103__be239d7d in 222.9s
+[24/100 done] done abl__arm-no-potential_scenario-w1_seed-104__abac177b in 172.6s
+[25/100 done] done abl__arm-no-potential_scenario-w1_seed-105__d8dcb828 in 165.5s
+[26/100 done] done abl__arm-no-potential_scenario-w1_seed-106__d361eaa3 in 191.9s
+[27/100 done] done abl__arm-no-potential_scenario-w1_seed-107__c04350a5 in 196.9s
+[28/100 done] done abl__arm-no-potential_scenario-w1_seed-109__b500704e in 179.3s
+[29/100 done] done abl__arm-no-potential_scenario-w1_seed-108__162b0be1 in 198.1s
+[30/100 done] done abl__arm-no-potential_scenario-w1_seed-110__ccd2db69 in 239.9s
+[31/100 done] done abl__arm-no-potential_scenario-w2_seed-101__0384ee49 in 246.4s
+[32/100 done] done abl__arm-no-potential_scenario-w2_seed-102__4dd58fa7 in 489.1s
+[33/100 done] done abl__arm-no-potential_scenario-w2_seed-104__e68d68eb in 469.4s
+[34/100 done] done abl__arm-no-potential_scenario-w2_seed-103__c0283ab8 in 608.8s
+[35/100 done] done abl__arm-no-potential_scenario-w2_seed-105__d1689895 in 658.5s
+[36/100 done] done abl__arm-no-potential_scenario-w2_seed-108__937d14c3 in 439.5s
+[37/100 done] done abl__arm-no-potential_scenario-w2_seed-109__cc86974b in 311.6s
+[38/100 done] done abl__arm-no-potential_scenario-w2_seed-107__ee7c2de6 in 616.3s
+[39/100 done] done abl__arm-no-eviction-budget_scenario-w1_seed-101__53dfb4b6 in 95.2s
+[40/100 done] done abl__arm-no-potential_scenario-w2_seed-106__11f5d77d in 772.9s
+[41/100 done] done abl__arm-no-eviction-budget_scenario-w1_seed-102__173095fa in 101.7s
+[42/100 done] done abl__arm-no-eviction-budget_scenario-w1_seed-103__1e3e0ae1 in 95.3s
+[43/100 done] done abl__arm-no-eviction-budget_scenario-w1_seed-104__d3e777fa in 93.6s
+[44/100 done] done abl__arm-no-eviction-budget_scenario-w1_seed-105__11ede6d0 in 78.8s
+[45/100 done] done abl__arm-no-eviction-budget_scenario-w1_seed-106__bc0b61f0 in 93.6s
+[46/100 done] done abl__arm-no-eviction-budget_scenario-w1_seed-107__29dbfb7d in 99.0s
+[47/100 done] done abl__arm-no-eviction-budget_scenario-w1_seed-108__71924ed2 in 83.2s
+[48/100 done] done abl__arm-no-potential_scenario-w2_seed-110__f343fbfd in 465.5s
+[49/100 done] done abl__arm-no-eviction-budget_scenario-w1_seed-109__d6f633be in 86.8s
+[50/100 done] done abl__arm-no-eviction-budget_scenario-w2_seed-101__1e8e7333 in 101.4s
+[51/100 done] done abl__arm-no-eviction-budget_scenario-w1_seed-110__8214b7eb in 112.6s
+[52/100 done] done abl__arm-no-eviction-budget_scenario-w2_seed-102__49459e0d in 119.1s
+[53/100 done] done abl__arm-no-eviction-budget_scenario-w2_seed-103__5f7526c9 in 133.0s
+[54/100 done] done abl__arm-no-eviction-budget_scenario-w2_seed-104__ca28d540 in 97.9s
+[55/100 done] done abl__arm-no-eviction-budget_scenario-w2_seed-105__6ab9cb7a in 132.2s
+[56/100 done] done abl__arm-no-eviction-budget_scenario-w2_seed-108__1a868021 in 103.8s
+[57/100 done] done abl__arm-no-eviction-budget_scenario-w2_seed-107__fedc93a7 in 130.3s
+[58/100 done] done abl__arm-no-eviction-budget_scenario-w2_seed-109__99985e24 in 89.2s
+[59/100 done] done abl__arm-no-eviction-budget_scenario-w2_seed-106__4945e162 in 155.5s
+[60/100 done] done abl__arm-no-eviction-budget_scenario-w2_seed-110__caf6248c in 116.5s
+[61/100 done] done abl__arm-no-annealing_scenario-w1_seed-102__c6d5589c in 159.4s
+[62/100 done] done abl__arm-no-annealing_scenario-w1_seed-101__c56464bf in 171.2s
+[63/100 done] done abl__arm-no-annealing_scenario-w1_seed-103__976f6f0a in 188.8s
+[64/100 done] done abl__arm-no-annealing_scenario-w1_seed-104__8ce6dd64 in 137.4s
+[65/100 done] done abl__arm-no-annealing_scenario-w1_seed-105__e95bfc17 in 130.3s
+[66/100 done] done abl__arm-no-annealing_scenario-w1_seed-106__fd343669 in 147.0s
+matrix session: wall budget 1h0m0s spent; re-invoke to continue
+matrix session: 66/100 done, 0 failed, 34 pending
+matrix session: 100 cells, 66 done, 0 failed, 34 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+[67/100 done] done abl__arm-no-annealing_scenario-w1_seed-109__290cafdf in 156.2s
+[68/100 done] done abl__arm-no-annealing_scenario-w1_seed-108__a855e6e9 in 162.2s
+[69/100 done] done abl__arm-no-annealing_scenario-w1_seed-107__9bd96826 in 167.0s
+[70/100 done] done abl__arm-no-annealing_scenario-w1_seed-110__cd7bcfe7 in 222.0s
+[71/100 done] done abl__arm-no-annealing_scenario-w2_seed-101__ce73d752 in 179.4s
+[72/100 done] done abl__arm-no-annealing_scenario-w2_seed-102__507ef0ab in 186.9s
+[73/100 done] done abl__arm-no-annealing_scenario-w2_seed-104__0e4eb11d in 138.2s
+[74/100 done] done abl__arm-no-annealing_scenario-w2_seed-103__87621a28 in 227.8s
+[75/100 done] done abl__arm-no-annealing_scenario-w2_seed-105__b730e285 in 187.9s
+[76/100 done] done abl__arm-no-annealing_scenario-w2_seed-108__81e95554 in 156.3s
+[77/100 done] done abl__arm-no-annealing_scenario-w2_seed-107__12b8f10c in 241.3s
+[78/100 done] done abl__arm-no-annealing_scenario-w2_seed-109__24ee2c22 in 112.1s
+[79/100 done] done abl__arm-no-annealing_scenario-w2_seed-106__d1d5b03d in 309.0s
+[80/100 done] done abl__arm-no-annealing_scenario-w2_seed-110__fc490e4c in 169.3s
+[81/100 done] done abl__arm-no-randomness_scenario-w1_seed-101__4bd1eee6 in 139.7s
+[82/100 done] done abl__arm-no-randomness_scenario-w1_seed-102__450e27ce in 135.1s
+[83/100 done] done abl__arm-no-randomness_scenario-w1_seed-103__12f1061b in 139.7s
+[84/100 done] done abl__arm-no-randomness_scenario-w1_seed-104__50a2cf06 in 122.6s
+[85/100 done] done abl__arm-no-randomness_scenario-w1_seed-105__ce468202 in 124.4s
+[86/100 done] done abl__arm-no-randomness_scenario-w1_seed-106__890f2dad in 141.9s
+[87/100 done] done abl__arm-no-randomness_scenario-w1_seed-107__dc7cb009 in 157.1s
+[88/100 done] done abl__arm-no-randomness_scenario-w1_seed-108__1ab3742c in 124.8s
+[89/100 done] done abl__arm-no-randomness_scenario-w1_seed-109__2edda1db in 127.2s
+[90/100 done] done abl__arm-no-randomness_scenario-w1_seed-110__3ad151e5 in 156.2s
+[91/100 done] done abl__arm-no-randomness_scenario-w2_seed-102__90089e70 in 162.5s
+[92/100 done] done abl__arm-no-randomness_scenario-w2_seed-101__1ee431c8 in 183.8s
+[93/100 done] done abl__arm-no-randomness_scenario-w2_seed-103__37ac506e in 204.1s
+[94/100 done] done abl__arm-no-randomness_scenario-w2_seed-104__f0474598 in 164.2s
+[95/100 done] done abl__arm-no-randomness_scenario-w2_seed-105__e9ddce28 in 199.5s
+[96/100 done] done abl__arm-no-randomness_scenario-w2_seed-106__59d24bf8 in 229.1s
+[97/100 done] done abl__arm-no-randomness_scenario-w2_seed-107__aa564d73 in 197.7s
+[98/100 done] done abl__arm-no-randomness_scenario-w2_seed-108__7238c2da in 167.0s
+[99/100 done] done abl__arm-no-randomness_scenario-w2_seed-109__a40bef53 in 137.1s
+[100/100 done] done abl__arm-no-randomness_scenario-w2_seed-110__fad38366 in 129.1s
+matrix session: 100/100 done, 0 failed, 0 pending
+2026-10-28T22:09:12Z DONE abl :: matrix session: 100/100 done, 0 failed, 0 pending
+2026-10-28T22:09:12Z START exp8
