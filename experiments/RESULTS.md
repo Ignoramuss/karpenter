@@ -104,12 +104,13 @@ or the run set is flagged.
   p = 0.020: more than most-allocated scheduling, without changing the scheduler.
 
 **Oracle flag.** Under plan-following placement (the scheduler places each evicted pod where the plan said),
-random/entropy-greedy reached 0.954 with spread scale-down but 0.937 (95% CI 0.902 to 0.962) with deletion-cost, below
-the 0.95 floor, so the Exp 5 run set is flagged as the preregistration requires; B2 reached 0.982 and 0.981. Even
-when the scheduler follows the plan, about 6% of the pipeline's evicted pods cannot land on their planned
-destination under deletion-cost scale-down, presumably because capacity changes between planning and placement
-(W2 scales down while moves are in flight; not diagnosed further in the session). The fidelity numbers above are measured the same way in every cell, so the comparisons stand;
-the flag says the measure's ceiling is below 1 for this arm.
+random/entropy-greedy reached 0.954 with spread scale-down but 0.937 (95% CI 0.902 to 0.962) with deletion-cost,
+below the 0.95 floor, so the Exp 5 run set is flagged as the preregistration requires; B2 reached 0.982 and 0.981.
+Even when the scheduler follows the plan, about 6% of the pipeline's evicted pods cannot land on their planned
+destination under deletion-cost scale-down, presumably because capacity changes between planning and placement (W2
+scales down while moves are in flight; not diagnosed further in the session). The fidelity numbers above are
+measured the same way in every cell, so the comparisons stand; the flag says the measure's ceiling is below 1 for
+this arm.
 
 **What it shows.** Under upstream's default scheduler profile, the pipeline's plans mostly do not survive contact
 with placement (B2's fidelity is higher, 0.45, since its moves are whole-node deletions whose destinations come
