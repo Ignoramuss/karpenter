@@ -39,10 +39,10 @@ checks are *to be filled* when their groups finish.
 ### H1. Random generation vs heuristic generation, entropy-guided planners (Exp 1; complete)
 
 **Hypothesis.** With planning (stage 3) fixed to entropy-greedy or anneal-plan, and the executor (stage 4) fixed to
-shift-evict in every arm, random candidates and moves (uniform-random candidates, random merge and shift) reach steady-state cost within 3% of heuristic
-generation (upstream's candidate order with the multi-node prefix search and single-node scan) at an equal
-full-simulation budget per pass. Twelve paired TOSTs (2 planners x W1, W2, W4 x 200 and 1,000 nodes, 10 seeds),
-Holm over the 12; supported iff at least 10 are equivalent and none is vetoed.
+shift-evict in every arm, random candidates and moves (uniform-random candidates, random merge and shift) reach
+steady-state cost within 3% of heuristic generation (upstream's candidate order with the multi-node prefix search
+and single-node scan) at an equal full-simulation budget per pass. Twelve paired TOSTs (2 planners x W1, W2, W4 x
+200 and 1,000 nodes, 10 seeds), Holm over the 12; supported iff at least 10 are equivalent and none is vetoed.
 
 **Verdict: not supported.** 3 of 12 equivalent after Holm, none vetoed, 9 of 12 non-inferior
 (`paper/tables/exp1_h1.md`). Equivalence fails in both directions:
@@ -56,9 +56,9 @@ Holm over the 12; supported iff at least 10 are equivalent and none is vetoed.
 
 On the static workloads (W1, W4) random generation ends 1.5-5.1% cheaper than heuristic generation in 7 of the 8
 cells (W1 1,000-node anneal-plan: +0.1%, equivalent); 4 of the 8 point estimates are beyond the 3% margin, one (W4
-200-node anneal-plan) with its whole interval. On the diurnal workload (W2) it ends 1.4-4.3% more expensive. Under savings-only planning (the P0 contrast,
-not part of H1) the split is starker: random is 6.6-10.7% cheaper on W1 and W4 and 2.6% more expensive on W2 at
-1,000 nodes; none of the six is equivalent.
+200-node anneal-plan) with its whole interval. On the diurnal workload (W2) it ends 1.4-4.3% more expensive. Under
+savings-only planning (the P0 contrast, not part of H1) the split is starker: random is 6.6-10.7% cheaper on W1 and
+W4 and 2.6% more expensive on W2 at 1,000 nodes; none of the six is equivalent.
 
 **What it costs** (descriptive, `paper/tables/exp1_secondary.md`, `exp1_phases.md`). The cheaper end states are not
 free. With entropy-guided planners, random generation evicted 48-129% more pods on W1 and W4 and 26-41% more on W2
@@ -72,8 +72,9 @@ ran 21-58% fewer full simulations per pass and left fewer pod-seconds pending.
 **What it shows.** Under this simulator and these budgets, random generation is not a drop-in equivalent of
 upstream's heuristic search: it trades disruption and slower convergence for a lower final cost on fragmented and
 mixed-shape fleets in most cells, and does worse after a diurnal scale-down. The test answers the preregistered
-question (within 3% or not); it does not say which arm is preferable, which depends on how evictions are priced
-(Exp 6 measures that trade-off). Tier B did not run, so whether real kube-scheduler placement preserves the ranking is untested.
+question (within 3% or not); it does not say which arm is preferable, which depends on how evictions are priced (Exp
+6 measures that trade-off). Tier B did not run, so whether real kube-scheduler placement preserves the ranking is
+untested.
 
 ### H7. Decision cost at 1,000 nodes (Exp 7; primary family complete)
 
@@ -91,13 +92,13 @@ same: mean 98 vs 143 ms, p95 392 vs 324 ms.
 
 **Caveat: the two arms ran on different VMs.** The session VM was replaced twice during Exp 1, which runs arm-major:
 all ten heuristic cells ran on VM B and all ten random cells on VM C (`machine_epoch` in
-`paper/tables/exp7_latency.md`), each beside up to three other cells of its own generation (heuristic or random;
-for the first seeds partly savings-only cells), never beside a cell of the other generation. Both arms saw little
-contention (wall over CPU time 1.004 each). The VMs' CPU labels differ (2.80 vs 2.10 GHz), but per unit of work the session's own data
-show no consistent speed difference (`experiments/RESEARCH_LOG.md`, "Correction: the H7 confound's direction"). A
-supplementary timing pass, H7-S (`experiments/matrix/h7-timing.yaml`, declared before any random-arm 1,000-node
-result), reruns both arms of every seed on one VM, interleaved at 4-way load, after the matrix; *to be filled* with
-its result, its twin CPU ratios and its test-by-test comparison with H7.
+`paper/tables/exp7_latency.md`), each beside up to three other cells of its own generation (heuristic or random; for
+the first seeds partly savings-only cells), never beside a cell of the other generation. Both arms saw little
+contention (wall over CPU time 1.004 each). The VMs' CPU labels differ (2.80 vs 2.10 GHz), but per unit of work the
+session's own data show no consistent speed difference (`experiments/RESEARCH_LOG.md`, "Correction: the H7
+confound's direction"). A supplementary timing pass, H7-S (`experiments/matrix/h7-timing.yaml`, declared before any
+random-arm 1,000-node result), reruns both arms of every seed on one VM, interleaved at 4-way load, after the
+matrix; *to be filled* with its result, its twin CPU ratios and its test-by-test comparison with H7.
 
 **What it shows.** Random sampling makes the typical pass cheaper and the slow passes slower: its cost per pass is
 more variable, so a fixed per-pass time limit binds on the tail, not the mean. Neither arm comes close to upstream's
@@ -113,11 +114,11 @@ All are logged in `experiments/RESEARCH_LOG.md` with the time they were decided 
 2. **Two VM replacements during `exp1-n1000`** (Oct 27 23:52 and Oct 28 03:30 UTC). In-flight cells were relaunched
    from scratch; simulated outcomes do not depend on the machine. Decision-cost results carry each run's VM
    (`machine_epoch`).
-3. **H7 confound and H7-S.** Exp 1 runs arm-major, so H7's heuristic arm ran on one VM beside heuristic cells only and
-   its random arm on another beside random cells only. Before any random-arm 1,000-node result existed, a
-   supplementary timing pass (H7-S) was declared: both arms of every seed rerun on one VM, interleaved at 4-way load.
-   H7 is reported as preregistered; H7-S beside it, test by test; no difference is attributed to hardware alone.
-   An early claim about the confound's direction was withdrawn: the data did not support it.
+3. **H7 confound and H7-S.** Exp 1 runs arm-major, so H7's heuristic arm ran on one VM beside heuristic cells only
+   and its random arm on another beside random cells only. Before any random-arm 1,000-node result existed, a
+   supplementary timing pass (H7-S) was declared: both arms of every seed rerun on one VM, interleaved at 4-way
+   load. H7 is reported as preregistered; H7-S beside it, test by test; no difference is attributed to hardware
+   alone. An early claim about the confound's direction was withdrawn: the data did not support it.
 4. **Cut rule mechanized, with a fallback for W5 and W6** (no same-scenario session cells to take a median from:
    the median over same-scale cells), declared before any W5 or W6 cell ran. The rule takes medians over all arms,
    so it under-projects the B2 and B3 groups at 1,000 nodes; it is applied as written.
