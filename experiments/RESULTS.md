@@ -106,6 +106,36 @@ the eviction budget (on W2 at the low budget, 1,144 evictions against 335) and e
 deleting a node, cost more than they save; whether a stricter shift acceptance rule would change that was not
 tested.
 
+### H4. Annealing at plan time and online (Exp 4; complete)
+
+**Hypothesis.** Annealing at plan time reaches cheaper states than greedy acceptance with no extra executed
+disruption; annealing online pays disruption for little gain. Random generation, W1 and W4 at 200 nodes. Plan
+clause, per scenario: the default anneal-plan (t0 = 1, cooling 0.98) vs entropy-greedy has significantly lower
+steady-state cost, and the bootstrap 95% upper bound of the percent difference in evictions is below +10%. Online
+clause, per anneal-online t0 {0.3, 1, 3} and scenario: significantly more evictions, and the 95% lower bound of the
+percent difference in steady-state cost above -1%. Eight Wilcoxon tests, Holm over the 8. Supported iff every clause
+holds; partially otherwise (the analysis reads "partially" as at least one clause cell holding).
+
+**Verdict: partially supported, on one of eight clause cells** (`paper/tables/exp4_clauses.md`, `exp4_h4.md`).
+
+- **Plan clause fails in both scenarios, on disruption.** Anneal-plan lowers steady-state cost on W1 by 3.0% (95% CI
+  -4.7 to -1.7, Holm p = 0.020) and on W4 by 1.0% (-2.7 to +0.8, not significant), but evicts 37.7% (+29.3 to
+  +47.6) and 20.9% (+12.7 to +30.3) more pods than entropy-greedy, far past the +10% allowance.
+- **Online clause holds in one cell** (W4, t0 = 3: 13.3% more evictions, Holm p = 0.020, at 11.0% higher cost). On
+  W1 annealing online does not pay disruption: it evicts about 31% fewer pods than entropy-greedy (Holm p = 0.016 at
+  every t0) and ends 68-69% more expensive, with 114-116 nodes left against 65. On W4 the other two t0 values evict
+  7-8% more (not significant) at 12-13% higher cost.
+
+**The sweep** (`paper/tables/exp4_sweep.md`, descriptive). All six anneal-plan settings end 1-3% cheaper than
+entropy-greedy on W1 and W4 (W1 $42.4-43.1 against $43.7 per hour; W4 $43.0-43.4 against $43.9) with 21-48% more
+evictions, and none is cheaper over the run as a whole (integrated cost $140.0-147.1 against $136.9 on W1). The
+three anneal-online settings are nearly identical to one another.
+
+**What it shows.** In this simulator, annealing at plan time buys a small steady-state saving with a large increase
+in executed disruption, the opposite of "no extra disruption". Annealing online, executed move by move with its
+temperature cooled per cycle, mostly fails to consolidate rather than over-disrupting: it ends with a far larger
+fleet on W1 (why was not diagnosed; executing accepted uphill moves one at a time is one candidate).
+
 ### H5. Plan fidelity: where evicted pods land (Exp 5; complete)
 
 **Hypothesis.** Under least-allocated placement a measurable share of evicted pods land off-plan; most-allocated
