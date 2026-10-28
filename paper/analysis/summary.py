@@ -145,9 +145,12 @@ def latency_rows(lat: Mapping[str, Any]) -> list[dict[str, Any]]:
     e7 = lat.get("exp7") or {}
     h7 = e7.get("h7") or {}
     tests = _records(e7.get("tests"))
+    epochs = "; ".join(f"{c.get('label')} on VM {c.get('machine_epochs')}" for c in _records(e7.get("cells"))
+                       if _num(c.get("nodes")) == 1000 and c.get("machine_epochs"))
     rows = [_row("H7 (decision cost at 1,000 nodes: random vs heuristic, entropy-greedy)", h7.get("verdict"),
                  f"{h7.get('tests_lower', 'n/a')} of 2 tests lower; timeout clause {h7.get('timeout_clause', 'n/a')}"
-                 if h7 else "", _effects([t for t in tests if t.get("family") == "H7"], ("metric",)),
+                 + (f"; {epochs}" if epochs else "") if h7 else "",
+                 _effects([t for t in tests if t.get("family") == "H7"], ("metric",)),
                  "tables/exp7_latency, exp7_tests; figures/out/fig4_latency")]
     b2 = e7.get("h7_b2") or {}
     rows.append(_row("H7-B2 (secondary: random vs B2 at 1,000 nodes, 1-hour runs)",

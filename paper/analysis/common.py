@@ -213,6 +213,7 @@ def load_runs(runs_root: Path, include_abandoned: bool = False, session_binary: 
         rec["n_set_aside"] = attempts.get((d.parent.name, d.name), 0)
         records.append(rec)
     _check_binaries(records, session_binary)
+    _set_machine_epochs(records)
     for rec in records:
         _finish_validity(rec)
     if include_abandoned:
@@ -464,6 +465,60 @@ def config_fingerprint(config: Mapping[str, Any] | None, drop_seed: bool = False
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
 
+MACHINE_LOG = Path("session-driver") / "machine-log.txt"  # under experiments/, beside the runs tree
+MACHINE_EPOCH = "machine_epoch"  # derived per run: the VM it started on, "A", "B", ... in boot order
+_BTIME = re.compile(r"\bbtime=(\S+)")
+_TIME = re.compile(r"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(\.\d+)?Z")
+
+
+def parse_time(text: Any) -> float:
+    """An RFC 3339 UTC timestamp (up to nanosecond precision) as POSIX seconds; NaN when unparsable."""
+    m = _TIME.match(text) if isinstance(text, str) else None
+    if not m:
+        return math.nan
+    whole = pd.Timestamp(m.group(1), tz="UTC").timestamp()
+    return whole + (float("0" + m.group(2)) if m.group(2) else 0.0)
+
+
+def machine_boots(path: Path) -> list[float] | None:
+    """Sorted boot times (POSIX seconds) from the session driver's machine log (experiments/session-driver/
+    machine-log.txt; "btime=unknown", the first VM's, sorts first as -inf); None when the file is absent."""
+    if not Path(path).is_file():
+        return None
+    out = set()
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        m = _BTIME.search(line)
+        if line.startswith("#") or not m:
+            continue
+        out.add(-math.inf if m.group(1) == "unknown" else parse_time(m.group(1)))
+    return sorted(b for b in out if not math.isnan(b))
+
+
+def boot_index(t: float, boots: Sequence[float]) -> int:
+    """The VM a run started on: the index of the last boot at or before ``t`` (-1 when none or ``t`` is NaN)."""
+    if math.isnan(t):
+        return -1
+    return max((i for i, b in enumerate(boots) if b <= t), default=-1)
+
+
+def machine_log_path(run_dir: Path) -> Path:
+    """The machine log of the experiments tree a run is in: ``experiments/runs/<matrix>/<run_id>`` ->
+    ``experiments/session-driver/machine-log.txt``."""
+    return Path(run_dir).resolve().parent.parent.parent / MACHINE_LOG
+
+
+def _set_machine_epochs(records: list[dict[str, Any]]) -> None:
+    """``machine_epoch`` per record ("A", "B", ... by the machine log's boots; "" without a log or a start time)."""
+    logs: dict[Path, list[float] | None] = {}
+    for rec in records:
+        path = machine_log_path(Path(rec["path"]))
+        if path not in logs:
+            logs[path] = machine_boots(path)
+        boots = logs[path]
+        i = boot_index(parse_time(rec.get("started_at")), boots) if boots else -1
+        rec[MACHINE_EPOCH] = chr(ord("A") + i) if i >= 0 else ""
+
+
 def _run_record(run_dir: Path) -> dict[str, Any]:
     summary = _read_json(run_dir / "summary.json")
     manifest_path = run_dir / "manifest.json"
@@ -498,6 +553,7 @@ def _run_record(run_dir: Path) -> dict[str, Any]:
         if rec.get(key) is None and value is not None:
             rec[key] = value
     rec["nodes"] = rec.get("scenario_nodes")
+    rec["started_at"] = manifest.get("started_at", "")
     # Wall over CPU time across the run's passes: about 1 for a cell with a core to itself, higher under contention.
     wall, cpu = _num(summary.get("wall_pass_total_s")), _num(summary.get("cpu_pass_total_s"))
     rec[WALL_CPU_RATIO] = wall / cpu if math.isfinite(wall) and math.isfinite(cpu) and cpu > 0 else math.nan

@@ -29,8 +29,9 @@ Outputs under ``out_root`` (nothing is written for an experiment without runs):
 - ``tables/exp7_latency.{csv,md}``: one row per (scenario, nodes, label): run counts, mean, p95 and max CPU and wall
   time per pass (ms), full simulations per pass, measured nodes (mean peak_nodes) and the wall-to-CPU ratio over all
   passes (``common.WALL_CPU_RATIO``, a contention indicator: about 1 with a core to itself), each with the mean and
-  median and their 95% bootstrap CIs over valid runs; passes over upstream's 1 and 3 minute timeouts and search timeouts
-  (totals and runs affected).
+  median and their 95% bootstrap CIs over valid runs; the VMs the valid runs started on (``machine_epochs``, from
+  experiments/session-driver/machine-log.txt: decision cost depends on the machine); passes over upstream's 1 and 3
+  minute timeouts and search timeouts (totals and runs affected).
 - ``tables/exp7_tests.{csv,md}``: the H7 tests (and H7-B2's when present) at 1,000 nodes with floors, Holm p, the
   paired effect, the speedup (reference mean / random mean), the direction and the outcome.
 - ``tables/h7s_tests.{csv,md}`` and ``tables/h7s_runs.{csv,md}``: H7-S's tests, and per rerun its VM, pairing,
@@ -171,7 +172,7 @@ SIZE = "peak_nodes"
 # Upstream's consolidation timeouts: multi-node 1 minute, single-node 3 minutes (in ms), with the summary column that
 # counts passes over each.
 TIMEOUTS = (("1m", "wall_passes_over_1m", 60_000.0), ("3m", "wall_passes_over_3m", 180_000.0))
-LATENCY_COLUMNS = (["scenario", "nodes", "label", "n_runs", "n_valid", "n_invalid", "duration_min"]
+LATENCY_COLUMNS = (["scenario", "nodes", "label", "n_runs", "n_valid", "n_invalid", "machine_epochs", "duration_min"]
                    + [c for m in (*LATENCY_METRICS, SIMS_PER_PASS, SIZE, common.WALL_CPU_RATIO) for c in ci_names(m)]
                    + ["disruption_passes_mean", "cpu_pass_total_s_mean"]
                    + [c for name, _, _ in TIMEOUTS for c in (f"passes_over_{name}_total", f"runs_over_{name}",
@@ -204,6 +205,16 @@ def add_latency_columns(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def machine_epochs(runs: pd.DataFrame) -> str:
+    """Which VMs (``common.MACHINE_EPOCH``) the runs started on, with counts, e.g. "B: 10" or "A: 8, B: 2"; "" when
+    no run has an epoch (no machine log)."""
+    if common.MACHINE_EPOCH not in runs.columns:
+        return ""
+    counts = runs[common.MACHINE_EPOCH].fillna("").astype(str)
+    counts = counts.loc[counts != ""].value_counts().sort_index()
+    return ", ".join(f"{k}: {int(v)}" for k, v in counts.items())
+
+
 def latency_table(df: pd.DataFrame, exp: dict[str, Any]) -> pd.DataFrame:
     """Exp 7 per-cell table (``LATENCY_COLUMNS``): one row per (scenario, nodes, label), statistics over valid runs
     (runs from simulators without CPU-time fields have NaN there and leave those statistics).
@@ -217,6 +228,7 @@ def latency_table(df: pd.DataFrame, exp: dict[str, Any]) -> pd.DataFrame:
         valid = part.loc[part["valid"].astype(bool)]
         row: dict[str, Any] = dict(zip(by, values))
         row.update(_counts(part))
+        row["machine_epochs"] = machine_epochs(valid)
         duration, passes = _floats(valid["duration_min"]), _floats(valid["disruption_passes"])
         row["duration_min"] = float(np.median(duration[np.isfinite(duration)])) if np.isfinite(duration).any() \
             else math.nan
@@ -368,7 +380,7 @@ def exp7_headline(everything: pd.DataFrame, table: pd.DataFrame, tests: pd.DataF
     the verdict "inconclusive") when no run exceeds the limit but some run's count cannot be told. H7-B2 is reported
     when present and never enters the verdict."""
     params = exp["params"]
-    cols = ["scenario", "nodes", "label", "n_runs", "n_valid", "n_invalid", "cpu_pass_mean_ms_mean",
+    cols = ["scenario", "nodes", "label", "n_runs", "n_valid", "n_invalid", "machine_epochs", "cpu_pass_mean_ms_mean",
             "cpu_pass_mean_ms_mean_lo", "cpu_pass_mean_ms_mean_hi", "cpu_pass_p95_ms_mean", "cpu_pass_p95_ms_mean_lo",
             "cpu_pass_p95_ms_mean_hi", "wall_pass_mean_ms_mean", "wall_pass_mean_ms_mean_lo",
             "wall_pass_mean_ms_mean_hi", "wall_pass_p95_ms_mean", "wall_pass_max_ms_mean",
@@ -462,9 +474,7 @@ UNSIMULATED_PREFIXES = ("wall_", "cpu_")
 UNSIMULATED_FIELDS = ("run_id", "label")
 SIMULATED_FILES = ("decisions.jsonl.gz", "timeseries.csv", "podsets.jsonl")
 _RUN_ID_FIELD = re.compile(rb'"run_id"\s*:\s*"[^"]*"')
-_BTIME = re.compile(r"\bbtime=(\S+)")
-_TIME = re.compile(r"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(\.\d+)?Z")
-MACHINE_LOG = Path("session-driver") / "machine-log.txt"  # under experiments/, beside the runs tree
+MACHINE_LOG = common.MACHINE_LOG
 # Under experiments/: timing-pass cells the driver set aside to rerun (experiments/session-driver/h7_pairs.py).
 SPLIT_DIR = "h7-timing-split"
 H7S_RUN_COLUMNS = ["run_id", "label", "seed", "valid", "started_at", "finished_at", "boot", "paired",
@@ -498,34 +508,7 @@ def twin_differences(rerun: Path, twin: Path) -> list[str]:
     return out
 
 
-def parse_time(text: Any) -> float:
-    """An RFC 3339 UTC timestamp (up to nanosecond precision) as POSIX seconds; NaN when unparsable."""
-    m = _TIME.match(text) if isinstance(text, str) else None
-    if not m:
-        return math.nan
-    whole = pd.Timestamp(m.group(1), tz="UTC").timestamp()
-    return whole + (float("0" + m.group(2)) if m.group(2) else 0.0)
-
-
-def machine_boots(path: Path) -> list[float] | None:
-    """Sorted boot times (POSIX seconds) from the session driver's machine log (experiments/session-driver/
-    machine-log.txt; "btime=unknown", the first VM's, sorts first as -inf); None when the file is absent."""
-    if not path.is_file():
-        return None
-    out = set()
-    for line in path.read_text(encoding="utf-8").splitlines():
-        m = _BTIME.search(line)
-        if line.startswith("#") or not m:
-            continue
-        out.add(-math.inf if m.group(1) == "unknown" else parse_time(m.group(1)))
-    return sorted(b for b in out if not math.isnan(b))
-
-
-def boot_index(t: float, boots: Sequence[float]) -> int:
-    """The VM a run started on: the index of the last boot at or before ``t`` (-1 when none or ``t`` is NaN)."""
-    if math.isnan(t):
-        return -1
-    return max((i for i, b in enumerate(boots) if b <= t), default=-1)
+parse_time, machine_boots, boot_index = common.parse_time, common.machine_boots, common.boot_index
 
 
 def _iso(t: float) -> str:

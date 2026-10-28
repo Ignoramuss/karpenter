@@ -488,6 +488,30 @@ def _mini_run(matrix: Path, run_id: str, seed: int, label: str = "random/x", sce
     return d
 
 
+def test_machine_epochs() -> None:
+    # Each run's VM, from the session driver's machine log: the last boot at or before the manifest's started_at,
+    # lettered in boot order ("btime=unknown", the first VM, is A); "" without a log.
+    with tempfile.TemporaryDirectory() as tmp:
+        m = Path(tmp) / "experiments" / "runs" / "session"
+        _mini_run(m, "g__a", 1, manifest={"started_at": "2026-10-27T21:00:00.5Z"})
+        _mini_run(m, "g__b", 2, manifest={"started_at": "2026-10-28T01:00:00.123456789Z"})
+        _mini_run(m, "g__c", 3, manifest={"started_at": "2026-10-28T05:00:00Z"})
+        _mini_run(m, "g__d", 4)
+        log = Path(tmp) / "experiments" / "session-driver" / "machine-log.txt"
+        log.parent.mkdir(parents=True)
+        log.write_text("# btime=2000-01-01T00:00:00Z is a comment\n"
+                       "2026-10-27T20:52:41Z boot_id=unknown btime=unknown cpu=\"x\"\n"
+                       "2026-10-27T23:53:31Z boot_id=unknown btime=2026-10-27T23:52:00Z cpu=\"y\" (approximate)\n"
+                       "2026-10-28T04:51:13Z boot_id=e btime=2026-10-28T03:29:38Z cpu=\"x\"\n")
+        runs = common.load_runs(m.parent)
+        assert dict(zip(runs["run_id"], runs[common.MACHINE_EPOCH])) == {"g__a": "A", "g__b": "B", "g__c": "C",
+                                                                         "g__d": ""}
+        log.unlink()
+        runs = common.load_runs(m.parent)
+        assert set(runs[common.MACHINE_EPOCH]) == {""}
+    assert common.parse_time("2026-10-28T03:29:38Z") == 1793158178.0 and math.isnan(common.parse_time("x"))
+
+
 def test_validity_reasons_counted_separately() -> None:
     # G2: violation from the violation fields (not from invalid == true, which the simulator also sets for timeouts
     # and errors), error, timed out; each reason counted on its own.

@@ -405,3 +405,12 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   or so at 200 nodes), so a tracked copy is always modified. The live file is untracked during the session;
   `commit_runs.sh` commits a snapshot as `experiments/session-driver/index-<matrix>.jsonl` with every data commit,
   and the final file goes back in place at the end (`FINAL=1 commit_runs.sh`), where the analysis reads it.
+- **Independent recomputation of the provisional H1, H7 and run checks (12:00 UTC).** Three agents reimplemented
+  H1 and the P0 contrast (TOST, 90% CIs, Holm, veto), H7 (exact Wilcoxon, floors, Holm, paired bootstrap, timeout
+  clause, per-cell means) and the validity, completeness, duplicate and epoch checks from the raw run files, without
+  the analysis code: every number and verdict in the provisional tables matched (bootstrap intervals to 0.01
+  points); the one finding (restart-killed attempts are not counted as retries) was refuted by both verifiers, as
+  the preregistered definition of a retry is a set-aside failed attempt. They noted that no table carried the
+  machine epochs the H7 entries promised: each run now gets `machine_epoch` (A, B, C, ... from
+  `experiments/session-driver/machine-log.txt` and its manifest's `started_at`), shown per cell in `exp7_latency`
+  and in the summary's H7 row (heuristic/entropy-greedy at 1,000 nodes on VM B, random/entropy-greedy on VM C).
