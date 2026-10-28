@@ -1,0 +1,47 @@
+{
+  "arm": {
+    "label": "heuristic/savings-only",
+    "name": "pipeline",
+    "pipeline": {
+      "candidates": {
+        "name": "upstream"
+      },
+      "executor": {
+        "name": "shift-evict"
+      },
+      "moves": [
+        {
+          "name": "upstream-multi",
+          "params": {
+            "mode": "fine"
+          }
+        },
+        {
+          "name": "upstream-single",
+          "params": {
+            "mode": "fine"
+          }
+        }
+      ],
+      "movesMode": "pooled",
+      "planner": {
+        "name": "savings-only"
+      },
+      "potential": {
+        "name": "util-entropy"
+      },
+      "search": {
+        "maxAttempts": 500,
+        "maxFullSimulations": 16
+      }
+    }
+  },
+  "duration": "3h",
+  "maxWall": "0s",
+  "runID": "exp1-n1000__arm-heuristic-savings-only_scenario-w2_seed-108__69f61e77",
+  "scenario": {
+    "name": "W2",
+    "nodes": 1000
+  },
+  "seed": 108
+}
