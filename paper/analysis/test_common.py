@@ -361,8 +361,8 @@ def test_load_runs_pilot() -> None:
 
 
 def test_registry_and_group_map() -> None:
-    assert set(common.EXPERIMENTS) == {"exp1", "realism", "exp2", "exp3", "exp4", "exp5", "exp6", "exp7", "exp8",
-                                       "abl", "b4"}
+    assert set(common.EXPERIMENTS) == {"exp1", "realism", "exp2", "exp3", "exp4", "exp5", "exp6", "exp7", "h7s",
+                                       "exp8", "abl", "b4"}
     exp1 = common.comparisons("exp1")
     assert [(c.a, c.b, c.family) for c in exp1] == [
         ("random/entropy-greedy", "heuristic/entropy-greedy", "H1"),
@@ -394,7 +394,7 @@ def test_registry_and_group_map() -> None:
         for c in common.comparisons(key):
             sizes[c.family] = sizes.get(c.family, 0) + len(common.design_strata(c))
     assert sizes == {"H1": 12, "H1-P0-contrast": 6, "H1-realism": 4, "H3": 4, "H4": 8, "H5": 10, "H6": 12, "H7": 2,
-                     "H7-B2": 2, "ablation": 8, "B4": 6}, sizes
+                     "H7-B2": 2, "H7-S": 2, "ablation": 8, "B4": 6}, sizes
     assert {f for f, v in common.FAMILIES.items() if v["m"] is None} == {"H2", "H2-cost", "H2-norm", "H2-w5",
                                                                          "H2-w20"}
     assert all(common.FAMILIES[f]["m"] == n for f, n in sizes.items())
@@ -405,13 +405,19 @@ def test_registry_and_group_map() -> None:
     # session group is used by some experiment.
     matrix = (common.REPO_ROOT / "experiments" / "matrix" / "session.yaml").read_text(encoding="utf-8")
     used = set()
+    h7_timing = (common.REPO_ROOT / "experiments" / "matrix" / "h7-timing.yaml").read_text(encoding="utf-8")
+    import re
+    h7t = re.findall(r"^- name: (\S+)$", h7_timing, flags=re.M)
+    assert len(h7t) == 10 and {common._identity(f"{g}__x", "h7-timing")["group"] for g in h7t} == {"h7-timing"}
+    assert common.experiment("h7s")["groups"] == ["h7-timing"]
     for key, e in common.EXPERIMENTS.items():
+        if key == "h7s":  # its groups are the H7 timing pass's (experiments/matrix/h7-timing.yaml), checked above
+            continue
         for g in e["groups"] + list((e["params"] or {}).get("lp_groups", [])):
             assert f"- name: {g}\n" in matrix, (key, g)
             used.add(g)
         for label in e["labels"] + e["baselines"]:
             assert f"label: {label}" in matrix or f"label: {label}," in matrix, (key, label)
-    import re
     assert set(re.findall(r"^  - name: (\S+)$", matrix, flags=re.M)) == used
     with _group_map(None):
         assert common.experiment_groups("exp1") == common.experiment("exp1")["groups"]

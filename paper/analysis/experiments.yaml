@@ -45,6 +45,9 @@
 #   params:            experiment-specific settings the owning module reads
 analysis:
   min_seeds: 10
+  # Run-group prefixes whose runs belong to one group: the supplementary H7 timing pass
+  # (experiments/matrix/h7-timing.yaml) runs one group per seed so both arms of a seed share a machine.
+  group_aliases: {h7t-: h7-timing}
 
 families:
   H1: {experiment: exp1, m: 12}               # random vs heuristic, 2 planners x {W1, W2, W4} x {200, 1000}
@@ -61,6 +64,7 @@ families:
   H6: {experiment: exp6, m: 12}               # 3 baselines x {W2, W3} x {savings, eviction_cost}
   H7: {experiment: exp7, m: 2}
   H7-B2: {experiment: exp7, m: 2}             # secondary; absent if exp7-b2-n1000 is cut; never in H7's verdict
+  H7-S: {experiment: h7s, m: 2}               # supplementary paired timing pass (RESEARCH_LOG, "H7 hardware confound")
   ablation: {experiment: abl, m: 8}
   B4: {experiment: b4, m: 6}                  # secondary B4 parity TOSTs
 
@@ -436,6 +440,34 @@ experiments:
       timeout_columns: {multi_node_1m: wall_passes_over_1m, single_node_3m: wall_passes_over_3m}
       b2_family: H7-B2
       b2_group: exp7-b2-n1000
+
+  h7s:
+    title: Supplementary H7 timing pass, both arms of each seed on one machine at one time
+    hypothesis: null      # H7-S is reported beside H7 and never replaces its verdict
+    groups: [h7-timing]   # h7t-101 ... h7t-110 (analysis.group_aliases)
+    select:
+      label: [heuristic/entropy-greedy, random/entropy-greedy]
+    scenarios: [W1]
+    nodes: [1000]
+    labels: [heuristic/entropy-greedy, random/entropy-greedy]
+    primary_metric: cpu_pass_mean_ms
+    secondary_metrics: [cpu_pass_p95_ms, wall_pass_mean_ms, wall_pass_p95_ms, wall_passes_over_1m]
+    pair_keys: [scenario, nodes, seed]
+    comparisons:
+      - name: "random/entropy-greedy vs heuristic/entropy-greedy, {metric} (paired timing pass)"
+        family: H7-S
+        foreach: {metric: [cpu_pass_mean_ms, cpu_pass_p95_ms]}
+        test: wilcoxon
+        metric: "{metric}"
+        a: random/entropy-greedy
+        b: heuristic/entropy-greedy
+        by: [scenario, nodes]
+        where: {nodes: [1000]}
+        expect: lower
+    params:
+      # The pass reruns these session cells with byte-identical configurations: each rerun's simulated outputs must
+      # equal its session twin's (same config_id), or the pass is void.
+      reference_groups: [exp1-n1000]
 
   exp8:
     title: Optimality gap to the offline packing lower bound (B6)

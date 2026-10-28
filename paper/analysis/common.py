@@ -98,6 +98,9 @@ MAX_ATTEMPTS = 2
 # The session matrix (experiments/runs/session) and the file next to experiments/runs naming the one binary allowed to
 # produce its runs (PREREGISTRATION.md, "What runs").
 SESSION_MATRIX = "session"
+# Matrices run with the session binary, so their runs get the binary and determinism checks: the session itself and
+# the supplementary H7 timing pass (experiments/matrix/h7-timing.yaml).
+SESSION_BINARY_MATRICES = (SESSION_MATRIX, "h7-timing")
 SESSION_BINARY_FILE = "session-binary.txt"
 # experiments/session-determinism.txt records TestDeterminism at the Gate 3 commit: "PASS <sha> ..." or "FAIL <sha>".
 # A FAIL, or a SHA other than the session binary's, invalidates every session run (PREREGISTRATION.md, exclusion).
@@ -186,7 +189,8 @@ def load_runs(runs_root: Path, include_abandoned: bool = False, session_binary: 
       simulate the same thing in different groups or under different labels; NaN without a manifest;
     - path (the run directory; ``write_table`` never writes this column).
 
-    The binary check applies to runs of the session matrix only (``is_session_run``): ``binary_revision`` must equal
+    The binary check applies to runs of the session-binary matrices only (``is_session_run``: the session and the
+    H7 timing pass): ``binary_revision`` must equal
     the SHA in ``session_binary`` (default: ``experiments/session-binary.txt`` beside the ``experiments/runs`` tree the
     run is in) and ``binary_modified`` must not be true. Without that file the check is skipped with a warning.
 
@@ -268,9 +272,10 @@ def _set_aside_dirs(root: Path) -> dict[tuple[str, str], Path]:
 
 
 def is_session_run(run_dir: Path) -> bool:
-    """Whether a run directory belongs to the session matrix: ``.../experiments/runs/session/<run_id>``."""
+    """Whether a run directory belongs to a matrix run with the session binary (``SESSION_BINARY_MATRICES``):
+    ``.../experiments/runs/<session or h7-timing>/<run_id>``."""
     m = Path(run_dir).resolve().parent
-    return m.name == SESSION_MATRIX and m.parent.name == "runs" and m.parent.parent.name == "experiments"
+    return m.name in SESSION_BINARY_MATRICES and m.parent.name == "runs" and m.parent.parent.name == "experiments"
 
 
 def session_binary_path(run_dir: Path) -> Path:
@@ -291,8 +296,8 @@ def read_session_binary(path: Path) -> str | None:
 
 
 def _check_binaries(records: list[dict[str, Any]], session_binary: Path | None) -> None:
-    """Set ``invalid_wrong_binary`` on session runs (``is_session_run``, or every run of a matrix named "session"
-    when ``session_binary`` is given) whose manifest's binary_revision differs from the recorded SHA or whose
+    """Set ``invalid_wrong_binary`` on session runs (``is_session_run``, or every run of a matrix named in
+    ``SESSION_BINARY_MATRICES`` when ``session_binary`` is given) whose manifest's binary_revision differs from the recorded SHA or whose
     binary_modified is true, and ``invalid_nondeterminism`` on every session run when the session-determinism.txt
     beside the SHA file reports a FAIL or another commit. Each check is skipped, with one warning per missing file,
     when its file is absent."""
@@ -303,7 +308,7 @@ def _check_binaries(records: list[dict[str, Any]], session_binary: Path | None) 
     for rec in records:
         run_dir = Path(rec["path"])
         if session_binary is not None:
-            if run_dir.parent.name != SESSION_MATRIX:
+            if run_dir.parent.name not in SESSION_BINARY_MATRICES:
                 continue
             path = Path(session_binary)
         elif is_session_run(run_dir):
@@ -434,6 +439,10 @@ def _finish_validity(rec: dict[str, Any]) -> None:
 
 def _identity(run_id: str, matrix: str) -> dict[str, Any]:
     group = run_id.split("__")[0]
+    for prefix, alias in GROUP_ALIASES.items():
+        if group.startswith(prefix):
+            group = alias
+            break
     return {"run_id": run_id, "matrix": matrix, "group": group, "experiment": group.split("-")[0]}
 
 
@@ -757,6 +766,9 @@ FAMILIES: dict[str, dict[str, Any]]
 ANALYSIS: dict[str, Any]
 EXPERIMENTS, FAMILIES, ANALYSIS = _load_registry(EXPERIMENTS_FILE)
 MIN_SEEDS = int(ANALYSIS.get("min_seeds", 10))
+# Run-group prefix -> the group its runs belong to (experiments.yaml analysis.group_aliases): the H7 timing pass runs
+# one group per seed (h7t-101 ... h7t-110) only so both arms of a seed share a machine; its runs form one group.
+GROUP_ALIASES: dict[str, str] = dict(ANALYSIS.get("group_aliases") or {})
 
 
 def family_size(name: str) -> int | None:

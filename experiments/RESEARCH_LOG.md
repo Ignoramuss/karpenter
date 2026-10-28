@@ -301,3 +301,14 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   which are much faster than B2 and B3 there; it is applied as written, and a candidate group that starts runs to
   completion. Dry run at 03:36 UTC (all four would start if considered now): W5 and W6 60 cells x 2.1 min;
   `exp7-b2-n1000` 10 x 19.5 min; `exp1-baselines-n1000` 60 x 14.5-19.5 min.
+- **H7-S analysis (code for the declared supplementary pass; written before any H7-S or random-arm 1,000-node
+  result).** `paper/analysis/latency_optimality.py` gains `run_h7s`: family H7-S (m = 2, experiments.yaml `h7s`),
+  H7's two Wilcoxon tests on the timing-pass runs, plus a determinism check of every rerun against its session twin
+  (same `config_id`): every summary field except wall and CPU time, the decision log with run IDs blanked, the time
+  series and the pod-set snapshots must be identical, or H7-S is "void". Verdict words as H7's ("supported",
+  "not supported", "inconclusive", "incomplete"), plus `agrees_with_h7`. Plumbing: the timing pass's per-seed groups
+  (`h7t-101` ... `h7t-110`) are one analysis group, `h7-timing` (experiments.yaml `analysis.group_aliases`), so its
+  configurations have 10 seeds and are not cut; its runs get the session binary and determinism checks
+  (`common.SESSION_BINARY_MATRICES`). Also fixed a test fixture: the latency module's pilot smoke test read every
+  matrix under `experiments/runs`, which now holds session runs too; it reads the pilot matrix only. No preregistered
+  rule changed. All analysis test suites pass.

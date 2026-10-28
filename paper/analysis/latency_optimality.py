@@ -11,6 +11,13 @@ plus the timeout clause (no valid random/entropy-greedy run at 1,000 nodes with 
 The secondary family H7-B2 (random vs B2 from exp7-b2-n1000, 1-hour runs) is absent when that group is cut and never
 enters the verdict.
 
+H7-S (experiments.yaml ``h7s``) is the supplementary paired timing pass declared after the session VM changed CPUs
+mid-session (experiments/RESEARCH_LOG.md, "H7 hardware confound"): both arms of H7's W1 1,000-node cells rerun with
+the session binary, one seed's pair at a time on one machine (``experiments/runs/h7-timing``). Its configurations are
+byte-identical to the session cells', so each rerun must reproduce its session twin's simulated outputs (decision log
+up to the run ID, time series, pod-set snapshots and every summary field but wall and CPU time); one mismatch voids
+the pass. It runs H7's two tests as family H7-S and is reported beside H7, never replacing its verdict.
+
 Exp 8 bounds each run's fleet cost from below with ``lower_bound`` (B6). At 50 nodes (groups exp8 and exp8-b5) every
 podsets.jsonl snapshot gets the CP-SAT bound and the LP bound; at 200 and 1,000 nodes (Exp 1's groups, ``exp8.params``)
 the final snapshot gets the LP bound. ``gap = cost_per_hour at the snapshot / bound - 1``. Descriptive.
@@ -23,11 +30,13 @@ Outputs under ``out_root`` (nothing is written for an experiment without runs):
   (totals and runs affected).
 - ``tables/exp7_tests.{csv,md}``: the H7 tests (and H7-B2's when present) at 1,000 nodes with floors, Holm p, the
   paired effect, the speedup (reference mean / random mean), the direction and the outcome.
+- ``tables/h7s_tests.{csv,md}`` and ``tables/h7s_determinism.{csv,md}``: H7-S's tests, and each rerun against its
+  session twin.
 - ``tables/exp8_gap.{csv,md}``: one row per (nodes, scenario, label): which bound the row uses (cpsat at 50 nodes, lp
   at 200 and 1,000), the final-snapshot gap with CIs, the final gap against the LP bound, the mean gap over every
   snapshot (50 nodes), how many final bounds CP-SAT proved optimal and the bound's slack.
 - ``tables/exp8_gap_snapshots.{csv,md}``: at 50 nodes, the mean gap with CIs per (scenario, label, snapshot time).
-- ``tables/latency_optimality.json``: the headline numbers, validity counts and the H7 verdict.
+- ``tables/latency_optimality.json``: the headline numbers, validity counts, the H7 verdict and H7-S.
 - ``figures/out/fig4_latency.{png,pdf}`` and ``figures/out/fig7_optimality_gap.{png,pdf}``.
 - ``tables/cache/lower_bounds.json``: the bound cache (``lower_bound.BoundCache``), derived and safe to delete.
 
@@ -38,7 +47,11 @@ Run on its own with ``/opt/research-venv/bin/python -m paper.analysis.latency_op
 
 from __future__ import annotations
 
+import gzip
+import hashlib
+import json
 import math
+import re
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any
@@ -53,6 +66,7 @@ from paper.analysis import common
 from paper.analysis import lower_bound as lb
 
 EXP7 = "exp7"
+H7S = "h7s"
 EXP8 = "exp8"
 ALPHA = common.ALPHA
 
@@ -436,6 +450,107 @@ def run_exp7(runs: pd.DataFrame, out_root: Path) -> dict[str, Any] | None:
 
 
 # --------------------------------------------------------------------------------------------------------------------
+# H7-S: the supplementary paired timing pass
+# --------------------------------------------------------------------------------------------------------------------
+
+H7S_FAMILY = "H7-S"
+# Summary fields that measure the machine, not the simulation: they may differ between a rerun and its twin.
+UNSIMULATED_PREFIXES = ("wall_", "cpu_")
+UNSIMULATED_FIELDS = ("run_id", "label")
+SIMULATED_FILES = ("decisions.jsonl.gz", "timeseries.csv", "podsets.jsonl")
+_RUN_ID_FIELD = re.compile(rb'"run_id"\s*:\s*"[^"]*"')
+DETERMINISM_COLUMNS = ["run_id", "label", "seed", "twin_run_id", "status", "differences"]
+
+
+def _file_digest(path: Path) -> str | None:
+    """sha256 of a run file's simulated content: decision logs decompressed and with their run IDs blanked (a rerun
+    has its own run ID), other files as written; None when the file is absent."""
+    if not path.is_file():
+        return None
+    data = gzip.decompress(path.read_bytes()) if path.suffix == ".gz" else path.read_bytes()
+    if path.name.startswith("decisions"):
+        data = _RUN_ID_FIELD.sub(b'"run_id":""', data)
+    return hashlib.sha256(data).hexdigest()
+
+
+def _simulated_summary(run_dir: Path) -> dict[str, Any]:
+    summary = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
+    return {k: v for k, v in summary.items() if k not in UNSIMULATED_FIELDS and not k.startswith(UNSIMULATED_PREFIXES)}
+
+
+def twin_differences(rerun: Path, twin: Path) -> list[str]:
+    """What differs between a rerun and its session twin: summary fields (``UNSIMULATED_*`` aside) and the simulated
+    files (``SIMULATED_FILES``; a file both lack is no difference). Empty when they match."""
+    out = []
+    a, b = _simulated_summary(rerun), _simulated_summary(twin)
+    out += [f"summary.{k}" for k in sorted(set(a) | set(b)) if a.get(k) != b.get(k)]
+    out += [name for name in SIMULATED_FILES if _file_digest(rerun / name) != _file_digest(twin / name)]
+    return out
+
+
+def h7s_determinism(runs: pd.DataFrame, sel: pd.DataFrame, exp: dict[str, Any]) -> tuple[pd.DataFrame, str]:
+    """Each H7-S run against its session twin (the run of ``params.reference_groups`` with the same config_id).
+    Status per run: "match", "differs" (``twin_differences``) or "no twin". Overall: "pass" when every run matches,
+    "fail" when any differs (the pass is void), "incomplete" when some run has no twin yet and none differs."""
+    groups = common.map_groups(exp["params"]["reference_groups"])
+    ref = runs.loc[runs["group"].isin(groups) & runs["config_id"].notna()]
+    twins = {cid: path for cid, path in zip(ref["config_id"], ref["path"]) if isinstance(path, (str, Path))}
+    rows = []
+    for _, r in sel.sort_values(["seed", "label"], kind="stable").iterrows():
+        twin = twins.get(r["config_id"])
+        if twin is None or not (Path(r["path"]) / "summary.json").is_file():
+            rows.append({"run_id": r["run_id"], "label": r["label"], "seed": r["seed"], "twin_run_id": "",
+                         "status": "no twin", "differences": ""})
+            continue
+        diff = twin_differences(Path(r["path"]), Path(twin))
+        rows.append({"run_id": r["run_id"], "label": r["label"], "seed": r["seed"], "twin_run_id": Path(twin).name,
+                     "status": "differs" if diff else "match", "differences": ", ".join(diff)})
+    table = pd.DataFrame(rows, columns=DETERMINISM_COLUMNS)
+    statuses = set(table["status"])
+    overall = "fail" if "differs" in statuses else "incomplete" if "no twin" in statuses or table.empty else "pass"
+    return table, overall
+
+
+def run_h7s(runs: pd.DataFrame, out_root: Path, h7: dict[str, Any] | None) -> dict[str, Any] | None:
+    """H7-S tables (h7s_tests, h7s_determinism) and headline, or None when the pass has no runs. Its outcome is
+    "supported" when both tests are significant with random lower and the determinism check passes, "void" when the
+    check fails, "incomplete" while a configuration is missing or cut or a twin is missing, "inconclusive" when a
+    test is unreachable, and "not supported" otherwise; ``agrees_with_h7`` compares it with H7's own verdict."""
+    exp = common.experiment(H7S)
+    everything = common.select_runs(runs, H7S, include_cut=True)
+    if everything.empty:
+        common.skipped(H7S_FAMILY)
+        return None
+    sel = common.select_runs(runs, H7S)
+    tests = latency_tests(add_latency_columns(sel), common.comparisons(H7S))
+    common.write_table(tests, out_root, "h7s_tests")
+    det, det_status = h7s_determinism(runs, everything, exp)
+    common.write_table(det, out_root, "h7s_determinism")
+    missing = common.missing_configurations(everything, common.comparisons(H7S))
+    outcomes = tests["outcome"].tolist() if len(tests) else []
+    if det_status == "fail":
+        verdict = "void"
+    elif missing or det_status == "incomplete":
+        verdict = "incomplete"
+    elif len(outcomes) == 2 and all(o == "lower" for o in outcomes):
+        verdict = "supported"
+    elif any(o in ("higher", "no significant difference") for o in outcomes):
+        verdict = "not supported"
+    else:
+        verdict = "inconclusive"
+    h7_verdict = (h7 or {}).get("h7", {}).get("verdict")
+    cols = ["comparison", "metric", "n_pairs", "mean_a", "mean_b", "pct_diff", "pct_diff_lo", "pct_diff_hi", "speedup",
+            "p_wilcoxon", "p_floor", "p_holm", "holm_reachable", "outcome"]
+    return {"family": H7S_FAMILY, "validity": _validity(everything), "tests": tests[cols] if len(tests) else [],
+            "determinism": {"status": det_status, "runs": int(len(det)),
+                            "matched": int((det["status"] == "match").sum()),
+                            "differs": det.loc[det["status"] == "differs", "run_id"].tolist()},
+            "verdict": verdict, "missing_configurations": missing, "h7_verdict": h7_verdict,
+            "agrees_with_h7": None if h7_verdict is None or verdict in ("void", "incomplete")
+            else (verdict == h7_verdict)}
+
+
+# --------------------------------------------------------------------------------------------------------------------
 # Exp 8: optimality gap to the offline packing bound (B6)
 # --------------------------------------------------------------------------------------------------------------------
 
@@ -710,13 +825,17 @@ def run_exp8(runs: pd.DataFrame, out_root: Path) -> dict[str, Any] | None:
 
 
 def main(runs_root: Path, out_root: Path) -> None:
-    """Exp 7 decision latency (figure 4) and Exp 8 optimality gap to the B6 bound (figure 7) from the raw runs."""
+    """Exp 7 decision latency (figure 4), H7-S, and Exp 8 optimality gap to the B6 bound (figure 7) from the raw
+    runs."""
     runs = common.load_runs(runs_root, include_abandoned=True)
     headline: dict[str, Any] = {}
     for key, run in ((EXP7, run_exp7), (EXP8, run_exp8)):
         result = run(runs, out_root)
         if result is not None:
             headline[key] = result
+    h7s = run_h7s(runs, out_root, headline.get(EXP7))
+    if h7s is not None:
+        headline[H7S] = h7s
     if headline:
         common.write_json(headline, out_root, "latency_optimality")
     else:

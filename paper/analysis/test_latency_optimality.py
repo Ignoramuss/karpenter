@@ -10,10 +10,12 @@ optimality gaps, plus a smoke run on the pilot. Run from the repository root:
 from __future__ import annotations
 
 import contextlib
+import gzip
 import io
 import json
 import math
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -378,7 +380,7 @@ def test_pilot_smoke() -> None:
     with tempfile.TemporaryDirectory() as tmp, _env(**{common.GROUP_MAP_ENV: json.dumps(mapping),
                                                        common.MIN_SEEDS_ENV: "5"}):
         out = Path(tmp) / "out"
-        log = _run_main(PILOT.parent, out)
+        log = _run_main(PILOT, out)  # the pilot matrix only: session runs share experiments/runs
         assert "skipped exp8 at 50 nodes (CP-SAT): no runs" in log, log
         lat = pd.read_csv(out / "tables" / "exp7_latency.csv")
         assert set(lat["nodes"]) == {200} and set(lat["scenario"]) == {"W1"}
@@ -458,6 +460,75 @@ def test_h7_unreachable_tests_are_inconclusive() -> None:
         _run_main(runs, out)
         h7 = json.loads((out / "tables" / "latency_optimality.json").read_text(encoding="utf-8"))["exp7"]["h7"]
         assert h7["verdict"] == "inconclusive", h7
+
+
+def _write_h7s_pass(runs: Path, random_share: float = 0.5) -> list[Path]:
+    """The H7 timing pass beside the synthetic session: each exp1-n1000 W1 entropy-greedy run copied to
+    ``runs/h7-timing/h7t-<seed>__...`` with its own run ID (in summary, manifest, cell and a decision log both copies
+    get) and fresh machine timings: heuristic at 2x its session CPU time, random at ``random_share`` of that."""
+    session, matrix = runs / "session", runs / "h7-timing"
+    out = []
+    for src in sorted(session.glob("exp1-n1000__arm-*-entropy-greedy_scenario-w1_*")):
+        seed = int(re.search(r"_seed-(\d+)__", src.name).group(1))
+        dst = matrix / src.name.replace("exp1-n1000__", f"h7t-{seed}__")
+        shutil.copytree(src, dst)
+        for d, rid in ((src, src.name), (dst, dst.name)):
+            line = json.dumps({"run_id": rid, "cycle": 1, "t": 12.0, "kind": "merge", "accepted": True})
+            (d / "decisions.jsonl.gz").write_bytes(gzip.compress((line + "\n").encode(), mtime=0))
+        for name in ("summary.json", "manifest.json", "cell.json"):
+            f = dst / name
+            f.write_text(f.read_text().replace(src.name, dst.name))
+        s = json.loads((dst / "summary.json").read_text())
+        factor = 2.0 * (random_share if "random" in src.name else 1.0)
+        for k in [k for k in s if k.startswith(("cpu_pass_", "wall_pass_")) and "over" not in k]:
+            s[k] = s[k] * factor
+        (dst / "summary.json").write_text(json.dumps(s))
+        out.append(dst)
+    return out
+
+
+def test_h7s_pass() -> None:
+    """H7-S on a paired timing pass whose reruns reproduce their session twins: both tests lower, determinism pass,
+    supported and in agreement with H7; groups h7t-<seed> count as one group (h7-timing), so nothing is cut. The
+    copied heuristic seed 103 is invalid, as in the session tree, so 9 pairs remain."""
+    with _synthetic(min_seeds=None) as (runs, out):
+        reruns = _write_h7s_pass(runs)
+        assert len(reruns) == 20
+        log = _run_main(runs, out)
+        head = json.loads((out / "tables" / "latency_optimality.json").read_text(encoding="utf-8"))
+        h7s = head["h7s"]
+        assert h7s["determinism"] == {"status": "pass", "runs": 20, "matched": 20, "differs": []}, (h7s, log)
+        assert [t["outcome"] for t in h7s["tests"]] == ["lower", "lower"], h7s["tests"]
+        assert h7s["verdict"] == "supported" and h7s["agrees_with_h7"] is True, h7s
+        assert {v["group"] for v in h7s["validity"]} == {"h7-timing"}, h7s["validity"]
+        tests = pd.read_csv(out / "tables" / "h7s_tests.csv")
+        assert list(tests["family"]) == ["H7-S", "H7-S"] and (tests["n_pairs"] == 9).all() and (tests["m"] == 2).all()
+        assert abs(float(tests["speedup"].iloc[0]) - 2 * float(
+            pd.read_csv(out / "tables" / "exp7_tests.csv")["speedup"].iloc[0])) < 0.5, "random at half the heuristic"
+
+
+def test_h7s_void_and_disagreement() -> None:
+    """A rerun whose simulated output differs from its twin voids H7-S; with matching reruns where random is slower
+    (20x its share: the synthetic random arm is about 9x faster at 1,000 nodes), H7-S is not supported and disagrees
+    with H7."""
+    with _synthetic(min_seeds=None) as (runs, out):
+        reruns = _write_h7s_pass(runs)
+        bad = reruns[3]
+        s = json.loads((bad / "summary.json").read_text())
+        s["evictions"] += 1
+        (bad / "summary.json").write_text(json.dumps(s))
+        _run_main(runs, out)
+        h7s = json.loads((out / "tables" / "latency_optimality.json").read_text(encoding="utf-8"))["h7s"]
+        assert h7s["verdict"] == "void" and h7s["determinism"]["differs"] == [bad.name], h7s
+        det = pd.read_csv(out / "tables" / "h7s_determinism.csv")
+        assert _row(det, run_id=bad.name)["differences"] == "summary.evictions"
+    with _synthetic(min_seeds=None) as (runs, out):
+        _write_h7s_pass(runs, random_share=20.0)
+        _run_main(runs, out)
+        h7s = json.loads((out / "tables" / "latency_optimality.json").read_text(encoding="utf-8"))["h7s"]
+        assert [t["outcome"] for t in h7s["tests"]] == ["higher", "higher"], h7s["tests"]
+        assert h7s["verdict"] == "not supported" and h7s["h7_verdict"] == "supported", h7s
+        assert h7s["agrees_with_h7"] is False
 
 
 def main(argv: list[str] | None = None) -> int:
