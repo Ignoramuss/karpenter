@@ -392,3 +392,12 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   reviewers perturbed the cells. Each run's `wall_cpu_ratio` (wall over CPU time across its passes) is the
   contention indicator the analysis reports. top also shows 2-3% steal time from the hypervisor, which no session
   process controls.
+- **Handover to driver v3 (Oct 28, 11:28 UTC).** v1 finished `exp1-n1000` (180/180, none failed), skipped the rest
+  (`session.skip`) and exited; v3 took over at 11:28:13 UTC on the same VM (epoch C), re-invoked the finished groups
+  (each `0 pending`) and started `exp6`. No cut decision is recorded yet (no candidate group reached).
+- **Provisional analysis and a summary module (11:40 UTC, no rule changed).** With Exp 1 complete, `make figures`
+  ran on the finished groups into the scratchpad (not committed: most experiments are still running). Nothing in
+  the remaining runs or the analysis depends on what it showed. New `paper/analysis/summary.py` (run last by
+  `make figures`, with tests) collects every verdict and its key effects from the modules' JSON headlines into
+  `tables/summary.{md,json}`, which `experiments/RESULTS.md` will quote, so the write-up cannot drift from the
+  tables.

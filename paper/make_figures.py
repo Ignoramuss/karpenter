@@ -45,6 +45,7 @@ MODULES = (
     "frontier_fidelity",  # Exp 5, 6 (figures 3 and 5)
     "timeseries_figures",  # Exp 2 (figures 1, 2 and 6)
     "latency_optimality",  # Exp 7, 8, the B6 lower bound (figures 4 and 7)
+    "summary",  # every verdict and its key effects, from the headlines above (experiments/RESULTS.md quotes it)
 )
 PACKAGE = "paper.analysis"
 
