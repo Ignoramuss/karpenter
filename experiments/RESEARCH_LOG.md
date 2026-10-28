@@ -414,3 +414,8 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   machine epochs the H7 entries promised: each run now gets `machine_epoch` (A, B, C, ... from
   `experiments/session-driver/machine-log.txt` and its manifest's `started_at`), shown per cell in `exp7_latency`
   and in the summary's H7 row (heuristic/entropy-greedy at 1,000 nodes on VM B, random/entropy-greedy on VM C).
+- **`make verify` clean (Oct 28, 13:37 UTC).** No Go code changed since Gate 3, so this checks the session binary's
+  source. The first attempt failed on tooling only: the VM's `yq` is the Python jq wrapper, while
+  `hack/validation/*.sh` need mikefarah's Go `yq`; with v4.44.3 installed (`go install`, scratchpad, first on PATH)
+  `make verify` passes: `go generate` and the validation scripts leave no diff, `go vet` is clean, and the
+  kube-api linter reports 0 issues. Run at `nice 10` while `exp6` (descriptive decision cost only) ran.

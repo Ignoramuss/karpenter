@@ -6,7 +6,7 @@ file before the next action. Decisions and fallbacks are logged in `experiments/
 ## Definition of done
 
 - [x] Branch rebased on upstream main (fast-forward to `32fd95b`); upstream disruption tests green.
-- [ ] `make verify` clean (lint on every new and changed package is clean; the full target runs before the end).
+- [x] `make verify` clean (13:37 UTC Oct 28, at the session source; needs mikefarah `yq` v4 on PATH).
 - [x] `pkg/controllers/disruption/pipeline`: interfaces, registry, adapters, strategies, conformance and parity
       tests, behind the `ConsolidationPipeline` gate, off by default.
 - [x] `hack/consolidation-sim/`: the simulator, a determinism test, and the resumable experiment runner.

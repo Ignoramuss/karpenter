@@ -8,6 +8,8 @@ not: the full profile, Tier B on KWOK, and an optional Tier C pass on EKS. Sessi
 ## 0. Prerequisites
 
 - Go at the version in `go.mod` (`GOTOOLCHAIN=auto` fetches it).
+- For `make verify`: mikefarah's Go `yq` v4 on PATH (`go install github.com/mikefarah/yq/v4@v4.44.3`); the
+  Python `yq` some distributions ship fails in `hack/validation/*.sh`.
 - Python 3.13 with the pinned analysis packages:
 
   ```bash
