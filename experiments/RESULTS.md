@@ -31,9 +31,73 @@ counts, each test's effect with its interval, and the table and figure that show
 
 ## Per hypothesis
 
-*To be filled*, one subsection each, in this form: the hypothesis as preregistered; the verdict; the effects that
-decide it (percent differences with 95% bootstrap or 90% TOST intervals, Holm-adjusted p); the figure; and what the
-result does and does not show.
+Each subsection gives the hypothesis as preregistered, the verdict, the effects that decide it and what the result
+does and does not show. Percent differences are random minus heuristic (or arm minus reference) over the reference's
+mean; "90% CI" is the TOST interval, "95% CI" a paired bootstrap interval (10,000 resamples). H2-H6 and the other
+checks are *to be filled* when their groups finish.
+
+### H1. Random generation vs heuristic generation, entropy-guided planners (Exp 1; complete)
+
+**Hypothesis.** With stages 3 and 4 fixed to entropy-guided planning (entropy-greedy, anneal-plan), random candidates
+and moves (uniform-random candidates, random merge and shift) reach steady-state cost within 3% of heuristic
+generation (upstream's candidate order with the multi-node prefix search and single-node scan) at an equal
+full-simulation budget per pass. Twelve paired TOSTs (2 planners x W1, W2, W4 x 200 and 1,000 nodes, 10 seeds),
+Holm over the 12; supported iff at least 10 are equivalent and none is vetoed.
+
+**Verdict: not supported.** 3 of 12 equivalent after Holm, none vetoed, 9 of 12 non-inferior
+(`paper/tables/exp1_h1.md`). Equivalence fails in both directions:
+
+| Steady-state $/hr, random vs heuristic | W1 (fragmented start) | W2 (diurnal) | W4 (mixed shapes) |
+| --- | --- | --- | --- |
+| entropy-greedy, 200 nodes | -1.7% (90% CI -3.2, -0.2) | +4.3% (+2.1, +6.5) | -4.1% (-5.3, -2.9) |
+| anneal-plan, 200 nodes | -4.3% (-5.8, -2.7) | +2.5% (+1.1, +4.0) | -5.1% (-6.3, -3.8), lower beyond the margin |
+| entropy-greedy, 1,000 nodes | -2.4% (-3.1, -1.7) | +1.4% (+0.6, +2.3), equivalent | -3.9% (-4.8, -2.9) |
+| anneal-plan, 1,000 nodes | +0.1% (-0.8, +1.0), equivalent | +2.6% (+2.1, +3.1) | -1.5% (-2.1, -0.9), equivalent |
+
+On the static workloads (W1, W4) random generation ends cheaper than heuristic generation, often by more than the
+margin; on the diurnal workload (W2) it ends 1.4-4.3% more expensive. Under savings-only planning (the P0 contrast,
+not part of H1) the split is starker: random is 6.6-10.7% cheaper on W1 and W4 and 2.6% more expensive on W2 at
+1,000 nodes; none of the six is equivalent.
+
+**What it costs** (descriptive, `paper/tables/exp1_secondary.md`, `exp1_phases.md`). The cheaper end states are not
+free. With entropy-guided planners, random generation evicted 48-130% more pods on W1 and W4 and 26-41% more on W2
+at 1,000 nodes (W2 at 200 nodes: -5% to +13%, intervals spanning zero), and removed 16-54% more nodes on W1 and W4
+(9-28% fewer on W2). It converges more slowly: in the first hour after warmup its fleet cost is higher (W1 and W4:
++2% to +54%; W2: +0.4% to +2.0%), so its cost integrated over the run is higher in 10 of the 12 cells (+1.7% to
++24.5%; W1 1,000-node entropy-greedy +0.3% with an interval spanning zero, W4 1,000-node entropy-greedy -1.3%). It
+ran 21-58% fewer full simulations per pass and left fewer pod-seconds pending.
+
+**What it shows.** Under this simulator and these budgets, random generation is not a drop-in equivalent of
+upstream's heuristic search: it trades disruption and slower convergence for a lower final cost on fragmented and
+mixed-shape fleets, and does worse after a diurnal scale-down. The test answers the preregistered question (within
+3% or not); it does not say which arm is preferable, which depends on how evictions are priced (Exp 6 measures that
+trade-off). Tier B did not run, so whether real kube-scheduler placement preserves the ranking is untested.
+
+### H7. Decision cost at 1,000 nodes (Exp 7; primary family complete)
+
+**Hypothesis.** Random sampling with fast feasibility has lower decision cost than prefix binary search at 1,000
+nodes, and no timeouts: random/entropy-greedy vs heuristic/entropy-greedy on W1 at 1,000 nodes (Exp 1's 3-hour
+runs), process CPU time per disruption pass, mean and p95, paired by seed, exact Wilcoxon, Holm over 2; and no valid
+random/entropy-greedy run at 1,000 nodes (W1, W2, W4) with a pass over upstream's 1-minute limit.
+
+**Verdict: not supported** (`paper/tables/exp7_tests.md`). Mean CPU time per pass is 37.2% lower for random
+generation (95% CI -41.2 to -33.2; 895 vs 1,425 ms; lower in all 10 seeds, Holm p = 0.004), but the p95 is 19.3%
+higher (95% CI +14.3 to +23.4; 2,726 vs 2,285 ms; higher in all 10 seeds, Holm p = 0.004). The timeout clause holds:
+none of the 30 random/entropy-greedy 1,000-node runs had a pass over 1 minute (the slowest took 9.5 s). Random
+generation ran 32% fewer full simulations per pass (7.5 vs 10.9). At 200 nodes (descriptive) the pattern is the
+same: mean 98 vs 143 ms, p95 392 vs 324 ms.
+
+**Caveat: the two arms ran on different VMs.** The session VM was replaced twice during Exp 1, which runs arm-major:
+all ten heuristic cells ran on VM B and all ten random cells on VM C (`machine_epoch` in
+`paper/tables/exp7_latency.md`), each beside three cells of its own arm. Both arms saw little contention (wall over
+CPU time 1.004 each). The VMs' CPU labels differ (2.80 vs 2.10 GHz), but per unit of work the session's own data
+show no consistent speed difference (`experiments/RESEARCH_LOG.md`, "Correction: the H7 confound's direction"). The
+supplementary pass H7-S reran both arms on one VM, interleaved; *to be filled* with its result, its twin CPU ratios
+and its test-by-test comparison with H7.
+
+**What it shows.** Random sampling makes the typical pass cheaper and the slow passes slower: its cost per pass is
+more variable, so a fixed per-pass time limit binds on the tail, not the mean. Neither arm comes close to upstream's
+1-minute limit at 1,000 nodes in this simulator.
 
 ## Deviations from the preregistration
 

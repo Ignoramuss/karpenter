@@ -419,3 +419,6 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   `hack/validation/*.sh` need mikefarah's Go `yq`; with v4.44.3 installed (`go install`, scratchpad, first on PATH)
   `make verify` passes: `go generate` and the validation scripts leave no diff, `go vet` is clean, and the
   kube-api linter reports 0 issues. Run at `nice 10` while `exp6` (descriptive decision cost only) ran.
+- **Disruption tests green at the session source (13:47 UTC).** `go test ./pkg/controllers/disruption/... -race`:
+  the controller (479 s), the pipeline package with its parity and conformance suites (421 s) and the four strategy
+  packages all pass (`nice 10`, beside `exp6`).
