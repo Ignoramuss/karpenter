@@ -1,0 +1,93 @@
+{
+  "run_id": "b4__arm-b4_scenario-w4_seed-102__55409df9",
+  "binary_revision": "c78b5f95063c1995b10fa6d66571a16d0a32b243",
+  "binary_modified": false,
+  "git_sha": "9fbed54ee6544c13c1af3ed437b1a0d42ea35b8f",
+  "git_dirty": false,
+  "config": {
+    "runID": "b4__arm-b4_scenario-w4_seed-102__55409df9",
+    "seed": 102,
+    "scenario": {
+      "name": "W4",
+      "nodes": 200
+    },
+    "arm": {
+      "name": "pipeline",
+      "label": "B4",
+      "pipeline": {
+        "candidates": {
+          "name": "upstream"
+        },
+        "moves": [
+          {
+            "name": "upstream-multi",
+            "params": {
+              "mode": "fine"
+            }
+          },
+          {
+            "name": "upstream-single",
+            "params": {
+              "mode": "fine"
+            }
+          }
+        ],
+        "movesMode": "sequential",
+        "planner": {
+          "name": "upstream"
+        },
+        "executor": {
+          "name": "upstream-queue"
+        },
+        "potential": {
+          "name": "none"
+        },
+        "seed": 0
+      }
+    },
+    "placement": "least-allocated",
+    "scaleDown": "spread",
+    "duration": "3h0m0s",
+    "warmup": "10m0s",
+    "metricsInterval": "1m0s",
+    "catalog": {
+      "path": "",
+      "families": null,
+      "capacityTypes": null,
+      "zones": null,
+      "maxCPU": 32
+    },
+    "consolidateAfter": "30s",
+    "budget": "10%",
+    "latency": {
+      "launch": {
+        "min": "2s",
+        "max": "5s"
+      },
+      "registration": {
+        "min": "30s",
+        "max": "1m0s"
+      },
+      "podStartup": {
+        "min": "2s",
+        "max": "10s"
+      },
+      "podShutdown": {
+        "min": "1s",
+        "max": "5s"
+      }
+    },
+    "maxWall": "0s"
+  },
+  "seed": 102,
+  "scenario": "W4",
+  "environment": {
+    "go_version": "go1.26.10",
+    "os": "linux",
+    "arch": "amd64",
+    "cpus": 4,
+    "hostname": "vm"
+  },
+  "started_at": "2026-10-28T22:48:32.658544092Z",
+  "finished_at": "2026-10-28T22:50:29.349832541Z"
+}

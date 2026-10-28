@@ -1,0 +1,43 @@
+{
+  "arm": {
+    "label": "B4",
+    "name": "pipeline",
+    "pipeline": {
+      "candidates": {
+        "name": "upstream"
+      },
+      "executor": {
+        "name": "upstream-queue"
+      },
+      "moves": [
+        {
+          "name": "upstream-multi",
+          "params": {
+            "mode": "fine"
+          }
+        },
+        {
+          "name": "upstream-single",
+          "params": {
+            "mode": "fine"
+          }
+        }
+      ],
+      "movesMode": "sequential",
+      "planner": {
+        "name": "upstream"
+      },
+      "potential": {
+        "name": "none"
+      }
+    }
+  },
+  "duration": "3h",
+  "maxWall": "0s",
+  "runID": "b4__arm-b4_scenario-w1_seed-104__fcbb6acf",
+  "scenario": {
+    "name": "W1",
+    "nodes": 200
+  },
+  "seed": 104
+}

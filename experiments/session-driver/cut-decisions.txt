@@ -1,0 +1,1 @@
+2026-10-28T23:08:40Z START realism-w5 :: START realism-w5: projected end 2026-10-28T23:38Z vs deadline 2026-10-29T02:52Z (now 2026-10-28T23:08Z; W5@200: 60 cells x median 2.0 min (fallback: all 200-node cells, n=1070); /4 workers)
