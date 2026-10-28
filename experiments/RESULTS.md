@@ -80,7 +80,7 @@ question (within 3% or not); it does not say which arm is preferable, which depe
 6 measures that trade-off). Tier B did not run, so whether real kube-scheduler placement preserves the ranking is
 untested.
 
-### H2. Does a potential drop predict node removals? (Exp 2; provisional until `realism-w6`)
+### H2. Does a potential drop predict node removals? (Exp 2; provisional until `realism-w6` and `exp1-baselines-n1000` run or are cut)
 
 **Hypothesis.** A drop in the potential over a 10-minute window predicts node removals in the next window. Per run
 (every valid W2, W3 and W6 run of the Exp 2 groups except B0, each distinct configuration and seed once):
@@ -89,7 +89,8 @@ entropy, P3 quadratic); per seed the median rho; an exact one-sided sign test ov
 x scenario with data. A potential satisfies H2 iff its test rejects after Holm and the median of per-seed medians is
 positive in every scenario with data; partially if in some.
 
-**Verdict so far** (W2 and W3; W6 adds three tests and changes Holm's m from 6 to 9;
+**Verdict so far** (W2 and W3; W6 adds three tests and changes Holm's m from 6 to 9, and `exp1-baselines-n1000`
+would add B2 and B3 W2 runs at 1,000 nodes;
 `paper/tables/exp2_correlation.md`, figure `fig6_leadlag`):
 
 | Potential | W2: median rho (95% CI), seeds positive, Holm p | W3 | Verdict |
@@ -99,9 +100,13 @@ positive in every scenario with data; partially if in some.
 | P3 quadratic | -0.30 (-0.36, -0.23), 0 of 10, 1 | +0.12 (-0.01, +0.21), 7 of 10, 0.52 | not supported |
 
 With 10 seeds the smallest one-sided sign-test p is 1/1,024; after Holm over 6, 9 of 10 seeds positive (p = 0.011,
-adjusted 0.054) is not enough here. P1's drops lead removals on W2, and on W3 nine of ten seeds point the same way;
-P2 and P3 move against removals on W2 (a non-positive per-seed median in every seed; overall medians -0.27 and
--0.30). *To be finalized with W6.*
+adjusted 0.054) is not enough here. P1's 10-minute drop correlates positively with next-window removals on W2 (10 of
+10 seeds), and on W3 nine of ten seeds point the same way. The per-minute lead-lag (figure `fig6_leadlag`,
+descriptive) peaks at lag 0 and is roughly symmetric, so it does not show that drops come before removals; whether
+they do was not tested. On W2, P2 and P3 drops are followed by fewer removals in the next window (a non-positive
+per-seed median in every seed; overall medians -0.27 and -0.30), although minute by minute they coincide with
+removals (lag-0 median correlation about +0.36 for both). *To be finalized with W6 and the 1,000-node baselines (or
+their cut).*
 
 ### H3. Merge plus shift vs merge only (Exp 3; complete)
 
@@ -275,8 +280,9 @@ cost in every cell, significantly after Holm in 6 of 8.
 (Holm p = 0.016 or 0.018 where not shown.) Integrated cost after warmup is lower for every variant too (-3% to -27%;
 W2 without annealing -2.9%, 95% CI -6.4 to +0.4).
 
-**What it shows.** At the low eviction budget (18 pods per minute, the pilot's median eviction rate of
-random/entropy-greedy while consolidating, chosen so that it binds), the full configuration is the most expensive of
+**What it shows.** At the low eviction budget (18 pods per minute: the median over the pilot's W2
+random/entropy-greedy runs of the mean evictions per minute in minutes with any eviction, 18.3 rounded, chosen so
+that it binds), the full configuration is the most expensive of
 the five. Each of the other three removals also cuts evictions (by 21-76%) and lowers cost, which suggests the
 potential, annealing and random generation each spend the capped budget on moves that do not pay off within it; that
 reading was not tested further. Removing the budget alone recovers most of the cost; the W1 variant
@@ -326,16 +332,20 @@ is 2.8x heuristic's. No measured pass came near a minute: the slowest W1 pass to
 more variable, so a fixed per-pass time limit binds on the tail, not the mean. Neither arm comes close to upstream's
 1-minute limit at 1,000 nodes in this simulator.
 
-### Exp 8. Optimality gap to the offline packing bound (descriptive; complete)
+### Exp 8. Optimality gap to the offline packing bound (descriptive; 1,000-node B2/B3 rows pending)
 
-Each run's fleet cost at its final pod-set snapshot against the cheapest fleet that could hold those pods (B6:
-CP-SAT at 50 nodes: of the 59 distinct pod sets, 48 bounds proven optimal, 8 feasible, 3 skipped above its 600-pod
-limit; the LP relaxation at 200 and 1,000 nodes, on average 3% below CP-SAT on the 50-node final snapshots), as gap
-= cost / bound - 1 (`paper/tables/exp8_gap.md`, figure `fig7_optimality_gap`). At 50 nodes the consolidating arms
-end 8-21% above the bound and B5 (the descheduler) 78-145% above; at 200 nodes 9-22%; at 1,000 nodes 11-43%, widest
-for savings-only planning on W1 and W4 (42-43% with heuristic generation). The lowest final gaps are
-random/savings-only's on W1 and W4 (8-12% at 50 and 200 nodes). Gaps are computed on the final snapshot only at 200
-and 1,000 nodes; at 50 nodes the mean over every snapshot is also in the table.
+Each run's fleet cost at its final pod-set snapshot against a lower bound on the cheapest fleet that could hold
+those pods (B6: CP-SAT at 50 nodes: of the 59 distinct pod sets, 48 bounds proven optimal, 8 feasible, 3 skipped
+above its 600-pod limit; the LP relaxation at 200 and 1,000 nodes, on average 3% below CP-SAT on the 50-node final
+snapshots), as gap = cost / bound - 1 (`paper/tables/exp8_gap.md`, figure `fig7_optimality_gap`). The bound is exact
+only where CP-SAT proved optimality (25 of the 30 distinct final 50-node pod sets), so the gaps are upper estimates
+of the distance to the cheapest fleet, more so at 200 and 1,000 nodes. At 50 nodes the consolidating arms end 8-21%
+above the bound and B5 (the descheduler) 78-145% above; at 200 nodes 9-22%; at 1,000 nodes 11-43% for the six
+pipeline arms (the B2 and B3 rows come from `exp1-baselines-n1000`, not yet run), widest for savings-only planning
+on W1 and W4 (42-43% with heuristic generation). The lowest final gaps are random/savings-only's on W1 and W4 (8-12%
+at 50 and 200 nodes). Gaps are computed on the final snapshot only at 200 and 1,000 nodes. At 50 nodes the table
+also has each run's mean over its snapshots that have a CP-SAT bound; the 3 skipped pod sets (early W2 snapshots of
+two seeds, 698-739 pods) are left out of those means, not given the LP bound, and no final snapshot was skipped.
 
 ### B4. Parity in the wild (complete)
 
@@ -344,9 +354,10 @@ and B3 on the same seeds, W1, W2 and W4 at 200 nodes, uncapped, over whole 3-hou
 (`paper/tables/b4_parity.md`). **Status: equivalent** (the preregistered middle tier): all six TOSTs at the 3%
 margin pass after Holm (steady-state cost differences -0.75% to +0.34%, every 90% interval within -1.8% to +1.0%),
 but only 7 of 60 seeds match exactly (B4 vs B2: 2 of 10 on W2, none on W1 or W4; B4-balanced vs B3: 5 of 10 on W2,
-none on W1 or W4). Exact matches were not expected: the simulator's candidate-order shuffle draws from one seeded
-stream per run, and the pipeline's method boundaries consume that stream differently from upstream's separate
-methods (`docs/research/parity.md`, "Parity in the wild"). The decision-level parity test
+none on W1 or W4). Exact matches were not guaranteed even with identical decision logic (`docs/research/parity.md`,
+"Parity in the wild", written before these runs): the simulator's candidate-order shuffle draws from one seeded
+stream per run, and the pipeline's method boundaries can consume that stream differently from upstream's separate
+methods. Whether this accounts for the 53 non-matching seeds was not tested. The decision-level parity test
 (`docs/research/parity.md`) is the exact check.
 
 ### Run checks
