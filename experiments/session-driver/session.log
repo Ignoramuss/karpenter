@@ -897,3 +897,90 @@ matrix session: 20 cells, 0 done, 0 failed, 20 pending; 4 workers, wall budget 1
 matrix session: 20/20 done, 0 failed, 0 pending
 2026-10-28T17:24:52Z DONE exp5-steered :: matrix session: 20/20 done, 0 failed, 0 pending
 2026-10-28T17:24:52Z START exp3
+matrix session: 80 cells, 0 done, 0 failed, 80 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+[1/80 done] done exp3__arm-merge-only-budget-lo_scenario-w2_seed-101__fe5a7270 in 354.2s
+[2/80 done] done exp3__arm-merge-only-budget-lo_scenario-w2_seed-104__c6d09552 in 374.7s
+[3/80 done] done exp3__arm-merge-only-budget-lo_scenario-w2_seed-102__e1dc1535 in 461.4s
+[4/80 done] done exp3__arm-merge-only-budget-lo_scenario-w2_seed-103__2951d5d1 in 622.5s
+[5/80 done] done exp3__arm-merge-only-budget-lo_scenario-w2_seed-108__190a03be in 317.9s
+[6/80 done] done exp3__arm-merge-only-budget-lo_scenario-w2_seed-105__3679cd8c in 624.0s
+[7/80 done] done exp3__arm-merge-only-budget-lo_scenario-w2_seed-107__1e573339 in 534.4s
+[8/80 done] done exp3__arm-merge-only-budget-lo_scenario-w2_seed-106__3786e252 in 762.4s
+[9/80 done] done exp3__arm-merge-only-budget-lo_scenario-w2_seed-109__e40e0740 in 287.0s
+[10/80 done] done exp3__arm-merge-only-budget-lo_scenario-w2_seed-110__ae2ec35c in 451.1s
+[11/80 done] done exp3__arm-merge-only-budget-lo_scenario-w3_seed-101__b1a6d43c in 499.6s
+[12/80 done] done exp3__arm-merge-only-budget-lo_scenario-w3_seed-103__459cb692 in 298.1s
+[13/80 done] done exp3__arm-merge-only-budget-lo_scenario-w3_seed-104__4110e238 in 307.4s
+[14/80 done] done exp3__arm-merge-only-budget-lo_scenario-w3_seed-105__401533d7 in 283.9s
+[15/80 done] done exp3__arm-merge-only-budget-lo_scenario-w3_seed-102__fc0a61a3 in 738.3s
+[16/80 done] done exp3__arm-merge-only-budget-lo_scenario-w3_seed-106__2e12502b in 450.6s
+[17/80 done] done exp3__arm-merge-only-budget-lo_scenario-w3_seed-108__293ed64f in 422.7s
+[18/80 done] done exp3__arm-merge-only-budget-lo_scenario-w3_seed-109__3ebdb8d6 in 348.2s
+[19/80 done] done exp3__arm-merge-shift-budget-lo_scenario-w2_seed-101__d998beb2 in 177.9s
+[20/80 done] done exp3__arm-merge-shift-budget-lo_scenario-w2_seed-102__1e3f9837 in 185.9s
+[21/80 done] done exp3__arm-merge-only-budget-lo_scenario-w3_seed-110__675c4cab in 442.7s
+[22/80 done] done exp3__arm-merge-only-budget-lo_scenario-w3_seed-107__a6c27959 in 731.2s
+[23/80 done] done exp3__arm-merge-shift-budget-lo_scenario-w2_seed-104__ab3a538e in 138.7s
+[24/80 done] done exp3__arm-merge-shift-budget-lo_scenario-w2_seed-103__be82e81d in 228.8s
+[25/80 done] done exp3__arm-merge-shift-budget-lo_scenario-w2_seed-105__bee836b0 in 190.1s
+[26/80 done] done exp3__arm-merge-shift-budget-lo_scenario-w2_seed-109__7b00a361 in 114.0s
+[27/80 done] done exp3__arm-merge-shift-budget-lo_scenario-w2_seed-108__89e67058 in 157.7s
+[28/80 done] done exp3__arm-merge-shift-budget-lo_scenario-w2_seed-106__b2d45c53 in 313.4s
+[29/80 done] done exp3__arm-merge-shift-budget-lo_scenario-w2_seed-107__b9e85dd6 in 243.8s
+[30/80 done] done exp3__arm-merge-shift-budget-lo_scenario-w2_seed-110__655c46f1 in 170.2s
+[31/80 done] done exp3__arm-merge-shift-budget-lo_scenario-w3_seed-103__cf4cd9e0 in 199.3s
+[32/80 done] done exp3__arm-merge-shift-budget-lo_scenario-w3_seed-104__87a8867c in 214.8s
+[33/80 done] done exp3__arm-merge-shift-budget-lo_scenario-w3_seed-101__9957fac5 in 362.8s
+[34/80 done] done exp3__arm-merge-shift-budget-lo_scenario-w3_seed-105__a4aad4c8 in 192.7s
+[35/80 done] done exp3__arm-merge-shift-budget-lo_scenario-w3_seed-102__d7a3c9aa in 543.5s
+[36/80 done] done exp3__arm-merge-shift-budget-lo_scenario-w3_seed-106__b5c3fc2e in 298.3s
+[37/80 done] done exp3__arm-merge-shift-budget-lo_scenario-w3_seed-108__f544e460 in 323.3s
+[38/80 done] done exp3__arm-merge-shift-budget-lo_scenario-w3_seed-109__b58d923b in 262.4s
+[39/80 done] done exp3__arm-merge-only-budget-hi_scenario-w2_seed-101__3725398a in 115.2s
+[40/80 done] done exp3__arm-merge-shift-budget-lo_scenario-w3_seed-107__8479e2de in 520.0s
+[41/80 done] done exp3__arm-merge-only-budget-hi_scenario-w2_seed-102__be752760 in 121.1s
+[42/80 done] done exp3__arm-merge-shift-budget-lo_scenario-w3_seed-110__cd7f3670 in 303.7s
+matrix session: wall budget 1h0m0s spent; re-invoke to continue
+matrix session: 42/80 done, 0 failed, 38 pending
+matrix session: 80 cells, 42 done, 0 failed, 38 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+[43/80 done] done exp3__arm-merge-only-budget-hi_scenario-w2_seed-104__ce608f57 in 103.5s
+[44/80 done] done exp3__arm-merge-only-budget-hi_scenario-w2_seed-103__e1b31c91 in 137.2s
+[45/80 done] done exp3__arm-merge-only-budget-hi_scenario-w2_seed-105__7ea0c0da in 144.0s
+[46/80 done] done exp3__arm-merge-only-budget-hi_scenario-w2_seed-109__2aef5b39 in 92.1s
+[47/80 done] done exp3__arm-merge-only-budget-hi_scenario-w2_seed-106__41a54cf4 in 240.4s
+[48/80 done] done exp3__arm-merge-only-budget-hi_scenario-w2_seed-108__39df74bb in 104.5s
+[49/80 done] done exp3__arm-merge-only-budget-hi_scenario-w2_seed-107__a3d6239a in 146.5s
+[50/80 done] done exp3__arm-merge-only-budget-hi_scenario-w2_seed-110__8ed0b3fc in 116.4s
+[51/80 done] done exp3__arm-merge-only-budget-hi_scenario-w3_seed-103__7e087769 in 273.7s
+[52/80 done] done exp3__arm-merge-only-budget-hi_scenario-w3_seed-104__97e71d24 in 264.7s
+[53/80 done] done exp3__arm-merge-only-budget-hi_scenario-w3_seed-101__e557d614 in 429.1s
+[54/80 done] done exp3__arm-merge-only-budget-hi_scenario-w3_seed-105__c200489a in 239.2s
+[55/80 done] done exp3__arm-merge-only-budget-hi_scenario-w3_seed-102__b89d3a42 in 624.4s
+[56/80 done] done exp3__arm-merge-only-budget-hi_scenario-w3_seed-106__4ec86f9f in 407.9s
+[57/80 done] done exp3__arm-merge-only-budget-hi_scenario-w3_seed-108__7088990c in 383.3s
+[58/80 done] done exp3__arm-merge-only-budget-hi_scenario-w3_seed-109__c3d697df in 322.4s
+[59/80 done] done exp3__arm-merge-shift-budget-hi_scenario-w2_seed-101__45c32ebf in 107.0s
+[60/80 done] done exp3__arm-merge-shift-budget-hi_scenario-w2_seed-102__b4ab7435 in 130.3s
+[61/80 done] done exp3__arm-merge-only-budget-hi_scenario-w3_seed-107__ad0adead in 710.9s
+[62/80 done] done exp3__arm-merge-only-budget-hi_scenario-w3_seed-110__f0c7659f in 378.8s
+[63/80 done] done exp3__arm-merge-shift-budget-hi_scenario-w2_seed-103__e056b10d in 155.9s
+[64/80 done] done exp3__arm-merge-shift-budget-hi_scenario-w2_seed-104__766be55c in 99.8s
+[65/80 done] done exp3__arm-merge-shift-budget-hi_scenario-w2_seed-108__c9168c76 in 112.2s
+[66/80 done] done exp3__arm-merge-shift-budget-hi_scenario-w2_seed-105__14f6c8d1 in 153.0s
+[67/80 done] done exp3__arm-merge-shift-budget-hi_scenario-w2_seed-107__78b35bd7 in 162.9s
+[68/80 done] done exp3__arm-merge-shift-budget-hi_scenario-w2_seed-106__2d423c76 in 173.5s
+[69/80 done] done exp3__arm-merge-shift-budget-hi_scenario-w2_seed-109__f88fbb04 in 89.4s
+[70/80 done] done exp3__arm-merge-shift-budget-hi_scenario-w2_seed-110__bc19de61 in 120.0s
+[71/80 done] done exp3__arm-merge-shift-budget-hi_scenario-w3_seed-103__50b9e569 in 202.1s
+[72/80 done] done exp3__arm-merge-shift-budget-hi_scenario-w3_seed-104__c426fef5 in 208.1s
+[73/80 done] done exp3__arm-merge-shift-budget-hi_scenario-w3_seed-101__1ef5dad2 in 372.0s
+[74/80 done] done exp3__arm-merge-shift-budget-hi_scenario-w3_seed-105__192d501d in 189.9s
+[75/80 done] done exp3__arm-merge-shift-budget-hi_scenario-w3_seed-102__80103dc9 in 556.6s
+[76/80 done] done exp3__arm-merge-shift-budget-hi_scenario-w3_seed-106__6cf1c34f in 285.8s
+[77/80 done] done exp3__arm-merge-shift-budget-hi_scenario-w3_seed-108__450cd899 in 327.1s
+[78/80 done] done exp3__arm-merge-shift-budget-hi_scenario-w3_seed-109__3b99dd35 in 238.6s
+[79/80 done] done exp3__arm-merge-shift-budget-hi_scenario-w3_seed-110__29b563bb in 270.8s
+[80/80 done] done exp3__arm-merge-shift-budget-hi_scenario-w3_seed-107__a524e627 in 506.1s
+matrix session: 80/80 done, 0 failed, 0 pending
+2026-10-28T19:07:32Z DONE exp3 :: matrix session: 80/80 done, 0 failed, 0 pending
+2026-10-28T19:07:32Z START exp4

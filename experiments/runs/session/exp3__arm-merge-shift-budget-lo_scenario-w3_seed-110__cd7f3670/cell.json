@@ -1,0 +1,53 @@
+{
+  "arm": {
+    "label": "merge+shift/budget-lo",
+    "name": "pipeline",
+    "pipeline": {
+      "budgets": {
+        "podEvictionsPerMinute": 18
+      },
+      "candidates": {
+        "name": "uniform-random",
+        "params": {
+          "sourceFraction": 0.25
+        }
+      },
+      "executor": {
+        "name": "shift-evict"
+      },
+      "moves": [
+        {
+          "name": "random-merge",
+          "params": {
+            "confirm": true
+          }
+        },
+        {
+          "name": "random-shift"
+        }
+      ],
+      "movesMode": "pooled",
+      "planner": {
+        "name": "entropy-greedy",
+        "params": {
+          "lambda": 0.1
+        }
+      },
+      "potential": {
+        "name": "util-entropy"
+      },
+      "search": {
+        "maxAttempts": 500,
+        "maxFullSimulations": 16
+      }
+    }
+  },
+  "duration": "3h",
+  "maxWall": "0s",
+  "runID": "exp3__arm-merge-shift-budget-lo_scenario-w3_seed-110__cd7f3670",
+  "scenario": {
+    "name": "W3",
+    "nodes": 200
+  },
+  "seed": 110
+}
