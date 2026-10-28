@@ -315,3 +315,11 @@
 {"run_id":"exp1-n1000__arm-heuristic-anneal-plan_scenario-w2_seed-105__aee5759f","group":"exp1-n1000","status":"done","exit_code":0,"wall_seconds":894.054,"finished_at":"2026-10-28T04:51:33.752667406Z","attempt":1}
 {"run_id":"exp1-n1000__arm-heuristic-anneal-plan_scenario-w2_seed-106__b50d6a1f","group":"exp1-n1000","status":"done","exit_code":0,"wall_seconds":952.447,"finished_at":"2026-10-28T04:52:32.146543829Z","attempt":1}
 {"run_id":"exp1-n1000__arm-heuristic-anneal-plan_scenario-w2_seed-107__09941a1f","group":"exp1-n1000","status":"done","exit_code":0,"wall_seconds":989.128,"finished_at":"2026-10-28T04:53:08.827145734Z","attempt":1}
+{"run_id":"exp1-n1000__arm-heuristic-anneal-plan_scenario-w2_seed-108__2eb6d849","group":"exp1-n1000","status":"done","exit_code":0,"wall_seconds":936.156,"finished_at":"2026-10-28T05:05:38.997620946Z","attempt":1}
+{"run_id":"exp1-n1000__arm-heuristic-anneal-plan_scenario-w2_seed-109__3b1abccb","group":"exp1-n1000","status":"done","exit_code":0,"wall_seconds":897.301,"finished_at":"2026-10-28T05:06:31.053935823Z","attempt":1}
+{"run_id":"exp1-n1000__arm-heuristic-anneal-plan_scenario-w2_seed-110__2cbfa56f","group":"exp1-n1000","status":"done","exit_code":0,"wall_seconds":937.734,"finished_at":"2026-10-28T05:08:09.880622805Z","attempt":1}
+{"run_id":"exp1-n1000__arm-heuristic-anneal-plan_scenario-w4_seed-101__66dfdb6f","group":"exp1-n1000","status":"done","exit_code":0,"wall_seconds":997.534,"finished_at":"2026-10-28T05:09:46.361460904Z","attempt":1}
+{"run_id":"exp1-n1000__arm-heuristic-anneal-plan_scenario-w4_seed-102__c9887076","group":"exp1-n1000","status":"done","exit_code":0,"wall_seconds":950.872,"finished_at":"2026-10-28T05:21:29.870702636Z","attempt":1}
+{"run_id":"exp1-n1000__arm-heuristic-anneal-plan_scenario-w4_seed-103__08c8ae26","group":"exp1-n1000","status":"done","exit_code":0,"wall_seconds":906.874,"finished_at":"2026-10-28T05:21:37.927713587Z","attempt":1}
+{"run_id":"exp1-n1000__arm-heuristic-anneal-plan_scenario-w4_seed-104__c1465c7b","group":"exp1-n1000","status":"done","exit_code":0,"wall_seconds":883.137,"finished_at":"2026-10-28T05:22:53.017995286Z","attempt":1}
+{"run_id":"exp1-n1000__arm-heuristic-anneal-plan_scenario-w4_seed-105__78f9e28b","group":"exp1-n1000","status":"done","exit_code":0,"wall_seconds":891.12,"finished_at":"2026-10-28T05:24:37.481436366Z","attempt":1}
