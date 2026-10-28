@@ -352,3 +352,22 @@ matrix session: 180 cells, 73 done, 0 failed, 107 pending; 4 workers, wall budge
 matrix session: wall budget 1h0m0s spent; re-invoke to continue
 matrix session: 90/180 done, 0 failed, 90 pending
 === driver v3 restarted with review-2 fixes 2026-10-28T05:58:50Z, waits on pid 269
+matrix session: 180 cells, 90 done, 0 failed, 90 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+[91/180 done] done exp1-n1000__arm-random-savings-only_scenario-w1_seed-102__74f4e0b6 in 949.7s
+[92/180 done] done exp1-n1000__arm-random-savings-only_scenario-w1_seed-103__b9799c08 in 951.3s
+[93/180 done] done exp1-n1000__arm-random-savings-only_scenario-w1_seed-104__afec0f50 in 954.8s
+[94/180 done] done exp1-n1000__arm-random-savings-only_scenario-w1_seed-101__04086e17 in 974.2s
+[95/180 done] done exp1-n1000__arm-random-savings-only_scenario-w1_seed-107__02320e06 in 906.8s
+[96/180 done] done exp1-n1000__arm-random-savings-only_scenario-w1_seed-105__2d61e3d1 in 922.8s
+[97/180 done] done exp1-n1000__arm-random-savings-only_scenario-w1_seed-106__2503a74a in 922.4s
+[98/180 done] done exp1-n1000__arm-random-savings-only_scenario-w1_seed-108__59900f92 in 905.1s
+[99/180 done] done exp1-n1000__arm-random-savings-only_scenario-w2_seed-102__df506b15 in 855.3s
+[100/180 done] done exp1-n1000__arm-random-savings-only_scenario-w1_seed-109__267f6672 in 906.6s
+[101/180 done] done exp1-n1000__arm-random-savings-only_scenario-w1_seed-110__98e6d202 in 933.6s
+[102/180 done] done exp1-n1000__arm-random-savings-only_scenario-w2_seed-101__34c01a24 in 933.8s
+[103/180 done] done exp1-n1000__arm-random-savings-only_scenario-w2_seed-104__6c452ec1 in 902.1s
+[104/180 done] done exp1-n1000__arm-random-savings-only_scenario-w2_seed-103__3a9a83d1 in 968.8s
+[105/180 done] done exp1-n1000__arm-random-savings-only_scenario-w2_seed-105__a79ba9f3 in 980.8s
+[106/180 done] done exp1-n1000__arm-random-savings-only_scenario-w2_seed-106__e88e64d6 in 1038.8s
+matrix session: wall budget 1h0m0s spent; re-invoke to continue
+matrix session: 106/180 done, 0 failed, 74 pending
