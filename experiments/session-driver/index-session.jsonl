@@ -447,3 +447,4 @@
 {"run_id":"exp6__arm-random-entropy-greedy-lambda-0.1_scenario-w2_seed-108__2c36fcbd","group":"exp6","status":"done","exit_code":0,"wall_seconds":120.69,"finished_at":"2026-10-28T11:52:46.58836309Z","attempt":1}
 {"run_id":"exp6__arm-random-entropy-greedy-lambda-0.1_scenario-w2_seed-109__d78ce0cc","group":"exp6","status":"done","exit_code":0,"wall_seconds":124.44,"finished_at":"2026-10-28T11:53:13.282235397Z","attempt":1}
 {"run_id":"exp6__arm-random-entropy-greedy-lambda-0.1_scenario-w2_seed-107__ac8371fe","group":"exp6","status":"done","exit_code":0,"wall_seconds":176.555,"finished_at":"2026-10-28T11:53:19.71750742Z","attempt":1}
+{"run_id":"exp6__arm-random-entropy-greedy-lambda-0.1_scenario-w2_seed-110__7c30c16a","group":"exp6","status":"done","exit_code":0,"wall_seconds":130.368,"finished_at":"2026-10-28T11:54:36.446742725Z","attempt":1}
