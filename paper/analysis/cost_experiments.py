@@ -63,7 +63,7 @@ H1_METRIC = "steady_cost_per_hour"
 # Exp 1 secondary metrics: the brief's list, then the registry's remaining secondary metrics.
 EXP1_SECONDARY = ["integrated_cost_post", "evictions", "eviction_cost", "nodes_removed", "regret_evictions",
                   "re_disruptions", "full_simulations_per_pass", "wall_pass_mean_ms", "cpu_pass_mean_ms",
-                  "pending_pod_seconds", "mean_time_to_schedule_s"]
+                  common.WALL_CPU_RATIO, "pending_pod_seconds", "mean_time_to_schedule_s"]
 EXP4_SWEEP_METRICS = ["steady_cost_per_hour", "evictions", "eviction_cost", "integrated_cost_post", "final_nodes"]
 ABL_METRICS = ["steady_cost_per_hour", "integrated_cost_post", "evictions", "eviction_cost"]
 ABL_HEADERS = {"steady_cost_per_hour": "Steady-state\ncost ($/hr)", "integrated_cost_post": "Cost after\nwarmup ($)",

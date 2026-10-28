@@ -6,8 +6,10 @@ design revision").
 A run's VM is the last boot in machine-log.txt (btime=...) at or before its manifest's started_at; the driver logs
 the boot ID, boot time and CPU before every runner invocation, so every boot a run started on is listed. Set-aside
 cells go to experiments/h7-timing-split/round-<n>/ (outside experiments/runs, so no analysis reads them).
-Exit 0: no seed is split; 4: cells were set aside, rerun the pass; 2: error (no machine log, or a seed's arm is
-unfinished).
+A seed is also rerun when one of its arms has a failed attempt (the runner retries it in a later invocation, at a
+lower load). Seeds with an unfinished or abandoned arm are reported and left alone. With --report-only (the last
+round) nothing is moved. Exit 0: nothing (more) to rerun; 4: cells were set aside, rerun the pass; 2: error (no
+machine log).
 """
 import json
 import re
@@ -49,37 +51,52 @@ def epoch(started, boot_times):
     return max(i for i, b in enumerate(boot_times) if b <= started) if boot_times and boot_times[0] <= started else -1
 
 
-def main():
+def main(argv):
+    report_only = "--report-only" in argv
     if not MACHINE_LOG.is_file():
         print(f"error: {MACHINE_LOG} not found")
         return 2
     bts = boots()
-    arms = {}
+    arms, retried = {}, set()
     for d in sorted(RUNS.glob("h7t-*__*")):
-        if ".failed-" in d.name or not (d / "summary.json").is_file() or not (d / "manifest.json").is_file():
+        if ".failed-" in d.name:
+            cell = d / "cell.json"
+            if cell.is_file():
+                cfg = json.loads(cell.read_text(encoding="utf-8"))
+                retried.add(int(cfg["seed"]))
+            continue
+        if not (d / "summary.json").is_file() or not (d / "manifest.json").is_file():
             continue
         m = json.loads((d / "manifest.json").read_text(encoding="utf-8"))
         cfg = m.get("config") or {}
         arms[(int(cfg["seed"]), (cfg.get("arm") or {}).get("label"))] = (epoch(parse_time(m["started_at"]), bts), d)
-    missing = [(s, a) for s in SEEDS for a in ARMS if (s, a) not in arms]
-    if missing:
-        print(f"error: unfinished arms {missing}")
-        return 2
-    split = [s for s in SEEDS if arms[(s, ARMS[0])][0] != arms[(s, ARMS[1])][0]]
-    if not split:
-        print(f"no split pairs: {len(SEEDS)} seeds, each with both arms on one VM")
+    complete = [s for s in SEEDS if all((s, a) in arms for a in ARMS)]
+    unfinished = [(s, a) for s in SEEDS for a in ARMS if (s, a) not in arms]
+    split = [s for s in complete if arms[(s, ARMS[0])][0] != arms[(s, ARMS[1])][0]]
+    # A seed with a failed attempt was retried in a later runner invocation, at a lower load than its twin.
+    rerun = sorted(set(split) | (retried & set(complete)))
+    note = f"; unfinished or abandoned arms {unfinished}" if unfinished else ""
+    if not rerun:
+        print(f"no seed to rerun: {len(complete)} seeds with both arms on one VM and no retried attempt{note}")
+        return 0
+    if report_only:
+        print(f"split or retried seeds {rerun} left in place (last round; the analysis drops split seeds){note}")
         return 0
     n = 1
     while (ASIDE / f"round-{n}").exists():
         n += 1
     dest = ASIDE / f"round-{n}"
     dest.mkdir(parents=True)
-    moved = [arms[(s, a)][1] for s in split for a in ARMS] + sorted(RUNS.glob("h7fill-*__*"))
+    moved = [arms[(s, a)][1] for s in rerun for a in ARMS]
+    moved += [d for d in sorted(RUNS.glob("h7t-*__*.failed-*"))
+              if json.loads((d / "cell.json").read_text(encoding="utf-8")).get("seed") in rerun]
+    moved += sorted(RUNS.glob("h7fill-*__*"))
     for d in moved:
         shutil.move(str(d), str(dest / d.name))
-    print(f"split seeds {split}: set aside {len(moved)} cells (with the fillers) to {dest.relative_to(REPO)}")
+    print(f"split seeds {split}, retried seeds {sorted(retried & set(complete))}: set aside {len(moved)} cells "
+          f"(with their failed attempts and the fillers) to {dest.relative_to(REPO)}{note}")
     return 4
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

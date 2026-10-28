@@ -749,7 +749,8 @@ def test_run_checks_tables() -> None:
         for seed in range(101, 111):
             for arm in ("heuristic", "random"):
                 cfg = {"seed": seed, "scenario": {"name": "W1", "nodes": 1000},
-                       "arm": {"name": "pipeline", "label": f"{arm}/entropy-greedy", "pipeline": {"candidates": {"name": arm}}}}
+                       "arm": {"name": "pipeline", "label": f"{arm}/entropy-greedy",
+                               "pipeline": {"candidates": {"name": arm}}}}
                 _mini_run(m, f"exp1-n1000__arm-{arm}_seed-{seed}__{arm[0]}{seed}", seed, label=f"{arm}/entropy-greedy",
                           nodes=1000, config=cfg)
                 _mini_run(h7, f"h7t-{seed}__arm-{arm}__{arm[0]}{seed}", seed, label=f"{arm}/entropy-greedy", nodes=1000,

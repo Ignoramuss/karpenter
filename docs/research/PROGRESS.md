@@ -67,7 +67,9 @@ file before the next action. Decisions and fallbacks are logged in `experiments/
       `exp1-baselines-n200`. Running: `exp1-n1000`. Two VM replacements so far (23:52 and 03:30 UTC); in-flight
       cells relaunched. Driver v2 (`experiments/session-driver/`) takes over after `exp1-n1000` with the
       preregistered order (v1 omitted `b4`) and the cut rule mechanized.
-- [ ] Supplementary H7 timing pass (`experiments/matrix/h7-timing.yaml`, 20 cells), queued after the session.
+- [ ] Supplementary H7 timing pass (`experiments/matrix/h7-timing.yaml`, 20 cells plus 4 fillers, one interleaved
+      invocation), queued after the session. Driver v3 (restart-safe cut decisions, machine log) armed after two
+      adversarial reviews of the driver, the cut rule and the H7-S analysis.
 - [ ] Exp 2 from logs; 10,000-state parity (first chunk done: 10,000/10,000 x 2), resumes after the session.
 
 ## Phases 5-6: validation and artifacts

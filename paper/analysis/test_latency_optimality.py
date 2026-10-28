@@ -517,7 +517,8 @@ def test_h7s_pass() -> None:
                                                                          "cpu_pass_p95_ms": True}
         assert h7s["h7_timeout_clause"] == "holds" and h7s["h7_verdict"] == "supported"
         ratio = h7s["cpu_ratio_to_twin"]
-        assert ratio["heuristic/entropy-greedy"]["n"] == 9 and abs(ratio["heuristic/entropy-greedy"]["geomean"] - 2) < 1e-9
+        heur = ratio["heuristic/entropy-greedy"]
+        assert heur["n"] == 9 and abs(heur["geomean"] - 2) < 1e-9
         assert abs(ratio["random/entropy-greedy"]["geomean"] - 1) < 1e-9 and ratio["random/entropy-greedy"]["n"] == 10
         # 20 cells of 20 minutes starting 5 minutes apart: an inner cell overlaps 20 + 2 x (15 + 10 + 5) cell-minutes,
         # a mean of 4 at once; the first and last cells see 2.5 (to within the start times' fractional seconds).
@@ -564,7 +565,8 @@ def test_h7s_split_seed_and_abandoned_twin() -> None:
         reruns = _write_h7s_pass(runs)
         r105 = next(d for d in reruns if d.name.startswith("h7t-105__arm-random"))
         start = json.loads((r105 / "manifest.json").read_text())["started_at"]
-        boot2 = (pd.Timestamp(start.replace(".123456789", "")) - pd.Timedelta(seconds=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        boot2 = (pd.Timestamp(start.replace(".123456789", "")) - pd.Timedelta(seconds=30)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ")
         log = runs.parent / "session-driver" / "machine-log.txt"
         log.parent.mkdir(parents=True)
         log.write_text("# comment btime=2000-01-01T00:00:00Z\n"
@@ -586,6 +588,35 @@ def test_h7s_split_seed_and_abandoned_twin() -> None:
         assert set(runs_t.loc[~runs_t["paired"].astype(bool), "seed"]) == {105}
         assert _row(runs_t, run_id=r110.name)["twin_status"] == "not checked (twin abandoned)"
         assert h7s["verdict"] == "supported", h7s["verdict"]
+        assert _row(runs_t, run_id=r105.name)["started_at"] == start[:19] + "Z", "times are readable in the table"
+
+
+def test_h7s_abandoned_rerun_and_set_aside_cells() -> None:
+    """An abandoned rerun has no start time and does not make its seed "split"; cells the driver set aside to
+    rerun still count toward the concurrency of the cells that ran beside them."""
+    with _synthetic(min_seeds=None) as (runs, out):
+        reruns = _write_h7s_pass(runs)
+        log = runs.parent / "session-driver" / "machine-log.txt"
+        log.parent.mkdir(parents=True)
+        log.write_text('2026-10-29T03:00:00Z boot_id=a btime=2026-10-29T02:59:00Z cpu="x" nproc=4\n')
+        gone = next(d for d in reruns if d.name.startswith("h7t-102__arm-random"))
+        shutil.move(str(gone), str(gone.with_name(gone.name + ".failed-1")))
+        shutil.copytree(gone.with_name(gone.name + ".failed-1"), gone.with_name(gone.name + ".failed-2"))
+        with open(runs / "h7-timing" / "index.jsonl", "a", encoding="utf-8") as f:
+            f.write(json.dumps({"run_id": gone.name, "status": "abandoned", "attempt": 2}) + "\n")
+        _run_main(runs, out)
+        before = pd.read_csv(out / "tables" / "h7s_runs.csv")
+        h7s = json.loads((out / "tables" / "latency_optimality.json").read_text(encoding="utf-8"))["h7s"]
+        assert h7s["pairing"]["split_seeds"] == [] and h7s["determinism"]["not_checked"] == [gone.name], h7s
+        last = next(d for d in reruns if d.name.startswith("h7t-110__arm-random"))
+        aside = runs.parent / "h7-timing-split" / "round-1"
+        aside.mkdir(parents=True)
+        shutil.move(str(last), str(aside / last.name))
+        _run_main(runs, out)
+        after = pd.read_csv(out / "tables" / "h7s_runs.csv")
+        prev = _row(before, seed=110, label="heuristic/entropy-greedy")["concurrency_mean"]
+        assert abs(_row(after, seed=110, label="heuristic/entropy-greedy")["concurrency_mean"] - prev) < 1e-9, \
+            "a set-aside co-runner still counts"
 
 
 def main(argv: list[str] | None = None) -> int:

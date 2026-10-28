@@ -27,8 +27,9 @@ the final snapshot gets the LP bound. ``gap = cost_per_hour at the snapshot / bo
 Outputs under ``out_root`` (nothing is written for an experiment without runs):
 
 - ``tables/exp7_latency.{csv,md}``: one row per (scenario, nodes, label): run counts, mean, p95 and max CPU and wall
-  time per pass (ms), full simulations per pass and measured nodes (mean peak_nodes), each with the mean and median
-  and their 95% bootstrap CIs over valid runs; passes over upstream's 1 and 3 minute timeouts and search timeouts
+  time per pass (ms), full simulations per pass, measured nodes (mean peak_nodes) and the wall-to-CPU ratio over all
+  passes (``common.WALL_CPU_RATIO``, a contention indicator: about 1 with a core to itself), each with the mean and
+  median and their 95% bootstrap CIs over valid runs; passes over upstream's 1 and 3 minute timeouts and search timeouts
   (totals and runs affected).
 - ``tables/exp7_tests.{csv,md}``: the H7 tests (and H7-B2's when present) at 1,000 nodes with floors, Holm p, the
   paired effect, the speedup (reference mean / random mean), the direction and the outcome.
@@ -171,7 +172,7 @@ SIZE = "peak_nodes"
 # counts passes over each.
 TIMEOUTS = (("1m", "wall_passes_over_1m", 60_000.0), ("3m", "wall_passes_over_3m", 180_000.0))
 LATENCY_COLUMNS = (["scenario", "nodes", "label", "n_runs", "n_valid", "n_invalid", "duration_min"]
-                   + [c for m in (*LATENCY_METRICS, SIMS_PER_PASS, SIZE) for c in ci_names(m)]
+                   + [c for m in (*LATENCY_METRICS, SIMS_PER_PASS, SIZE, common.WALL_CPU_RATIO) for c in ci_names(m)]
                    + ["disruption_passes_mean", "cpu_pass_total_s_mean"]
                    + [c for name, _, _ in TIMEOUTS for c in (f"passes_over_{name}_total", f"runs_over_{name}",
                                                              f"runs_over_{name}_unknown")]
@@ -219,7 +220,7 @@ def latency_table(df: pd.DataFrame, exp: dict[str, Any]) -> pd.DataFrame:
         duration, passes = _floats(valid["duration_min"]), _floats(valid["disruption_passes"])
         row["duration_min"] = float(np.median(duration[np.isfinite(duration)])) if np.isfinite(duration).any() \
             else math.nan
-        for m in (*LATENCY_METRICS, SIMS_PER_PASS, SIZE):
+        for m in (*LATENCY_METRICS, SIMS_PER_PASS, SIZE, common.WALL_CPU_RATIO):
             row.update(ci_columns(m, valid[m]))
         row["disruption_passes_mean"] = float(passes[np.isfinite(passes)].mean()) if np.isfinite(passes).any() \
             else math.nan
@@ -464,9 +465,11 @@ _RUN_ID_FIELD = re.compile(rb'"run_id"\s*:\s*"[^"]*"')
 _BTIME = re.compile(r"\bbtime=(\S+)")
 _TIME = re.compile(r"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(\.\d+)?Z")
 MACHINE_LOG = Path("session-driver") / "machine-log.txt"  # under experiments/, beside the runs tree
+# Under experiments/: timing-pass cells the driver set aside to rerun (experiments/session-driver/h7_pairs.py).
+SPLIT_DIR = "h7-timing-split"
 H7S_RUN_COLUMNS = ["run_id", "label", "seed", "valid", "started_at", "finished_at", "boot", "paired",
-                   "concurrency_mean", "twin_run_id", "twin_status", "differences", "cpu_pass_mean_ms",
-                   "twin_cpu_pass_mean_ms", "cpu_ratio_to_twin"]
+                   "concurrency_mean", common.WALL_CPU_RATIO, "twin_run_id", "twin_status", "differences",
+                   "cpu_pass_mean_ms", "twin_cpu_pass_mean_ms", "cpu_ratio_to_twin"]
 
 
 def _file_digest(path: Path) -> str | None:
@@ -525,6 +528,11 @@ def boot_index(t: float, boots: Sequence[float]) -> int:
     return max((i for i, b in enumerate(boots) if b <= t), default=-1)
 
 
+def _iso(t: float) -> str:
+    """POSIX seconds as an RFC 3339 UTC timestamp to the second ("" when unknown), for the tables."""
+    return pd.Timestamp(t, unit="s", tz="UTC").strftime("%Y-%m-%dT%H:%M:%SZ") if math.isfinite(t) else ""
+
+
 def _run_times(run_dir: Path) -> tuple[float, float]:
     try:
         m = json.loads((Path(run_dir) / "manifest.json").read_text(encoding="utf-8"))
@@ -560,8 +568,10 @@ def h7s_runs(runs: pd.DataFrame, sel: pd.DataFrame, exp: dict[str, Any]) -> tupl
     missing, "pass" when at least one run matched and none differs, else "not checked".
 
     ``paired`` is False for both arms of a seed whose arms started on different boots of the machine log
-    (``MACHINE_LOG`` beside the runs tree); those seeds leave the tests. Without the log, every seed counts as paired
-    and the epoch check is "not checked"."""
+    (``MACHINE_LOG`` beside the runs tree); those seeds leave the tests. Runs without a start time (abandoned) do not
+    count toward a split. Without the log, every seed counts as paired and the epoch check is "not checked".
+    ``concurrency_mean`` counts every cell that ran in the pass, set-aside cells (``SPLIT_DIR``) included;
+    ``started_at`` and ``finished_at`` are RFC 3339 strings."""
     groups = common.map_groups(exp["params"]["reference_groups"])
     ref = runs.loc[runs["group"].isin(groups)]
     twins = {_hash_key(r): row for r, row in zip(ref["run_id"], ref.to_dict("records"))}
@@ -570,15 +580,20 @@ def h7s_runs(runs: pd.DataFrame, sel: pd.DataFrame, exp: dict[str, Any]) -> tupl
     boots = machine_boots(log_path) if log_path is not None else None
     if boots is None and paths:
         common.logger.warning("%s not found: H7-S pairs not checked for a shared VM", MACHINE_LOG.as_posix())
-    matrix_dirs = {p.parent for p in paths}
-    intervals = [_run_times(d.parent) for m in matrix_dirs for d in m.glob("*/manifest.json")]
+    # Every cell that ran in the pass counts toward concurrency: the matrix's runs and failed attempts, and the cells
+    # the driver set aside to rerun (they ran beside the others before they were moved).
+    matrix_dirs = {p.resolve().parent for p in paths}
+    manifests = [d for m in matrix_dirs for d in m.glob("*/manifest.json")]
+    manifests += [d for m in matrix_dirs for d in (m.parent.parent / SPLIT_DIR).glob("round-*/*/manifest.json")]
+    intervals = [_run_times(d.parent) for d in manifests]
     rows = []
     for _, r in sel.sort_values(["seed", "label"], kind="stable").iterrows():
         start, finish = _run_times(Path(r["path"]))
         row: dict[str, Any] = {"run_id": r["run_id"], "label": r["label"], "seed": r["seed"], "valid": bool(r["valid"]),
-                               "started_at": start, "finished_at": finish,
+                               "started_at": _iso(start), "finished_at": _iso(finish),
                                "boot": boot_index(start, boots) if boots is not None else math.nan,
                                "concurrency_mean": mean_concurrency((start, finish), intervals),
+                               common.WALL_CPU_RATIO: _floats([r.get(common.WALL_CPU_RATIO)])[0],
                                "cpu_pass_mean_ms": _floats([r.get("cpu_pass_mean_ms")])[0]}
         twin = twins.get(_hash_key(r["run_id"]))
         rerun_ok = (Path(r["path"]) / "summary.json").is_file()
@@ -603,8 +618,10 @@ def h7s_runs(runs: pd.DataFrame, sel: pd.DataFrame, exp: dict[str, Any]) -> tupl
     table = pd.DataFrame(rows, columns=H7S_RUN_COLUMNS)
     split: list[int] = []
     if boots is not None and len(table):
-        for seed, part in table.groupby("seed", sort=True):
-            if part["boot"].nunique(dropna=False) > 1:
+        # Only runs with a known start count: an abandoned run has none and is reported as such, not as a split.
+        known = table.loc[table["started_at"] != ""]
+        for seed, part in known.groupby("seed", sort=True):
+            if part["boot"].nunique() > 1:
                 split.append(int(seed))
     table["paired"] = ~table["seed"].isin(split) if len(table) else pd.Series(dtype=bool)
     statuses = set(table["twin_status"])

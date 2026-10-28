@@ -42,12 +42,13 @@ run_group() { # matrix file, --only value, label, wall budget per invocation
 # The decision recorded for a candidate group: START, CUT or "" (none yet).
 recorded() { awk -v g="$1" '$3 == g && ($2 == "START" || $2 == "CUT") {print $2; exit}' "$DECISIONS" 2>/dev/null; }
 decide() { # group -> records START or CUT (exit 0) or fails (exit 1) without recording
-  local g="$1" line rc i
+  local g="$1" line="" rc="" i
   if [ "$cut_rest" -eq 1 ]; then echo "$(date -u +%FT%TZ) CUT $g :: an earlier cut candidate was cut" >> "$DECISIONS"; return 0; fi
   if compgen -G "experiments/runs/session/${g}__*" > /dev/null; then
     echo "$(date -u +%FT%TZ) START $g :: already started before this decision was recorded" >> "$DECISIONS"; return 0
   fi
   for i in 1 2 3; do
+    line=""; rc=""
     if "$BIN" matrix --matrix experiments/matrix/session.yaml --only "$g" --dry-run > "$S/ids-$g.txt" && [ -s "$S/ids-$g.txt" ]; then
       line=$(python3 "$D/cut_projection.py" "$g" "$S/ids-$g.txt"); rc=$?
       if [ $rc -eq 0 ] || [ $rc -eq 3 ]; then
@@ -79,7 +80,7 @@ echo "$(date -u +%FT%TZ) SESSION COMPLETE"
 H7_ONLY="h7t-101,h7t-102,h7t-103,h7t-104,h7t-105,h7t-106,h7t-107,h7t-108,h7t-109,h7t-110,h7fill-111,h7fill-112"
 for round in 0 1 2 3; do
   run_group experiments/matrix/h7-timing.yaml "$H7_ONLY" "h7-timing" 0s
-  out=$(python3 "$D/h7_pairs.py"); rc=$?
+  out=$(python3 "$D/h7_pairs.py" $([ $round -eq 3 ] && echo --report-only)); rc=$?
   echo "$(date -u +%FT%TZ) H7 PAIRS (round $round) rc=$rc :: $out"
   [ $rc -eq 4 ] || break
 done
@@ -93,9 +94,12 @@ for cell in "WhenEmptyOrUnderutilized assorted wour-assorted" "Balanced kwok bal
     PARITY_OUT=$R/experiments/parity/chunks/parity-10000-seed2-$3.jsonl \
     $S/bin/pipeline.test -test.run TestParity -test.count 1 -test.timeout 30h -test.v > $S/logs/parity-$3.log 2>&1
   rc=$?
-  echo "$(date -u +%FT%TZ) PARITY DONE $3 rc=$rc :: $(grep -c 'PARITY policy' $S/logs/parity-$3.log) configs"
-  if [ $rc -eq 0 ]; then
-    grep -o 'PARITY policy.*' $S/logs/parity-$3.log | sed 's/^PARITY //' > $R/experiments/parity/chunks/parity-10000-seed2-$3.summary.txt
+  n=$(grep -c 'PARITY policy' $S/logs/parity-$3.log); want=$([ "$1" = Balanced ] && echo 3 || echo 2)
+  echo "$(date -u +%FT%TZ) PARITY DONE $3 rc=$rc :: $n of $want configs"
+  # A complete run writes one line per config, pass or fail (a mismatch fails the test after all states ran).
+  if [ "$n" -ge "$want" ]; then
+    { grep -o 'PARITY policy.*' $S/logs/parity-$3.log | sed 's/^PARITY //'; echo "test_exit_status=$rc"; } \
+      > $R/experiments/parity/chunks/parity-10000-seed2-$3.summary.txt
     gzip -f $R/experiments/parity/chunks/parity-10000-seed2-$3.jsonl
   fi
 done

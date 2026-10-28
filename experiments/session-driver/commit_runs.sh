@@ -17,6 +17,8 @@ for m in experiments/runs/session experiments/runs/h7-timing; do
   done
   [ -f "$m/index.jsonl" ] && git add -f "$m/index.jsonl"
 done
+# Cells h7_pairs.py moved to experiments/h7-timing-split leave the timing pass's tree: stage their removal.
+git ls-files -- experiments/runs/h7-timing | while read -r f; do [ -e "$f" ] || git rm -q --cached -- "$f"; done
 [ -d experiments/h7-timing-split ] && git add -f experiments/h7-timing-split
 cp "$S/logs/session.log" experiments/session-driver/session.log 2>/dev/null
 git add experiments/session-driver

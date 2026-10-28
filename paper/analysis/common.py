@@ -107,6 +107,7 @@ SESSION_BINARY_FILE = "session-binary.txt"
 SESSION_DETERMINISM_FILE = "session-determinism.txt"
 PAIR_KEYS: tuple[str, ...] = ("scenario", "nodes", "seed")
 HIST_BINS = 10
+WALL_CPU_RATIO = "wall_cpu_ratio"  # derived per run: wall_pass_total_s / cpu_pass_total_s (a contention indicator)
 HIST_COLUMNS = ("hist_cpu", "hist_mem")
 
 ID_COLUMNS = ["run_id", "matrix", "group", "experiment", "label", "scenario", "nodes", "seed", "placement", "scale_down"]
@@ -497,6 +498,9 @@ def _run_record(run_dir: Path) -> dict[str, Any]:
         if rec.get(key) is None and value is not None:
             rec[key] = value
     rec["nodes"] = rec.get("scenario_nodes")
+    # Wall over CPU time across the run's passes: about 1 for a cell with a core to itself, higher under contention.
+    wall, cpu = _num(summary.get("wall_pass_total_s")), _num(summary.get("cpu_pass_total_s"))
+    rec[WALL_CPU_RATIO] = wall / cpu if math.isfinite(wall) and math.isfinite(cpu) and cpu > 0 else math.nan
     if _num(summary.get("fidelity_hits")) + _num(summary.get("fidelity_misses")) == 0:
         rec["fidelity"] = math.nan
     rec.update(_config_columns(manifest))

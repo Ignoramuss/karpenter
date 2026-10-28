@@ -363,3 +363,26 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   (`tables/h7s_runs`); test-by-test comparison with H7 (`tests_vs_h7`, `all_tests_agree`). `run_checks`: the
   timing pass stays out of the session totals, the cut table and the cross-group duplicate check (it has its own
   validity row and twin check), and its pending retries are counted under its group.
+- **Second review, of the fixes (Oct 28, 05:00-05:57 UTC).** Same design, aimed at commit `7dccb8d`: 16 findings,
+  13 confirmed by both skeptics, all minor but one (concurrency accounting). Fixed before driver v3 acts (it was
+  restarted at 05:58 UTC with the fixes, still waiting for v1): `decide()` no longer reads an unset variable when a
+  dry run fails (that would have killed the driver instead of retrying); `h7_pairs.py` reruns seeds with a retried
+  attempt (a retry runs in a later invocation at lower load) as well as split seeds, reports abandoned arms instead
+  of stopping the check, and moves nothing in the last round (`--report-only`); a parity chunk whose test fails on a
+  mismatch still records its counts (with the exit status); `commit_runs.sh` stages the removal of cells
+  `h7_pairs.py` moves. Analysis: concurrency counts set-aside cells and failed attempts (they ran beside the
+  others); a run with no start time (abandoned) no longer marks its seed as split; `h7s_runs` writes times as
+  RFC 3339 strings (they were rounded floats).
+- **Amendment to the H7 attribution rule.** The twin ratios mix machine and co-runner effects for the heuristic arm
+  (session in epoch B beside heuristic cells only; pass on the pass VM beside a mix) and measure co-runner effects
+  alone for the random arm (both on 2.10 GHz-labelled VMs, if the pass runs on one). They are reported as the
+  combined machine and co-runner effect per arm. No difference between H7 and H7-S is attributed to hardware alone.
+- **Correction to the review-window entry, and a quiet rule.** The cells running during the first review (03:51-04:48
+  UTC) were heuristic/anneal-plan W1 seeds 102-110 and W2 seeds 101-107 (the W4 entropy-greedy relaunches had
+  finished by 03:46). Other elevated-load windows from my own work: about 03:30-04:05 (driver setup, analysis tests)
+  and 04:50-05:57 (analysis tests, the second review). The cells overlapping them are heuristic/anneal-plan and
+  heuristic/entropy-greedy W4 at 1,000 nodes, whose decision-cost numbers are descriptive only (Exp 1's secondary
+  timing columns); the analysis reports each run's wall-to-CPU ratio per pass, a contention indicator, next to them.
+  From now on, while cells whose decision cost enters a test or Exp 7 run (`exp1-n1000` random/entropy-greedy,
+  `exp7-n50`, `exp7-b2`, `exp7-b2-n1000`, the H7 timing pass), I run no review workflows, test suites or builds on
+  the VM: only the driver, monitoring and file edits.
