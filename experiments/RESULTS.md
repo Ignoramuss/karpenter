@@ -101,10 +101,11 @@ integrated cost in all four cells, significantly after Holm.
 `paper/tables/exp3_secondary.md`.)
 
 **What it shows.** "Equal budget" is an equal cap, not equal use: with shifts available the pipeline spends more of
-the eviction budget (on W2 at the low budget, 1,144 evictions against 335) and ends with a costlier fleet, with
-15-17% more nodes at the end of the W3 runs. Under these settings the shift moves, which relocate pods without
-deleting a node, cost more than they save; whether a stricter shift acceptance rule would change that was not
-tested.
+the eviction budget (on W2 at the low budget, 1,144 evictions against 335) and ends with a higher steady-state cost
+in every cell (+2.9% to +5.1%; on W2 at the low budget the 95% interval spans zero, -0.6 to +11.6). On W3 the fleet
+ends with 15-17% more nodes; on W2 the final node counts do not differ (+0.5% and +0.6%). Under these settings the
+shift moves, which relocate pods without deleting a node, cost more than they save; whether a stricter shift
+acceptance rule would change that was not tested.
 
 ### H4. Annealing at plan time and online (Exp 4; complete)
 
@@ -118,9 +119,10 @@ holds; partially otherwise (the analysis reads "partially" as at least one claus
 
 **Verdict: partially supported, on one of eight clause cells** (`paper/tables/exp4_clauses.md`, `exp4_h4.md`).
 
-- **Plan clause fails in both scenarios, on disruption.** Anneal-plan lowers steady-state cost on W1 by 3.0% (95% CI
-  -4.7 to -1.7, Holm p = 0.020) and on W4 by 1.0% (-2.7 to +0.8, not significant), but evicts 37.7% (+29.3 to
-  +47.6) and 20.9% (+12.7 to +30.3) more pods than entropy-greedy, far past the +10% allowance.
+- **Plan clause fails in both scenarios: on disruption in both, and on W4 also on cost.** Anneal-plan lowers
+  steady-state cost on W1 by 3.0% (95% CI -4.7 to -1.7, Holm p = 0.020) and on W4 by 1.0% (-2.7 to +0.8, not
+  significant), but evicts 37.7% (+29.3 to +47.6) and 20.9% (+12.7 to +30.3) more pods than entropy-greedy, far past
+  the +10% allowance.
 - **Online clause holds in one cell** (W4, t0 = 3: 13.3% more evictions, Holm p = 0.020, at 11.0% higher cost). On
   W1 annealing online does not pay disruption: it evicts about 31% fewer pods than entropy-greedy (Holm p = 0.016 at
   every t0) and ends 68-69% more expensive, with 114-116 nodes left against 65. On W4 the other two t0 values evict
@@ -128,13 +130,16 @@ holds; partially otherwise (the analysis reads "partially" as at least one claus
 
 **The sweep** (`paper/tables/exp4_sweep.md`, descriptive). All six anneal-plan settings end 1-3% cheaper than
 entropy-greedy on W1 and W4 (W1 $42.4-43.1 against $43.7 per hour; W4 $43.0-43.4 against $43.9) with 21-48% more
-evictions, and none is cheaper over the run as a whole (integrated cost $140.0-147.1 against $136.9 on W1). The
+evictions, and none is cheaper in integrated cost after warmup ($140.0-147.1 against $136.9 on W1). The
 three anneal-online settings are nearly identical to one another.
 
-**What it shows.** In this simulator, annealing at plan time buys a small steady-state saving with a large increase
-in executed disruption, the opposite of "no extra disruption". Annealing online, executed move by move with its
-temperature cooled per cycle, mostly fails to consolidate rather than over-disrupting: it ends with a far larger
-fleet on W1 (why was not diagnosed; executing accepted uphill moves one at a time is one candidate).
+**What it shows.** In this simulator, annealing at plan time buys a small steady-state saving (significant on W1,
+-3.0%; -1.0% and not significant on W4) with a large increase in executed disruption, the opposite of "no extra
+disruption". Annealing online, executed move by move with its temperature cooled per cycle, mostly fails to
+consolidate rather than over-disrupting: it ends with a far larger fleet on W1. It takes one move per cycle, the
+first in random order that the Metropolis rule accepts, and every downhill move qualifies, so it mostly executes
+small shifts: on W1, 94% of its executed moves are shifts and it merges about 22 times per run, against 78 for
+entropy-greedy (decision logs).
 
 ### H5. Plan fidelity: where evicted pods land (Exp 5; complete)
 
@@ -258,8 +263,10 @@ matrix; *to be filled* with its result, its twin CPU ratios and its test-by-test
 | 1,000 | 1,425.1 ms (p95 2,285.5), VM B | 894.8 ms (p95 2,725.6), VM C | *to be filled* (`exp7-b2-n1000`) |
 
 From 50 to 1,000 nodes the mean grows about 72x for heuristic and 53x for random generation, while the node count
-grows 20x; random's p95 is above heuristic's at every size. B2's 200-node p95 is 2.8x heuristic's. No pass at any
-size came near a minute.
+grows 20x (heuristic's 50- and 1,000-node cells ran on different VMs, and co-runners differ by size for both arms,
+so the two ratios are not directly comparable); random's p95 is above heuristic's at every size. B2's 200-node p95
+is 2.8x heuristic's. No measured pass came near a minute: the slowest W1 pass took 6.1 s (random/entropy-greedy,
+1,000 nodes); B2 at 1,000 nodes is pending.
 
 **What it shows.** Random sampling makes the typical pass cheaper and the slow passes slower: its cost per pass is
 more variable, so a fixed per-pass time limit binds on the tail, not the mean. Neither arm comes close to upstream's
