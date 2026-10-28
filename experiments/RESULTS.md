@@ -97,25 +97,37 @@ or the run set is flagged.
 - Most-allocated placement raises fidelity: random/entropy-greedy from 0.251 to 0.325 (+29.3%, 95% CI +18.9 to
   +42.4) under spread and from 0.245 to 0.353 (+43.7%, +35.2 to +56.4) under deletion-cost; B2 by +17.4% and +17.6%
   (0.451 to 0.530, 0.455 to 0.535); all four significant after Holm (p = 0.020).
-- Deletion-cost scale-down does not: random/entropy-greedy -2.3% (-10.3 to +7.5) under least-allocated and +8.5%
-  (+2.2 to +15.3, Holm p = 0.11) under most-allocated; B2 +0.8% and +1.0%; none significant.
-- The steered executor (preferred node affinity on the moved pods) raises random/entropy-greedy's fidelity under
-  least-allocated by +72.5% (0.251 to 0.434; +52.7 to +94.5) and +72.8% (0.245 to 0.424; +60.7 to +82.8), Holm
-  p = 0.020: more than most-allocated scheduling, without changing the scheduler.
+- Deletion-cost scale-down does not significantly raise it: random/entropy-greedy -2.3% (-10.3 to +7.5) under
+  least-allocated and +8.5% (+2.2 to +15.3; unadjusted p = 0.027, Holm p = 0.11) under most-allocated; B2 +0.8% and
+  +1.0%; none significant after Holm.
+- The steered executor raises random/entropy-greedy's fidelity under least-allocated by +72.5% (0.251 to 0.434;
+  +52.7 to +94.5) and +72.8% (0.245 to 0.424; +60.7 to +82.8), Holm p = 0.020. In its affinity mode it gives the
+  pods that shift moves evict a preferred node affinity for their planned node; merges go through the upstream queue
+  unsteered. Steered pods alone cannot account for the whole gain: shift evictions fell from 21% to 14% of
+  evictions under the steered executor, and if every one of them had landed on plan while merges kept their
+  unsteered fidelity (at most 0.32), fidelity would be at most about 0.41, short of 0.43; so the unsteered merge
+  evictions landed on plan more often too.
 
-**Oracle flag.** Under plan-following placement (the scheduler places each evicted pod where the plan said),
-random/entropy-greedy reached 0.954 with spread scale-down but 0.937 (95% CI 0.902 to 0.962) with deletion-cost,
-below the 0.95 floor, so the Exp 5 run set is flagged as the preregistration requires; B2 reached 0.982 and 0.981.
-Even when the scheduler follows the plan, about 6% of the pipeline's evicted pods cannot land on their planned
-destination under deletion-cost scale-down, presumably because capacity changes between planning and placement (W2
-scales down while moves are in flight; not diagnosed further in the session). The fidelity numbers above are
-measured the same way in every cell, so the comparisons stand; the flag says the measure's ceiling is below 1 for
-this arm.
+**Oracle flag.** Plan-following placement is an oracle: it binds each evicted pod's replacement to its planned node
+if that node still passes the scheduler's filter at bind time (schedulable, untainted, with room, and satisfying
+anti-affinity and hard spread), and otherwise falls back to least-allocated scoring. Random/entropy-greedy reached
+0.954 with spread scale-down but 0.937 (95% CI 0.902 to 0.962) with deletion-cost, below the 0.95 floor, so the
+Exp 5 run set is flagged, as the preregistration requires; B2 reached 0.98 under both. The shortfall comes mostly
+from one seed: seed 107 reached 0.807 (727 hits, 174 misses), while the other nine averaged 0.951 (seed 107 with
+spread scale-down: 0.976). A miss under the oracle means the planned node failed the filter at bind time; the cause
+was not diagnosed in the session. It is specific to the pipeline (B2 misses about 2% under the same scale-down
+schedule), which runs several moves per cycle where B2 runs one command at a time, so its own concurrent moves
+draining, tainting or filling planned destinations is a plausible channel. The flagged cell is not in any of the 10
+H5 tests; the lever comparisons assume the same cause does not bias the least- and most-allocated cells, which was
+not checked.
 
 **What it shows.** Under upstream's default scheduler profile, the pipeline's plans mostly do not survive contact
-with placement (B2's fidelity is higher, 0.45, since its moves are whole-node deletions whose destinations come
-from a full scheduling simulation). Steering the moved pods is the most effective lever measured; deletion-cost
-scale-down has no measurable effect on fidelity.
+with placement. B2's fidelity is higher (0.451 and 0.455 under least-allocated); why was not tested. Most of B2's
+evictions come from replace commands that launch a new node (501 replace vs 190 delete commands), while the
+pipeline's merges remove whole nodes with destinations from the same upstream simulation yet land on plan less
+often, so neither whole-node moves nor the simulation explains the gap. The steered executor is the most effective
+lever measured, though only part of its effect comes from the pods it steers; deletion-cost scale-down produced no
+significant change after Holm (at most a small effect under most-allocated that this family cannot confirm).
 
 ### H6. Savings vs disruption against upstream and the descheduler (Exp 6; complete)
 
