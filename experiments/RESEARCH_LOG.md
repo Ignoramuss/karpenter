@@ -312,3 +312,54 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   (`common.SESSION_BINARY_MATRICES`). Also fixed a test fixture: the latency module's pilot smoke test read every
   matrix under `experiments/runs`, which now holds session runs too; it reads the pilot matrix only. No preregistered
   rule changed. All analysis test suites pass.
+- **Adversarial review of the driver, the cut rule and H7-S (Oct 28, 03:51-04:48 UTC).** Three independent reviewers
+  (driver; H7-S analysis; preregistration fidelity), each finding checked by two skeptics told to refute it: 17
+  findings, 13 confirmed by both, 2 split, 2 refuted. The reviewers ran read-only commands on the VM while
+  `exp1-n1000` ran (load average about 7 instead of 4). The cells running then were heuristic/anneal-plan W1 and W2
+  and the relaunched heuristic/entropy-greedy W4 seeds 108-110; none of them enters H7, H7-S or Exp 7's tables
+  (W1 entropy-greedy and B2 only), and their simulated outcomes do not depend on load. The fixes follow.
+- **Correction: the H7 confound's direction (before any random/entropy-greedy 1,000-node result).** The "H7
+  hardware confound" entry said a cross-machine comparison is biased against random sampling "by roughly the clock
+  ratio (about 25%)". That rested on lscpu's model strings ("@ 2.80GHz" in epoch B, "@ 2.10GHz" in A and C), which
+  are generic labels on these VMs and do not identify the hardware. The session's own data do not show it: per unit
+  of work (CPU time per full simulation), heuristic/savings-only W1 at 1,000 nodes took 126-144 ms in epoch A and
+  127 and 134 ms in epoch B, and heuristic/entropy-greedy W4 took 96-119 ms in B and 92-97 ms in C (different seeds
+  and co-runners, so this is not a clean estimate either). The claim is withdrawn: the size and sign of the machine
+  effect are unknown. H7 also differs between its arms in co-runner composition: Exp 1 runs arm-major, so each arm's
+  cells ran beside three cells of the same arm. RESULTS reports H7 as preregistered with both differences stated,
+  and attributes nothing to hardware unless H7-S's twin ratios (below) show it.
+- **H7-S design revision (before any H7-S cell ran).** The reviewers found that the declared design (two seeds, four
+  cells, per invocation) gives the arms unequal loads: random cells finish first, their slots stay empty, and the
+  heuristic cells run their last passes at 2-way load. Revised design (`experiments/matrix/h7-timing.yaml`): all 20
+  cells in one runner invocation with no wall budget, interleaved (seed 101 heuristic, seed 101 random, ...), so a
+  freed slot is refilled at once and every cell runs at 4-way load beside a mix of both arms; four filler cells
+  (groups `h7fill-111`, `h7fill-112`, seeds 111-112, discarded) keep the load at 4 while the last measured cells
+  finish. A seed whose two arms started on different VMs is set aside with the fillers and rerun
+  (`experiments/session-driver/h7_pairs.py`, up to three rounds), and the analysis drops any seed still split. The
+  pass runs after the session's last group, unconditionally (this replaces "only if session time allows"). Reported
+  with it: each run's mean concurrency, and each arm's CPU time per pass relative to its session twin (heuristic:
+  session in epoch B; random: session in epoch C), which measures the combined machine and co-runner effect per arm.
+  H7-S is compared with H7 test by test (CPU mean and p95), with H7's timeout clause reported beside it, never
+  verdict against verdict; a difference is described as a difference between the two designs (machine and
+  co-runner composition).
+- **Driver v3 (replaces v2 before v2 acted).** The reviewers found v2's cut decisions were not restart-safe: they
+  lived in memory and were recomputed after every restart, so after the deadline a restarted v2 would have cut a
+  finished candidate and, with it, a candidate still running; and a crash of the cut-rule script exited 1, the same
+  status as CUT. `run_session_v3.sh` records each candidate's decision once, before acting, in
+  `experiments/session-driver/cut-decisions.txt` and follows it after any restart; a candidate with any run
+  directory is already started and runs to completion; the script exits 0 (START), 3 (CUT) or anything else
+  (error, after three tries the driver stops, recording nothing). It logs the VM (boot ID, boot time, CPU) in
+  `experiments/session-driver/machine-log.txt` before every runner invocation on a new boot (epochs A and B
+  reconstructed from the driver log), runs the revised H7-S pass and then the remaining parity chunks. v2 was
+  stopped at 04:52 UTC while still waiting for v1 to finish `exp1-n1000`; v3 waits the same way. The scratchpad copy
+  runs (a running bash script must not be edited); the repository copy is identical. `commit_runs.sh` now also
+  commits each matrix's `index.jsonl`, set-aside attempts, the driver log, the machine log and the cut decisions.
+- **Corrections to the restart entries.** At restart #2, 297 cells had finished (180 `exp1-n200`, 60
+  `exp1-baselines-n200`, 57 `exp1-n1000`), not 302. Restart #1 killed heuristic/savings-only W1 seeds 109-110 and W2
+  seeds 101-102, relaunched at 23:53:34 UTC.
+- **Analysis fixes from the review (H7-S and run checks; no preregistered rule changed).** H7-S: per-run statuses
+  (match, differs, not checked when a side was abandoned, no twin), so an abandoned run is dropped pair-wise
+  instead of holding the check open; the pairing check by boot; twin CPU ratios and concurrency
+  (`tables/h7s_runs`); test-by-test comparison with H7 (`tests_vs_h7`, `all_tests_agree`). `run_checks`: the
+  timing pass stays out of the session totals, the cut table and the cross-group duplicate check (it has its own
+  validity row and twin check), and its pending retries are counted under its group.

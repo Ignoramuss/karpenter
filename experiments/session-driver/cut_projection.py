@@ -4,7 +4,9 @@
 A cut-candidate group starts only if now + (pending cells x median wall time of finished session cells of the same
 scenario and scale) / 4 ends within 30 h of the first session cell's start. Fallback, logged before any W5/W6 cell
 ran: with no finished session cell of that scenario and scale, the median is over finished session cells of the
-same scale. Prints "START ..." or "CUT ..." with the arithmetic; exit 0 = start, 1 = cut.
+same scale. Prints "START ..." or "CUT ..." with the arithmetic; exit 0 = START, 3 = CUT. Any other exit status
+is an error (a crash, a bad ids file), which the driver must never read as a cut. An unreadable summary.json (a cell
+being written, or one a VM replacement truncated) is skipped with a warning on stderr.
 """
 import glob, json, os, statistics, sys
 from datetime import datetime, timedelta, timezone
@@ -26,8 +28,14 @@ def main(group, ids_file):
     assert len(ids) == sum(want.values()), (group, len(ids))
     walls, pending = {}, {}
     for f in glob.glob(os.path.join(RUNS, "*", "summary.json")):
-        s = json.load(open(f))
-        walls.setdefault((s["scenario"], s["scenario_nodes"]), []).append(s["wall_seconds"])
+        try:
+            with open(f) as fh:
+                s = json.load(fh)
+            key, wall = (s["scenario"], s["scenario_nodes"]), float(s["wall_seconds"])
+        except (OSError, ValueError, KeyError, TypeError) as err:
+            print(f"warning: skipping {f}: {type(err).__name__}: {err}", file=sys.stderr)
+            continue
+        walls.setdefault(key, []).append(wall)
     for rid in ids:
         done = os.path.exists(os.path.join(RUNS, rid, "summary.json"))
         if done:
@@ -49,7 +57,7 @@ def main(group, ids_file):
     verdict = "START" if end <= DEADLINE else "CUT"
     print(f"{verdict} {group}: projected end {end:%Y-%m-%dT%H:%MZ} vs deadline {DEADLINE:%Y-%m-%dT%H:%MZ} "
           f"(now {now:%Y-%m-%dT%H:%MZ}; {'; '.join(parts) or 'no pending cells'}; /4 workers)")
-    return 0 if verdict == "START" else 1
+    return 0 if verdict == "START" else 3
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1], sys.argv[2]))

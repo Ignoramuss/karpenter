@@ -1,14 +1,19 @@
-# Supplementary H7 timing pass (experiments/RESEARCH_LOG.md, "H7 hardware confound"; declared before any
-# random/entropy-greedy W1 1,000-node session result existed). The session VM was replaced twice mid-session, with
-# CPUs of different speeds, and Exp 1's arm-major order put H7's heuristic arm on one machine and its random arm on
-# another. Here each seed is its own group: both arms of a seed run at the same time on the same machine, so each
-# pair shares hardware and load. Same Gate 3 binary; the configurations are byte-identical to the session's
-# heuristic/entropy-greedy and random/entropy-greedy W1 1,000-node cells, so their simulated outputs must match
-# those cells exactly (a determinism check). Run two seeds (four cells) at a time:
+# Supplementary H7 timing pass (experiments/RESEARCH_LOG.md, "H7 hardware confound" and "H7-S design revision";
+# declared before any random/entropy-greedy W1 1,000-node session result existed). The session VM was replaced
+# mid-session, and Exp 1's arm-major order ran H7's heuristic arm on one VM, beside heuristic cells only, and its
+# random arm on another, beside random cells only. Here both arms of every seed run on one VM, in one runner
+# invocation, interleaved (seed 101 heuristic, seed 101 random, seed 102 heuristic, ...) with 4 workers and no wall
+# budget, so a freed slot is refilled at once and every cell runs at 4-way load beside a mix of both arms. The
+# h7fill groups (seeds 111 and 112) come last and only keep the load at 4 while the last measured cells finish; their
+# results are discarded (not in any analysis). Each seed's group h7t-<seed> is one analysis group, h7-timing
+# (paper/analysis/experiments.yaml, analysis.group_aliases). Same Gate 3 binary; the configurations are
+# byte-identical to the session's heuristic/entropy-greedy and random/entropy-greedy W1 1,000-node cells (same
+# run-ID hashes), so their simulated outputs must match those cells exactly (a determinism check). A seed whose two
+# arms started on different VMs (boot IDs in experiments/session-driver/machine-log.txt) is set aside with the
+# fillers and rerun (experiments/session-driver/h7_pairs.py). Run by the session driver:
 #
-#   for p in "101,102" "103,104" "105,106" "107,108" "109,110"; do
-#     bin/csim matrix --matrix experiments/matrix/h7-timing.yaml --only "h7t-${p%,*},h7t-${p#*,}" --workers 4
-#   done
+#   bin/csim matrix --matrix experiments/matrix/h7-timing.yaml --workers 4 --max-wall 0s \
+#     --only h7t-101,h7t-102,h7t-103,h7t-104,h7t-105,h7t-106,h7t-107,h7t-108,h7t-109,h7t-110,h7fill-111,h7fill-112
 name: h7-timing
 outDir: experiments/runs/h7-timing
 base:
@@ -149,6 +154,26 @@ groups:
 - name: h7t-110
   set:
     seed: 110
+    scenario:
+      name: W1
+      nodes: 1000
+  vary:
+    arm:
+    - *id005
+    - *id006
+- name: h7fill-111
+  set:
+    seed: 111
+    scenario:
+      name: W1
+      nodes: 1000
+  vary:
+    arm:
+    - *id005
+    - *id006
+- name: h7fill-112
+  set:
+    seed: 112
     scenario:
       name: W1
       nodes: 1000

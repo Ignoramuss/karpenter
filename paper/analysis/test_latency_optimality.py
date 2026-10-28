@@ -462,13 +462,19 @@ def test_h7_unreachable_tests_are_inconclusive() -> None:
         assert h7["verdict"] == "inconclusive", h7
 
 
+H7S_T0 = pd.Timestamp("2026-10-29T04:00:00Z")
+
+
 def _write_h7s_pass(runs: Path, random_share: float = 0.5) -> list[Path]:
     """The H7 timing pass beside the synthetic session: each exp1-n1000 W1 entropy-greedy run copied to
     ``runs/h7-timing/h7t-<seed>__...`` with its own run ID (in summary, manifest, cell and a decision log both copies
-    get) and fresh machine timings: heuristic at 2x its session CPU time, random at ``random_share`` of that."""
+    get) and fresh machine timings: heuristic at 2x its session CPU time, random at ``random_share`` of that. The
+    i-th copy (heuristic and random alternating by seed) runs from H7S_T0 + 5i minutes for 20 minutes."""
     session, matrix = runs / "session", runs / "h7-timing"
     out = []
-    for src in sorted(session.glob("exp1-n1000__arm-*-entropy-greedy_scenario-w1_*")):
+    srcs = sorted(session.glob("exp1-n1000__arm-*-entropy-greedy_scenario-w1_*"),
+                  key=lambda p: (int(re.search(r"_seed-(\d+)__", p.name).group(1)), p.name))
+    for i, src in enumerate(srcs):
         seed = int(re.search(r"_seed-(\d+)__", src.name).group(1))
         dst = matrix / src.name.replace("exp1-n1000__", f"h7t-{seed}__")
         shutil.copytree(src, dst)
@@ -478,6 +484,11 @@ def _write_h7s_pass(runs: Path, random_share: float = 0.5) -> list[Path]:
         for name in ("summary.json", "manifest.json", "cell.json"):
             f = dst / name
             f.write_text(f.read_text().replace(src.name, dst.name))
+        man = json.loads((dst / "manifest.json").read_text())
+        start = H7S_T0 + pd.Timedelta(minutes=5 * i)
+        man["started_at"] = start.strftime("%Y-%m-%dT%H:%M:%S.123456789Z")
+        man["finished_at"] = (start + pd.Timedelta(minutes=20)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        (dst / "manifest.json").write_text(json.dumps(man))
         s = json.loads((dst / "summary.json").read_text())
         factor = 2.0 * (random_share if "random" in src.name else 1.0)
         for k in [k for k in s if k.startswith(("cpu_pass_", "wall_pass_")) and "over" not in k]:
@@ -497,9 +508,23 @@ def test_h7s_pass() -> None:
         log = _run_main(runs, out)
         head = json.loads((out / "tables" / "latency_optimality.json").read_text(encoding="utf-8"))
         h7s = head["h7s"]
-        assert h7s["determinism"] == {"status": "pass", "runs": 20, "matched": 20, "differs": []}, (h7s, log)
+        assert h7s["determinism"] == {"status": "pass", "runs": 20, "matched": 20, "differs": [], "not_checked": [],
+                                      "no_twin": []}, (h7s, log)
+        assert h7s["pairing"] == {"status": "not checked", "split_seeds": []}, "no machine log in this tree"
         assert [t["outcome"] for t in h7s["tests"]] == ["lower", "lower"], h7s["tests"]
-        assert h7s["verdict"] == "supported" and h7s["agrees_with_h7"] is True, h7s
+        assert h7s["verdict"] == "supported" and h7s["all_tests_agree"] is True, h7s
+        assert {m: v["agree"] for m, v in h7s["tests_vs_h7"].items()} == {"cpu_pass_mean_ms": True,
+                                                                         "cpu_pass_p95_ms": True}
+        assert h7s["h7_timeout_clause"] == "holds" and h7s["h7_verdict"] == "supported"
+        ratio = h7s["cpu_ratio_to_twin"]
+        assert ratio["heuristic/entropy-greedy"]["n"] == 9 and abs(ratio["heuristic/entropy-greedy"]["geomean"] - 2) < 1e-9
+        assert abs(ratio["random/entropy-greedy"]["geomean"] - 1) < 1e-9 and ratio["random/entropy-greedy"]["n"] == 10
+        # 20 cells of 20 minutes starting 5 minutes apart: an inner cell overlaps 20 + 2 x (15 + 10 + 5) cell-minutes,
+        # a mean of 4 at once; the first and last cells see 2.5 (to within the start times' fractional seconds).
+        runs_t = pd.read_csv(out / "tables" / "h7s_runs.csv")
+        conc = runs_t["concurrency_mean"]
+        assert abs(conc.max() - 4) < 1e-3 and abs(conc.min() - 2.5) < 1e-3, conc.tolist()
+        assert abs(_row(runs_t, seed=105, label="random/entropy-greedy")["concurrency_mean"] - 4) < 1e-3
         assert {v["group"] for v in h7s["validity"]} == {"h7-timing"}, h7s["validity"]
         tests = pd.read_csv(out / "tables" / "h7s_tests.csv")
         assert list(tests["family"]) == ["H7-S", "H7-S"] and (tests["n_pairs"] == 9).all() and (tests["m"] == 2).all()
@@ -520,7 +545,7 @@ def test_h7s_void_and_disagreement() -> None:
         _run_main(runs, out)
         h7s = json.loads((out / "tables" / "latency_optimality.json").read_text(encoding="utf-8"))["h7s"]
         assert h7s["verdict"] == "void" and h7s["determinism"]["differs"] == [bad.name], h7s
-        det = pd.read_csv(out / "tables" / "h7s_determinism.csv")
+        det = pd.read_csv(out / "tables" / "h7s_runs.csv")
         assert _row(det, run_id=bad.name)["differences"] == "summary.evictions"
     with _synthetic(min_seeds=None) as (runs, out):
         _write_h7s_pass(runs, random_share=20.0)
@@ -528,7 +553,39 @@ def test_h7s_void_and_disagreement() -> None:
         h7s = json.loads((out / "tables" / "latency_optimality.json").read_text(encoding="utf-8"))["h7s"]
         assert [t["outcome"] for t in h7s["tests"]] == ["higher", "higher"], h7s["tests"]
         assert h7s["verdict"] == "not supported" and h7s["h7_verdict"] == "supported", h7s
-        assert h7s["agrees_with_h7"] is False
+        assert h7s["all_tests_agree"] is False
+
+
+def test_h7s_split_seed_and_abandoned_twin() -> None:
+    """A seed whose arms started on different boots of the machine log leaves the tests (8 pairs: seed 103's
+    heuristic is invalid); a session twin the runner abandoned leaves its rerun "not checked" without blocking the
+    determinism check."""
+    with _synthetic(min_seeds=None) as (runs, out):
+        reruns = _write_h7s_pass(runs)
+        r105 = next(d for d in reruns if d.name.startswith("h7t-105__arm-random"))
+        start = json.loads((r105 / "manifest.json").read_text())["started_at"]
+        boot2 = (pd.Timestamp(start.replace(".123456789", "")) - pd.Timedelta(seconds=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        log = runs.parent / "session-driver" / "machine-log.txt"
+        log.parent.mkdir(parents=True)
+        log.write_text("# comment btime=2000-01-01T00:00:00Z\n"
+                       "2026-10-29T03:00:00Z boot_id=a btime=2026-10-29T02:59:00Z cpu=\"x\" nproc=4\n"
+                       f"{boot2} boot_id=b btime={boot2} cpu=\"x\" nproc=4\n")
+        # every cell after r105 also starts on the second boot, so only seed 105 straddles the boots
+        r110 = next(d for d in reruns if d.name.startswith("h7t-110__arm-heuristic"))
+        twin110 = runs / "session" / r110.name.replace("h7t-110__", "exp1-n1000__")
+        (twin110 / "summary.json").unlink()
+        with open(runs / "session" / "index.jsonl", "a", encoding="utf-8") as f:
+            f.write(json.dumps({"run_id": twin110.name, "status": "abandoned", "attempt": 2}) + "\n")
+        _run_main(runs, out)
+        h7s = json.loads((out / "tables" / "latency_optimality.json").read_text(encoding="utf-8"))["h7s"]
+        assert h7s["pairing"] == {"status": "checked", "split_seeds": [105]}, h7s["pairing"]
+        assert h7s["determinism"]["status"] == "pass" and h7s["determinism"]["not_checked"] == [r110.name], h7s
+        tests = pd.read_csv(out / "tables" / "h7s_tests.csv")
+        assert (tests["n_pairs"] == 8).all(), tests[["n_pairs"]]
+        runs_t = pd.read_csv(out / "tables" / "h7s_runs.csv")
+        assert set(runs_t.loc[~runs_t["paired"].astype(bool), "seed"]) == {105}
+        assert _row(runs_t, run_id=r110.name)["twin_status"] == "not checked (twin abandoned)"
+        assert h7s["verdict"] == "supported", h7s["verdict"]
 
 
 def main(argv: list[str] | None = None) -> int:

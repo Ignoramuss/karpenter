@@ -407,8 +407,13 @@ def test_registry_and_group_map() -> None:
     used = set()
     h7_timing = (common.REPO_ROOT / "experiments" / "matrix" / "h7-timing.yaml").read_text(encoding="utf-8")
     import re
-    h7t = re.findall(r"^- name: (\S+)$", h7_timing, flags=re.M)
+    names = re.findall(r"^- name: (\S+)$", h7_timing, flags=re.M)
+    h7t = [g for g in names if g.startswith("h7t-")]
     assert len(h7t) == 10 and {common._identity(f"{g}__x", "h7-timing")["group"] for g in h7t} == {"h7-timing"}
+    fillers = [g for g in names if g not in h7t]  # load-keeping fillers: their own groups, in no experiment
+    assert fillers == ["h7fill-111", "h7fill-112"] and all(
+        common._identity(f"{g}__x", "h7-timing")["group"] == g for g in fillers)
+    assert not {g for e in common.EXPERIMENTS.values() for g in e["groups"]} & set(fillers)
     assert common.experiment("h7s")["groups"] == ["h7-timing"]
     for key, e in common.EXPERIMENTS.items():
         if key == "h7s":  # its groups are the H7 timing pass's (experiments/matrix/h7-timing.yaml), checked above
@@ -737,6 +742,19 @@ def test_run_checks_tables() -> None:
             _mini_run(m, f"exp3__c_seed-{seed}", seed, label="merge-only/budget-lo", scenario="W2")
         _write(m / "exp6__b_seed-101.failed-1" / "cell.json", {"seed": 101})  # retried, then succeeded
         _write(m / "exp3__c_seed-104.failed-1" / "cell.json", {"seed": 104})  # waiting for its retry
+        # The supplementary H7 timing pass: per-seed groups h7t-<seed> form one group (h7-timing), listed in the
+        # validity table (with its pending retry) but kept out of the totals and the duplicate check, although each
+        # rerun duplicates a session cell.
+        h7 = Path(tmp) / "h7-timing"
+        for seed in range(101, 111):
+            for arm in ("heuristic", "random"):
+                cfg = {"seed": seed, "scenario": {"name": "W1", "nodes": 1000},
+                       "arm": {"name": "pipeline", "label": f"{arm}/entropy-greedy", "pipeline": {"candidates": {"name": arm}}}}
+                _mini_run(m, f"exp1-n1000__arm-{arm}_seed-{seed}__{arm[0]}{seed}", seed, label=f"{arm}/entropy-greedy",
+                          nodes=1000, config=cfg)
+                _mini_run(h7, f"h7t-{seed}__arm-{arm}__{arm[0]}{seed}", seed, label=f"{arm}/entropy-greedy", nodes=1000,
+                          config=cfg)
+        _write(h7 / "h7t-105__arm-other__o105.failed-1" / "cell.json", {"seed": 105})  # waiting for its retry
         out = Path(tmp) / "out"
         with open(os.devnull, "w", encoding="utf-8") as devnull, contextlib.redirect_stdout(devnull):
             run_checks.main(Path(tmp), out)
@@ -745,7 +763,9 @@ def test_run_checks_tables() -> None:
         assert exp6["n_runs"] == 10 and exp6["n_retried"] == 1 and exp6["n_succeeded_on_retry"] == 1
         exp3 = validity.loc[validity["experiment"] == "exp3"].iloc[0]
         assert exp3["n_in_cut_configurations"] == 3 and exp3["n_pending_retry"] == 1, exp3
-        assert set(validity["experiment"]) >= {"exp1", "exp2", "exp3", "exp6"}
+        assert set(validity["experiment"]) >= {"exp1", "exp2", "exp3", "exp6", "h7s"}
+        h7row = validity.loc[validity["experiment"] == "h7s"].iloc[0]
+        assert h7row["group"] == "h7-timing" and h7row["n_runs"] == 20 and h7row["n_pending_retry"] == 1, h7row
         cut = pd.read_csv(out / "tables" / "cut_configurations.csv")
         assert cut[["group", "label", "n_finished", "min_seeds"]].values.tolist() == [
             ["exp3", "merge-only/budget-lo", 3, 10]] and cut.iloc[0]["experiments"] == "exp2, exp3", cut
@@ -755,6 +775,7 @@ def test_run_checks_tables() -> None:
         assert doc["duplicates"]["n_differ"] == 1 and not doc["duplicates"]["all_match"]
         assert [s["seed"] for s in doc["duplicates"]["differing_sets"]] == [110]
         assert doc["n_cut_configurations"] == 1 and doc["min_seeds"] == 10 and doc["n_pending_retry"] == 1
+        assert doc["n_runs"] == 10 + 10 + 3 + 20 and doc["supplementary_runs"] == {"h7s": 20}, doc["n_runs"]
         assert doc["binary_check"] == {"n_session_runs": 0, "files": {}, "checked": False, "n_wrong_binary": 0}
     with tempfile.TemporaryDirectory() as tmp:
         with open(os.devnull, "w", encoding="utf-8") as devnull, contextlib.redirect_stdout(devnull):

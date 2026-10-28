@@ -1,12 +1,25 @@
 #!/bin/bash
-# Commits finished session cells (directories with summary.json) and the index; pushes with retries.
+# Commits the session's records as it goes, and pushes with retries: finished cells (directories with summary.json)
+# and set-aside attempts (<run_id>.failed-<n>) of the session matrix and the H7 timing pass, each matrix's
+# index.jsonl, the timing pass's set-aside pairs (experiments/h7-timing-split), and the driver's records: a copy of
+# its log (session.log), the machine log and the cut decisions. experiments/runs/session/ is in .git/info/exclude
+# (the runner writes there continuously), so its files are added with -f.
 cd /home/user/karpenter
+S=/tmp/claude-0/-home-user-karpenter/2126f28c-53c0-5a8a-b14d-70c0de9f8c9e/scratchpad
 n=0
-for d in experiments/runs/session/*/; do
-  [ -f "$d/summary.json" ] || continue
-  if [ -z "$(git ls-files -- "$d" | head -1)" ] || [ -n "$(git status --porcelain --ignored -- "$d")" ]; then git add -f "$d"; n=$((n+1)); fi
+for m in experiments/runs/session experiments/runs/h7-timing; do
+  [ -d "$m" ] || continue
+  for d in "$m"/*/; do
+    case "$d" in *.failed-*) ;; *) [ -f "$d/summary.json" ] || continue ;; esac
+    if [ -z "$(git ls-files -- "$d" | head -1)" ] || [ -n "$(git status --porcelain --ignored -- "$d")" ]; then
+      git add -f "$d"; n=$((n+1))
+    fi
+  done
+  [ -f "$m/index.jsonl" ] && git add -f "$m/index.jsonl"
 done
-# index.jsonl changes with every finished cell; it is committed with -f at the end of the session.
+[ -d experiments/h7-timing-split ] && git add -f experiments/h7-timing-split
+cp "$S/logs/session.log" experiments/session-driver/session.log 2>/dev/null
+git add experiments/session-driver
 if git diff --cached --quiet; then echo "nothing to commit"; exit 0; fi
 total=$(ls experiments/runs/session/*/summary.json 2>/dev/null | wc -l)
 git commit -q -m "data(session): $n more finished session cells ($total in all)

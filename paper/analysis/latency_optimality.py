@@ -11,12 +11,14 @@ plus the timeout clause (no valid random/entropy-greedy run at 1,000 nodes with 
 The secondary family H7-B2 (random vs B2 from exp7-b2-n1000, 1-hour runs) is absent when that group is cut and never
 enters the verdict.
 
-H7-S (experiments.yaml ``h7s``) is the supplementary paired timing pass declared after the session VM changed CPUs
-mid-session (experiments/RESEARCH_LOG.md, "H7 hardware confound"): both arms of H7's W1 1,000-node cells rerun with
-the session binary, one seed's pair at a time on one machine (``experiments/runs/h7-timing``). Its configurations are
+H7-S (experiments.yaml ``h7s``) is the supplementary timing pass declared after the session VM was replaced mid-session
+(experiments/RESEARCH_LOG.md, "H7 hardware confound" and "H7-S design revision"): both arms of H7's W1 1,000-node
+cells rerun with the session binary on one VM, interleaved in one runner invocation at 4-way load beside a mix of
+both arms (``experiments/runs/h7-timing``). Its configurations are
 byte-identical to the session cells', so each rerun must reproduce its session twin's simulated outputs (decision log
 up to the run ID, time series, pod-set snapshots and every summary field but wall and CPU time); one mismatch voids
-the pass. It runs H7's two tests as family H7-S and is reported beside H7, never replacing its verdict.
+the pass. A seed whose two arms started on different VMs (experiments/session-driver/machine-log.txt) leaves the
+tests. It runs H7's two tests as family H7-S and is reported beside H7 test by test, never replacing its verdict.
 
 Exp 8 bounds each run's fleet cost from below with ``lower_bound`` (B6). At 50 nodes (groups exp8 and exp8-b5) every
 podsets.jsonl snapshot gets the CP-SAT bound and the LP bound; at 200 and 1,000 nodes (Exp 1's groups, ``exp8.params``)
@@ -30,8 +32,8 @@ Outputs under ``out_root`` (nothing is written for an experiment without runs):
   (totals and runs affected).
 - ``tables/exp7_tests.{csv,md}``: the H7 tests (and H7-B2's when present) at 1,000 nodes with floors, Holm p, the
   paired effect, the speedup (reference mean / random mean), the direction and the outcome.
-- ``tables/h7s_tests.{csv,md}`` and ``tables/h7s_determinism.{csv,md}``: H7-S's tests, and each rerun against its
-  session twin.
+- ``tables/h7s_tests.{csv,md}`` and ``tables/h7s_runs.{csv,md}``: H7-S's tests, and per rerun its VM, pairing,
+  concurrency, CPU time against its session twin and the determinism check.
 - ``tables/exp8_gap.{csv,md}``: one row per (nodes, scenario, label): which bound the row uses (cpsat at 50 nodes, lp
   at 200 and 1,000), the final-snapshot gap with CIs, the final gap against the LP bound, the mean gap over every
   snapshot (50 nodes), how many final bounds CP-SAT proved optimal and the bound's slack.
@@ -459,7 +461,12 @@ UNSIMULATED_PREFIXES = ("wall_", "cpu_")
 UNSIMULATED_FIELDS = ("run_id", "label")
 SIMULATED_FILES = ("decisions.jsonl.gz", "timeseries.csv", "podsets.jsonl")
 _RUN_ID_FIELD = re.compile(rb'"run_id"\s*:\s*"[^"]*"')
-DETERMINISM_COLUMNS = ["run_id", "label", "seed", "twin_run_id", "status", "differences"]
+_BTIME = re.compile(r"\bbtime=(\S+)")
+_TIME = re.compile(r"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(\.\d+)?Z")
+MACHINE_LOG = Path("session-driver") / "machine-log.txt"  # under experiments/, beside the runs tree
+H7S_RUN_COLUMNS = ["run_id", "label", "seed", "valid", "started_at", "finished_at", "boot", "paired",
+                   "concurrency_mean", "twin_run_id", "twin_status", "differences", "cpu_pass_mean_ms",
+                   "twin_cpu_pass_mean_ms", "cpu_ratio_to_twin"]
 
 
 def _file_digest(path: Path) -> str | None:
@@ -488,49 +495,174 @@ def twin_differences(rerun: Path, twin: Path) -> list[str]:
     return out
 
 
-def h7s_determinism(runs: pd.DataFrame, sel: pd.DataFrame, exp: dict[str, Any]) -> tuple[pd.DataFrame, str]:
-    """Each H7-S run against its session twin (the run of ``params.reference_groups`` with the same config_id).
-    Status per run: "match", "differs" (``twin_differences``) or "no twin". Overall: "pass" when every run matches,
-    "fail" when any differs (the pass is void), "incomplete" when some run has no twin yet and none differs."""
+def parse_time(text: Any) -> float:
+    """An RFC 3339 UTC timestamp (up to nanosecond precision) as POSIX seconds; NaN when unparsable."""
+    m = _TIME.match(text) if isinstance(text, str) else None
+    if not m:
+        return math.nan
+    whole = pd.Timestamp(m.group(1), tz="UTC").timestamp()
+    return whole + (float("0" + m.group(2)) if m.group(2) else 0.0)
+
+
+def machine_boots(path: Path) -> list[float] | None:
+    """Sorted boot times (POSIX seconds) from the session driver's machine log (experiments/session-driver/
+    machine-log.txt; "btime=unknown", the first VM's, sorts first as -inf); None when the file is absent."""
+    if not path.is_file():
+        return None
+    out = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        m = _BTIME.search(line)
+        if line.startswith("#") or not m:
+            continue
+        out.add(-math.inf if m.group(1) == "unknown" else parse_time(m.group(1)))
+    return sorted(b for b in out if not math.isnan(b))
+
+
+def boot_index(t: float, boots: Sequence[float]) -> int:
+    """The VM a run started on: the index of the last boot at or before ``t`` (-1 when none or ``t`` is NaN)."""
+    if math.isnan(t):
+        return -1
+    return max((i for i, b in enumerate(boots) if b <= t), default=-1)
+
+
+def _run_times(run_dir: Path) -> tuple[float, float]:
+    try:
+        m = json.loads((Path(run_dir) / "manifest.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return math.nan, math.nan
+    return parse_time(m.get("started_at")), parse_time(m.get("finished_at"))
+
+
+def mean_concurrency(interval: tuple[float, float], intervals: Sequence[tuple[float, float]]) -> float:
+    """Time-weighted mean number of the ``intervals`` (all cells of the matrix, this one included) running during
+    ``interval``; NaN for an empty or unknown interval."""
+    s, f = interval
+    if not (math.isfinite(s) and math.isfinite(f)) or f <= s:
+        return math.nan
+    overlap = sum(max(0.0, min(f, b) - max(s, a)) for a, b in intervals if math.isfinite(a) and math.isfinite(b))
+    return overlap / (f - s)
+
+
+def _hash_key(run_id: Any) -> str:
+    """The runner's configuration hash, the last ``__`` part of a run ID: equal for a rerun and its session twin."""
+    return str(run_id).rsplit("__", 1)[-1]
+
+
+def h7s_runs(runs: pd.DataFrame, sel: pd.DataFrame, exp: dict[str, Any]) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """One row per H7-S run (``H7S_RUN_COLUMNS``): its VM, whether its seed's two arms started on one VM
+    (``paired``), its mean concurrency, and the determinism check against its session twin (the run of
+    ``params.reference_groups`` with the same runner hash).
+
+    ``twin_status``: "match" or "differs" (``twin_differences``, plus "config_id" when the analysis fingerprints
+    differ); "not checked (rerun abandoned)" or "not checked (twin abandoned)" when one side has no summary (such a
+    run is dropped pair-wise like any invalid run, so it does not block the check); "no twin" when the twin is not
+    in the runs at all. The check's status: "fail" when any run differs (H7-S is void), "incomplete" when a twin is
+    missing, "pass" when at least one run matched and none differs, else "not checked".
+
+    ``paired`` is False for both arms of a seed whose arms started on different boots of the machine log
+    (``MACHINE_LOG`` beside the runs tree); those seeds leave the tests. Without the log, every seed counts as paired
+    and the epoch check is "not checked"."""
     groups = common.map_groups(exp["params"]["reference_groups"])
-    ref = runs.loc[runs["group"].isin(groups) & runs["config_id"].notna()]
-    twins = {cid: path for cid, path in zip(ref["config_id"], ref["path"]) if isinstance(path, (str, Path))}
+    ref = runs.loc[runs["group"].isin(groups)]
+    twins = {_hash_key(r): row for r, row in zip(ref["run_id"], ref.to_dict("records"))}
+    paths = [Path(p) for p in sel["path"]]
+    log_path = paths[0].resolve().parent.parent.parent / MACHINE_LOG if paths else None
+    boots = machine_boots(log_path) if log_path is not None else None
+    if boots is None and paths:
+        common.logger.warning("%s not found: H7-S pairs not checked for a shared VM", MACHINE_LOG.as_posix())
+    matrix_dirs = {p.parent for p in paths}
+    intervals = [_run_times(d.parent) for m in matrix_dirs for d in m.glob("*/manifest.json")]
     rows = []
     for _, r in sel.sort_values(["seed", "label"], kind="stable").iterrows():
-        twin = twins.get(r["config_id"])
-        if twin is None or not (Path(r["path"]) / "summary.json").is_file():
-            rows.append({"run_id": r["run_id"], "label": r["label"], "seed": r["seed"], "twin_run_id": "",
-                         "status": "no twin", "differences": ""})
-            continue
-        diff = twin_differences(Path(r["path"]), Path(twin))
-        rows.append({"run_id": r["run_id"], "label": r["label"], "seed": r["seed"], "twin_run_id": Path(twin).name,
-                     "status": "differs" if diff else "match", "differences": ", ".join(diff)})
-    table = pd.DataFrame(rows, columns=DETERMINISM_COLUMNS)
-    statuses = set(table["status"])
-    overall = "fail" if "differs" in statuses else "incomplete" if "no twin" in statuses or table.empty else "pass"
-    return table, overall
+        start, finish = _run_times(Path(r["path"]))
+        row: dict[str, Any] = {"run_id": r["run_id"], "label": r["label"], "seed": r["seed"], "valid": bool(r["valid"]),
+                               "started_at": start, "finished_at": finish,
+                               "boot": boot_index(start, boots) if boots is not None else math.nan,
+                               "concurrency_mean": mean_concurrency((start, finish), intervals),
+                               "cpu_pass_mean_ms": _floats([r.get("cpu_pass_mean_ms")])[0]}
+        twin = twins.get(_hash_key(r["run_id"]))
+        rerun_ok = (Path(r["path"]) / "summary.json").is_file()
+        twin_ok = twin is not None and (Path(twin["path"]) / "summary.json").is_file()
+        row["twin_run_id"] = twin["run_id"] if twin is not None else ""
+        row["twin_cpu_pass_mean_ms"] = _floats([twin.get("cpu_pass_mean_ms")])[0] if twin is not None else math.nan
+        if twin is None:
+            row["twin_status"], row["differences"] = "no twin", ""
+        elif not rerun_ok:
+            row["twin_status"], row["differences"] = "not checked (rerun abandoned)", ""
+        elif not twin_ok:
+            row["twin_status"], row["differences"] = "not checked (twin abandoned)", ""
+        else:
+            diff = twin_differences(Path(r["path"]), Path(twin["path"]))
+            if r.get("config_id") != twin.get("config_id"):
+                diff.append("config_id")
+            row["twin_status"], row["differences"] = ("differs" if diff else "match"), ", ".join(diff)
+        both_valid = row["valid"] and twin is not None and bool(twin.get("valid"))
+        row["cpu_ratio_to_twin"] = (row["cpu_pass_mean_ms"] / row["twin_cpu_pass_mean_ms"]
+                                    if both_valid and row["twin_cpu_pass_mean_ms"] > 0 else math.nan)
+        rows.append(row)
+    table = pd.DataFrame(rows, columns=H7S_RUN_COLUMNS)
+    split: list[int] = []
+    if boots is not None and len(table):
+        for seed, part in table.groupby("seed", sort=True):
+            if part["boot"].nunique(dropna=False) > 1:
+                split.append(int(seed))
+    table["paired"] = ~table["seed"].isin(split) if len(table) else pd.Series(dtype=bool)
+    statuses = set(table["twin_status"])
+    status = ("fail" if "differs" in statuses else "incomplete" if "no twin" in statuses
+              else "pass" if "match" in statuses else "not checked")
+    ratios = {}
+    for label, part in table.groupby("label", sort=True):
+        v = _floats(part["cpu_ratio_to_twin"])
+        v = v[np.isfinite(v) & (v > 0)]
+        ratios[label] = {"n": int(len(v)), "geomean": float(np.exp(np.log(v).mean())) if len(v) else None,
+                         "min": float(v.min()) if len(v) else None, "max": float(v.max()) if len(v) else None}
+    conc = {label: float(np.nanmean(_floats(part["concurrency_mean"]))) if np.isfinite(
+        _floats(part["concurrency_mean"])).any() else None for label, part in table.groupby("label", sort=True)}
+    info = {"determinism": {"status": status, "runs": int(len(table)),
+                            "matched": int((table["twin_status"] == "match").sum()),
+                            "differs": table.loc[table["twin_status"] == "differs", "run_id"].tolist(),
+                            "not_checked": table.loc[table["twin_status"].str.startswith("not checked"),
+                                                     "run_id"].tolist(),
+                            "no_twin": table.loc[table["twin_status"] == "no twin", "run_id"].tolist()},
+            "pairing": {"status": "not checked" if boots is None else "checked", "split_seeds": split},
+            "cpu_ratio_to_twin": ratios, "concurrency_mean": conc}
+    return table, info
+
+
+def _test_outcomes(tests: Any, family: str) -> dict[str, str]:
+    if not isinstance(tests, pd.DataFrame) or tests.empty:
+        return {}
+    part = tests.loc[tests["family"] == family]
+    return dict(zip(part["metric"], part["outcome"]))
 
 
 def run_h7s(runs: pd.DataFrame, out_root: Path, h7: dict[str, Any] | None) -> dict[str, Any] | None:
-    """H7-S tables (h7s_tests, h7s_determinism) and headline, or None when the pass has no runs. Its outcome is
-    "supported" when both tests are significant with random lower and the determinism check passes, "void" when the
-    check fails, "incomplete" while a configuration is missing or cut or a twin is missing, "inconclusive" when a
-    test is unreachable, and "not supported" otherwise; ``agrees_with_h7`` compares it with H7's own verdict."""
+    """H7-S tables (h7s_tests, h7s_runs) and headline, or None when the pass has no runs.
+
+    The tests use the valid runs of paired seeds (``h7s_runs``). Verdict: "void" when the determinism check fails;
+    "incomplete" while a configuration is missing or cut or a twin is missing; else "supported" when both tests are
+    significant with random lower, "not supported" when either is higher or not significantly different, and
+    "inconclusive" otherwise (an unreachable or missing test), as for H7's tests. H7-S has no timeout clause: it
+    re-measures H7's CPU-time tests only, so it is compared with H7 test by test (``tests_vs_h7``), never with H7's
+    verdict, which also carries the clause (reported beside it as ``h7_timeout_clause``)."""
     exp = common.experiment(H7S)
     everything = common.select_runs(runs, H7S, include_cut=True)
     if everything.empty:
         common.skipped(H7S_FAMILY)
         return None
+    table, info = h7s_runs(runs, everything, exp)
+    common.write_table(table, out_root, "h7s_runs")
     sel = common.select_runs(runs, H7S)
+    split = set(info["pairing"]["split_seeds"])
+    sel = sel.loc[~pd.to_numeric(sel["seed"], errors="coerce").isin(split)]
     tests = latency_tests(add_latency_columns(sel), common.comparisons(H7S))
     common.write_table(tests, out_root, "h7s_tests")
-    det, det_status = h7s_determinism(runs, everything, exp)
-    common.write_table(det, out_root, "h7s_determinism")
     missing = common.missing_configurations(everything, common.comparisons(H7S))
     outcomes = tests["outcome"].tolist() if len(tests) else []
-    if det_status == "fail":
+    det = info["determinism"]["status"]
+    if det == "fail":
         verdict = "void"
-    elif missing or det_status == "incomplete":
+    elif missing or det == "incomplete":
         verdict = "incomplete"
     elif len(outcomes) == 2 and all(o == "lower" for o in outcomes):
         verdict = "supported"
@@ -538,16 +670,20 @@ def run_h7s(runs: pd.DataFrame, out_root: Path, h7: dict[str, Any] | None) -> di
         verdict = "not supported"
     else:
         verdict = "inconclusive"
-    h7_verdict = (h7 or {}).get("h7", {}).get("verdict")
+    h7_block = (h7 or {}).get("h7", {})
+    h7_outcomes = _test_outcomes((h7 or {}).get("tests"), "H7")
+    s_outcomes = _test_outcomes(tests, H7S_FAMILY)
+    comparable = verdict not in ("void", "incomplete") and bool(h7_block) and h7_block.get("complete", False)
+    per_test = {m: {"h7": h7_outcomes.get(m), "h7s": s_outcomes.get(m),
+                    "agree": (h7_outcomes.get(m) == s_outcomes.get(m)) if comparable else None}
+                for m in sorted(set(h7_outcomes) | set(s_outcomes))}
     cols = ["comparison", "metric", "n_pairs", "mean_a", "mean_b", "pct_diff", "pct_diff_lo", "pct_diff_hi", "speedup",
             "p_wilcoxon", "p_floor", "p_holm", "holm_reachable", "outcome"]
     return {"family": H7S_FAMILY, "validity": _validity(everything), "tests": tests[cols] if len(tests) else [],
-            "determinism": {"status": det_status, "runs": int(len(det)),
-                            "matched": int((det["status"] == "match").sum()),
-                            "differs": det.loc[det["status"] == "differs", "run_id"].tolist()},
-            "verdict": verdict, "missing_configurations": missing, "h7_verdict": h7_verdict,
-            "agrees_with_h7": None if h7_verdict is None or verdict in ("void", "incomplete")
-            else (verdict == h7_verdict)}
+            **info, "verdict": verdict, "missing_configurations": missing,
+            "tests_vs_h7": per_test,
+            "all_tests_agree": all(v["agree"] for v in per_test.values()) if comparable and per_test else None,
+            "h7_verdict": h7_block.get("verdict"), "h7_timeout_clause": h7_block.get("timeout_clause")}
 
 
 # --------------------------------------------------------------------------------------------------------------------

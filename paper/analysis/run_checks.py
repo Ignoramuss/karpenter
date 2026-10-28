@@ -20,6 +20,9 @@ abandoned cells included. Outputs under ``out_root`` (nothing is written without
   configuration, the number of such sets and how many differ, then the totals (``common.duplicate_consistency``).
 - ``tables/run_checks.json``: the totals, the differing sets, and the binary check (session runs, whether
   experiments/session-binary.txt was found, runs from another binary).
+
+Supplementary experiments (``SUPPLEMENTARY``: the H7 timing pass, h7s) have rows in the validity table and are
+covered by the binary check, but their runs stay out of the totals, the cut table and the duplicate check.
 """
 
 from __future__ import annotations
@@ -148,6 +151,11 @@ def binary_check(rows: pd.DataFrame) -> dict[str, Any]:
             "n_wrong_binary": int(finished["invalid_wrong_binary"].astype(bool).sum()) if len(finished) else 0}
 
 
+# Supplementary experiments: their runs appear in the validity table under their own experiment, but stay out of the
+# session's totals, cut table and cross-group duplicate check, which are over the preregistered session matrix.
+SUPPLEMENTARY = ("h7s",)
+
+
 def main(runs_root: Path, out_root: Path) -> None:
     """Write the validity, cut-configuration and duplicate-consistency tables and run_checks.json (see the module
     docstring); nothing without runs in the registry's groups."""
@@ -156,11 +164,16 @@ def main(runs_root: Path, out_root: Path) -> None:
     if per_exp.empty:
         common.skipped("run_checks")
         return
-    rows = per_exp.drop_duplicates(["matrix", "run_id"]).drop(columns="experiment").reset_index(drop=True)
+    all_rows = per_exp.drop_duplicates(["matrix", "run_id"]).drop(columns="experiment").reset_index(drop=True)
+    rows = per_exp.loc[~per_exp["experiment"].isin(SUPPLEMENTARY)].drop_duplicates(["matrix", "run_id"]).drop(
+        columns="experiment").reset_index(drop=True)
     pending = common.pending_retries(Path(runs_root), runs)
-    pending = pending.loc[pending["group"].isin(set(rows["group"]))]
+    pending = pending.loc[pending["group"].isin(set(all_rows["group"]))]
     validity = validity_table(per_exp, pending)
     common.write_table(validity, out_root, "validity")
+    if rows.empty:
+        common.skipped("run_checks totals", "only supplementary runs")
+        return
     has_session = bool(len(rows)) and any(common.is_session_run(Path(p)) for p in rows["path"])
     cut = cut_table(rows, per_exp, session_configurations() if has_session else None)
     common.write_table(cut, out_root, "cut_configurations")
@@ -172,14 +185,15 @@ def main(runs_root: Path, out_root: Path) -> None:
     headline = {
         "min_seeds": common.min_seeds(), "n_runs": int(len(rows)),
         "n_configurations": int(len(common.completeness(rows))), "n_cut_configurations": int(len(cut)),
-        "n_pending_retry": int(len(pending)),
+        "n_pending_retry": int(len(pending.loc[pending["group"].isin(set(rows["group"]))])),
+        "supplementary_runs": {k: int((per_exp["experiment"] == k).sum()) for k in SUPPLEMENTARY},
         # Totals over distinct runs: a run several experiments use is counted once.
         "validity_totals": {**{c: int(v) for c, v in common.validity_report(rows.assign(_all="all"), by=("_all",))
                                .iloc[0][list(common.VALIDITY_COLUMNS[:-1])].items()},
-                            "n_pending_retry": int(len(pending))},
+                            "n_pending_retry": int(len(pending.loc[pending["group"].isin(set(rows["group"]))]))},
         "duplicates": {"n_sets": int(total["n_sets"]), "n_differ": int(total["n_differ"]),
                        "all_match": int(total["n_differ"]) == 0, "differing_sets": differing},
-        "binary_check": binary_check(rows),
+        "binary_check": binary_check(all_rows),
     }
     common.write_json(headline, out_root, "run_checks")
     common.logger.info("run_checks: %d runs, %d configurations cut, %d of %d duplicate sets differ", len(rows),

@@ -638,7 +638,7 @@ def pending_retries(runs_root: Path, runs: pd.DataFrame) -> pd.DataFrame:
     runs_root = Path(runs_root).resolve()
     attempts = set_aside_attempts(runs_root)
     done = set() if runs.empty else {(m, Path(p).name) for m, p in zip(runs["matrix"], runs["path"])}
-    rows = [{"matrix": m, "run_id": r, "group": r.split("__")[0], "n_set_aside": n}
+    rows = [{"matrix": m, "run_id": r, "group": _identity(r, m)["group"], "n_set_aside": n}
             for (m, r), n in attempts.items() if (m, r) not in done]
     return pd.DataFrame(rows, columns=["matrix", "run_id", "group", "n_set_aside"])
 
