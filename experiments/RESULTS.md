@@ -89,8 +89,8 @@ entropy, P3 quadratic); per seed the median rho; an exact one-sided sign test ov
 x scenario with data. A potential satisfies H2 iff its test rejects after Holm and the median of per-seed medians is
 positive in every scenario with data; partially if in some.
 
-**Verdict so far** (W2 and W3; W6 adds three tests and changes Holm's m from 6 to 9; `paper/tables/exp2_correlation.md`,
-figure `fig6_leadlag`):
+**Verdict so far** (W2 and W3; W6 adds three tests and changes Holm's m from 6 to 9;
+`paper/tables/exp2_correlation.md`, figure `fig6_leadlag`):
 
 | Potential | W2: median rho (95% CI), seeds positive, Holm p | W3 | Verdict |
 | --- | --- | --- | --- |
@@ -99,8 +99,8 @@ figure `fig6_leadlag`):
 | P3 quadratic | -0.30 (-0.36, -0.23), 0 of 10, 1 | +0.12 (-0.01, +0.21), 7 of 10, 0.52 | not supported |
 
 With 10 seeds the smallest one-sided sign-test p is 1/1,024; after Holm over 6, 9 of 10 seeds positive (p = 0.011,
-adjusted 0.054) is not enough here. P1's drops lead removals on W2, and on W3 nine of ten seeds point
-the same way; P2 and P3 move against removals on W2 (a non-positive per-seed median in every seed; overall medians -0.27 and
+adjusted 0.054) is not enough here. P1's drops lead removals on W2, and on W3 nine of ten seeds point the same way;
+P2 and P3 move against removals on W2 (a non-positive per-seed median in every seed; overall medians -0.27 and
 -0.30). *To be finalized with W6.*
 
 ### H3. Merge plus shift vs merge only (Exp 3; complete)
@@ -255,10 +255,11 @@ relative to upstream.
 
 ### Ablations (complete)
 
-**Design.** The "full" configuration (random generation, anneal-plan, the util-entropy potential, the low pod-eviction
-budget of 18 pods per minute) against four variants with one component removed: no potential (alpha = 0, potential
-`none`), no eviction budget, no annealing (entropy-greedy), no randomness (heuristic generation). W1 and W2 at 200
-nodes; family of 8 Wilcoxon tests on steady-state cost, Holm over the 8; no direction was preregistered.
+**Design.** The "full" configuration (random generation, anneal-plan, the util-entropy potential, the low
+pod-eviction budget of 18 pods per minute) against four variants with one component removed: no potential (alpha =
+0, potential `none`), no eviction budget, no annealing (entropy-greedy), no randomness (heuristic generation). W1
+and W2 at 200 nodes; family of 8 Wilcoxon tests on steady-state cost, Holm over the 8; no direction was
+preregistered.
 
 **Result** (`paper/tables/fig8_ablation.md`, figure `fig8_ablation`): removing any one component lowers steady-state
 cost in every cell, significantly after Holm in 6 of 8.
@@ -329,24 +330,24 @@ more variable, so a fixed per-pass time limit binds on the tail, not the mean. N
 
 Each run's fleet cost at its final pod-set snapshot against the cheapest fleet that could hold those pods (B6:
 CP-SAT at 50 nodes: of the 59 distinct pod sets, 48 bounds proven optimal, 8 feasible, 3 skipped above its 600-pod
-limit; the LP relaxation at 200 and 1,000 nodes, on average 3% below CP-SAT on the 50-node final snapshots), as gap = cost / bound - 1 (`paper/tables/exp8_gap.md`, figure
-`fig7_optimality_gap`). At 50 nodes the consolidating arms end 8-21% above the bound and B5 (the descheduler)
-78-145% above; at 200 nodes 9-22%; at 1,000 nodes 11-43%, widest for savings-only planning on W1 and W4 (42-43%
-with heuristic generation). The lowest final gaps are random/savings-only's on W1 and W4 (8-12% at 50 and 200
-nodes). Gaps are computed on the final snapshot only at 200 and 1,000 nodes; at 50 nodes the mean over every
-snapshot is also in the table.
+limit; the LP relaxation at 200 and 1,000 nodes, on average 3% below CP-SAT on the 50-node final snapshots), as gap
+= cost / bound - 1 (`paper/tables/exp8_gap.md`, figure `fig7_optimality_gap`). At 50 nodes the consolidating arms
+end 8-21% above the bound and B5 (the descheduler) 78-145% above; at 200 nodes 9-22%; at 1,000 nodes 11-43%, widest
+for savings-only planning on W1 and W4 (42-43% with heuristic generation). The lowest final gaps are
+random/savings-only's on W1 and W4 (8-12% at 50 and 200 nodes). Gaps are computed on the final snapshot only at 200
+and 1,000 nodes; at 50 nodes the mean over every snapshot is also in the table.
 
 ### B4. Parity in the wild (complete)
 
 The pipeline configured with its fine upstream adapters (B4, and B4-balanced under the Balanced policy) against B2
 and B3 on the same seeds, W1, W2 and W4 at 200 nodes, uncapped, over whole 3-hour simulations
-(`paper/tables/b4_parity.md`). **Status: equivalent** (the preregistered middle tier): all six TOSTs at the 3% margin
-pass after Holm (steady-state cost differences -0.75% to +0.34%, every 90% interval within -1.8% to +1.0%), but only
-7 of 60 seeds match exactly (B4 vs B2: 2 of 10 on W2, none on W1 or W4; B4-balanced vs B3: 5 of 10 on W2, none on W1
-or W4). Exact matches were not expected: the simulator's candidate-order shuffle draws from one seeded stream per
-run, and the pipeline's method boundaries consume that stream differently from upstream's separate methods
-(`docs/research/parity.md`, "Parity in the wild"). The decision-level parity test (`docs/research/parity.md`) is the
-exact check.
+(`paper/tables/b4_parity.md`). **Status: equivalent** (the preregistered middle tier): all six TOSTs at the 3%
+margin pass after Holm (steady-state cost differences -0.75% to +0.34%, every 90% interval within -1.8% to +1.0%),
+but only 7 of 60 seeds match exactly (B4 vs B2: 2 of 10 on W2, none on W1 or W4; B4-balanced vs B3: 5 of 10 on W2,
+none on W1 or W4). Exact matches were not expected: the simulator's candidate-order shuffle draws from one seeded
+stream per run, and the pipeline's method boundaries consume that stream differently from upstream's separate
+methods (`docs/research/parity.md`, "Parity in the wild"). The decision-level parity test
+(`docs/research/parity.md`) is the exact check.
 
 ### Run checks
 
