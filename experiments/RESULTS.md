@@ -80,6 +80,29 @@ question (within 3% or not); it does not say which arm is preferable, which depe
 6 measures that trade-off). Tier B did not run, so whether real kube-scheduler placement preserves the ranking is
 untested.
 
+### H2. Does a potential drop predict node removals? (Exp 2; provisional until `realism-w6`)
+
+**Hypothesis.** A drop in the potential over a 10-minute window predicts node removals in the next window. Per run
+(every valid W2, W3 and W6 run of the Exp 2 groups except B0, each distinct configuration and seed once):
+rho = Spearman(-dPhi over the window, node removals in the next), per potential (P1 load entropy, P2 utilization
+entropy, P3 quadratic); per seed the median rho; an exact one-sided sign test over the 10 seeds, Holm over potential
+x scenario with data. A potential satisfies H2 iff its test rejects after Holm and the median of per-seed medians is
+positive in every scenario with data; partially if in some.
+
+**Verdict so far** (W2 and W3; W6 adds three tests and changes Holm's m from 6 to 9; `paper/tables/exp2_correlation.md`,
+figure `fig6_leadlag`):
+
+| Potential | W2: median rho (95% CI), seeds positive, Holm p | W3 | Verdict |
+| --- | --- | --- | --- |
+| P1 load entropy | +0.61 (+0.58, +0.63), 10 of 10, 0.006 | +0.48 (+0.34, +0.62), 9 of 10, 0.054 | partial |
+| P2 utilization entropy | -0.27 (-0.32, -0.22), 0 of 10, 1 | +0.18 (+0.04, +0.26), 9 of 10, 0.054 | not supported |
+| P3 quadratic | -0.30 (-0.36, -0.23), 0 of 10, 1 | +0.12 (-0.01, +0.21), 7 of 10, 0.52 | not supported |
+
+With 10 seeds the smallest one-sided sign-test p is 1/1,024; after Holm over 6, 9 of 10 seeds positive (p = 0.011,
+adjusted 0.054) is not enough here. P1's drops lead removals on W2, and on W3 nine of ten seeds point
+the same way; P2 and P3 move against removals on W2 (a non-positive per-seed median in every seed; overall medians -0.27 and
+-0.30). *To be finalized with W6.*
+
 ### H3. Merge plus shift vs merge only (Exp 3; complete)
 
 **Hypothesis.** Merge plus shift beats merge-only on post-warmup integrated cost at an equal pod-eviction budget,
@@ -301,6 +324,35 @@ is 2.8x heuristic's. No measured pass came near a minute: the slowest W1 pass to
 **What it shows.** Random sampling makes the typical pass cheaper and the slow passes slower: its cost per pass is
 more variable, so a fixed per-pass time limit binds on the tail, not the mean. Neither arm comes close to upstream's
 1-minute limit at 1,000 nodes in this simulator.
+
+### Exp 8. Optimality gap to the offline packing bound (descriptive; complete)
+
+Each run's fleet cost at its final pod-set snapshot against the cheapest fleet that could hold those pods (B6:
+CP-SAT at 50 nodes: of the 59 distinct pod sets, 48 bounds proven optimal, 8 feasible, 3 skipped above its 600-pod
+limit; the LP relaxation at 200 and 1,000 nodes, on average 3% below CP-SAT on the 50-node final snapshots), as gap = cost / bound - 1 (`paper/tables/exp8_gap.md`, figure
+`fig7_optimality_gap`). At 50 nodes the consolidating arms end 8-21% above the bound and B5 (the descheduler)
+78-145% above; at 200 nodes 9-22%; at 1,000 nodes 11-43%, widest for savings-only planning on W1 and W4 (42-43%
+with heuristic generation). The lowest final gaps are random/savings-only's on W1 and W4 (8-12% at 50 and 200
+nodes). Gaps are computed on the final snapshot only at 200 and 1,000 nodes; at 50 nodes the mean over every
+snapshot is also in the table.
+
+### B4. Parity in the wild (complete)
+
+The pipeline configured with its fine upstream adapters (B4, and B4-balanced under the Balanced policy) against B2
+and B3 on the same seeds, W1, W2 and W4 at 200 nodes, uncapped, over whole 3-hour simulations
+(`paper/tables/b4_parity.md`). **Status: equivalent** (the preregistered middle tier): all six TOSTs at the 3% margin
+pass after Holm (steady-state cost differences -0.75% to +0.34%, every 90% interval within -1.8% to +1.0%), but only
+7 of 60 seeds match exactly (B4 vs B2: 2 of 10 on W2, none on W1 or W4; B4-balanced vs B3: 5 of 10 on W2, none on W1
+or W4). Exact matches were not expected: the simulator's candidate-order shuffle draws from one seeded stream per
+run, and the pipeline's method boundaries consume that stream differently from upstream's separate methods
+(`docs/research/parity.md`, "Parity in the wild"). The decision-level parity test (`docs/research/parity.md`) is the
+exact check.
+
+### Run checks
+
+*To be filled with the final counts.* At 23:10 UTC on Oct 28: 1,550 finished session runs, all valid (no PDB or
+do-not-disrupt violation, error, timeout, abandonment, wrong binary or nondeterminism); every one of 130 sets of
+identical configurations run in different groups (the cross-group determinism check) produced identical summaries.
 
 ## Deviations from the preregistration
 
