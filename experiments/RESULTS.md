@@ -79,14 +79,13 @@ untested.
 ### H6. Savings vs disruption against upstream and the descheduler (Exp 6; complete)
 
 **Hypothesis.** Sweeping lambda traces a savings vs disruption frontier that matches or dominates B2, B3 and B5. Per
-baseline and
-workload (W2 diurnal, W3 batch churn, 200 nodes), random/entropy-greedy at the lambda fixed in advance for that
-baseline (B2: 0.05, since it accepts any saving; B3: 0.5, since Balanced at k = 2 is dE <= 0 with lambda/mu = 1/2;
-B5: 0.1, the calibrated default) vs the baseline on savings (B0's integrated cost after warmup on the same seed and
-placement minus the run's, most-allocated B0 for B5) and on eviction cost, paired exact Wilcoxon, Holm over the 12.
-A cell dominates iff one metric is significantly better and the other not significantly worse, and is dominated iff
-a metric is significantly worse and none significantly better. Supported iff no cell is dominated and at least 3 of
-6 dominate.
+baseline and workload (W2 diurnal, W3 batch churn, 200 nodes), random/entropy-greedy at the lambda fixed in advance
+for that baseline (B2: 0.05, since it accepts any saving; B3: 0.5, since Balanced at k = 2 is dE <= 0 with lambda/mu
+= 1/2; B5: 0.1, the calibrated default) vs the baseline on savings (B0's integrated cost after warmup on the same
+seed and placement minus the run's, most-allocated B0 for B5) and on eviction cost, paired exact Wilcoxon, Holm over
+the 12. A cell dominates iff one metric is significantly better and the other not significantly worse, and is
+dominated iff a metric is significantly worse and none significantly better. Supported iff no cell is dominated and
+at least 3 of 6 dominate.
 
 **Verdict: not supported:** 3 cells dominated, 1 dominates, 2 inconclusive (`paper/tables/exp6_dominance.md`,
 figure `fig3_frontier`).
