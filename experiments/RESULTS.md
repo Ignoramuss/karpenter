@@ -249,6 +249,18 @@ confound's direction"). A supplementary timing pass, H7-S (`experiments/matrix/h
 random-arm 1,000-node result), reruns both arms of every seed on one VM, interleaved at 4-way load, after the
 matrix; *to be filled* with its result, its twin CPU ratios and its test-by-test comparison with H7.
 
+**Scaling** (descriptive, `paper/tables/exp7_latency.md`, figure `fig4_latency`; W1, mean CPU time per pass):
+
+| Nodes | heuristic/entropy-greedy | random/entropy-greedy | B2 (upstream) |
+| --- | --- | --- | --- |
+| 50 | 19.7 ms (p95 67.8), VM C | 16.8 ms (p95 104.0), VM C | 21.3 ms (p95 71.5), VM C |
+| 200 | 143.1 ms (p95 324.2), VM A | 97.9 ms (p95 392.3), VM A | 198.6 ms (p95 908.2), VM C |
+| 1,000 | 1,425.1 ms (p95 2,285.5), VM B | 894.8 ms (p95 2,725.6), VM C | *to be filled* (`exp7-b2-n1000`) |
+
+From 50 to 1,000 nodes the mean grows about 72x for heuristic and 53x for random generation, while the node count
+grows 20x; random's p95 is above heuristic's at every size. B2's 200-node p95 is 2.8x heuristic's. No pass at any
+size came near a minute.
+
 **What it shows.** Random sampling makes the typical pass cheaper and the slow passes slower: its cost per pass is
 more variable, so a fixed per-pass time limit binds on the tail, not the mean. Neither arm comes close to upstream's
 1-minute limit at 1,000 nodes in this simulator.
