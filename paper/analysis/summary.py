@@ -126,7 +126,7 @@ def wilcoxon_row(item: str, block: Mapping[str, Any], tests: Any, keys: Iterable
 
 
 def frontier_rows(ff: Mapping[str, Any]) -> list[dict[str, Any]]:
-    h5 = ff.get("exp5") or {}
+    h5 = (ff.get("exp5") or {}).get("h5") or {}
     levers = h5.get("levers") or {}
     counts = (f"off-plan share clause {'holds' if h5.get('off_plan_holds') else 'fails'}; levers: "
               + ", ".join(f"{k} {v.get('state', 'n/a')}" for k, v in levers.items())) if h5 else ""

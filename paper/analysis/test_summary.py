@@ -37,6 +37,12 @@ HEADLINES = {
                             "pct_diff_hi": 23.45, "outcome": "higher"}],
                  "h7_b2": {"status": "absent", "reason": "no exp7-b2-n1000 runs"}},
     },
+    "frontier_fidelity": {
+        "exp5": {"h5": {"verdict": "partial", "off_plan_holds": True,
+                        "levers": {"most-allocated": {"state": "holds"}, "deletion-cost": {"state": "fails"}},
+                        "off_plan": [{"scale_down": "spread", "off_plan_share_mean": 0.7487,
+                                      "off_plan_share_mean_lo": 0.7253}]}},
+    },
     "run_checks": {"n_runs": 424, "validity_totals": {"n_valid": 424, "n_invalid": 0}, "n_cut_configurations": 2,
                    "duplicates": {"n_sets": 5, "n_differ": 0}, "binary_check": {"n_wrong_binary": 0}},
 }
@@ -66,9 +72,12 @@ def test_rows_and_formatting() -> None:
             by["H4"]["rule_counts"]
         assert by["H4"]["effects"] == "plan W2 anneal-plan/t0=1 evictions: +4.0% [+1.0, +8.5] (holds)"
         assert by["H3"]["verdict"] == "no runs" and by["H2"]["verdict"] == "no runs"
+        assert by["H5"]["verdict"] == "partial", by["H5"]
+        assert by["H5"]["rule_counts"] == "off-plan share clause holds; levers: most-allocated holds, deletion-cost fails"
+        assert by["H5"]["effects"] == "spread: off-plan share 0.749 (lower bound 0.725)"
         assert by["Run"]["rule_counts"].startswith("424 runs, 424 valid, 0 invalid; 2 cut configurations")
         doc = json.loads((out / "tables" / "summary.json").read_text(encoding="utf-8"))
-        assert doc["sources"] == ["run_checks", "cost_experiments", "latency_optimality"]
+        assert doc["sources"] == ["run_checks", "cost_experiments", "frontier_fidelity", "latency_optimality"]
         assert [r["item"] for r in doc["rows"]] == table["item"].tolist()
 
 

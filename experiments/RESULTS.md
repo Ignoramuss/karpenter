@@ -80,6 +80,42 @@ question (within 3% or not); it does not say which arm is preferable, which depe
 6 measures that trade-off). Tier B did not run, so whether real kube-scheduler placement preserves the ranking is
 untested.
 
+### H5. Plan fidelity: where evicted pods land (Exp 5; complete)
+
+**Hypothesis.** Under least-allocated placement a measurable share of evicted pods land off-plan; most-allocated
+placement and deletion-cost scale-down shrink it. (a) For random/entropy-greedy under least-allocated, the bootstrap
+95% lower bound of the off-plan share (1 - fidelity) exceeds 0.05 under both scale-down models. (b) Family H5, 10
+Wilcoxon tests on fidelity (W2, 200 nodes). Supported iff (a) holds and, for random/entropy-greedy, most-allocated
+significantly raises fidelity in at least one scale-down stratum and deletion-cost in at least one placement
+stratum; partially if only one lever does. Oracle check: plan-following placement must reach mean fidelity 0.95,
+or the run set is flagged.
+
+**Verdict: partially supported** (`paper/tables/exp5_fidelity.md`, `exp5_tests.md`, figure `fig5_fidelity`).
+
+- (a) holds: about three in four evicted pods land off-plan. Random/entropy-greedy under least-allocated has
+  off-plan share 0.749 (95% lower bound 0.725) with spread scale-down and 0.755 (0.737) with deletion-cost.
+- Most-allocated placement raises fidelity: random/entropy-greedy from 0.251 to 0.325 (+29.3%, 95% CI +18.9 to
+  +42.4) under spread and from 0.245 to 0.353 (+43.7%, +35.2 to +56.4) under deletion-cost; B2 by +17.4% and +17.6%
+  (0.451 to 0.530, 0.455 to 0.535); all four significant after Holm (p = 0.020).
+- Deletion-cost scale-down does not: random/entropy-greedy -2.3% (-10.3 to +7.5) under least-allocated and +8.5%
+  (+2.2 to +15.3, Holm p = 0.11) under most-allocated; B2 +0.8% and +1.0%; none significant.
+- The steered executor (preferred node affinity on the moved pods) raises random/entropy-greedy's fidelity under
+  least-allocated by +72.5% (0.251 to 0.434; +52.7 to +94.5) and +72.8% (0.245 to 0.424; +60.7 to +82.8), Holm
+  p = 0.020: more than most-allocated scheduling, without changing the scheduler.
+
+**Oracle flag.** Under plan-following placement (the scheduler places each evicted pod where the plan said),
+random/entropy-greedy reached 0.954 with spread scale-down but 0.937 (95% CI 0.902 to 0.962) with deletion-cost, below
+the 0.95 floor, so the Exp 5 run set is flagged as the preregistration requires; B2 reached 0.982 and 0.981. Even
+when the scheduler follows the plan, about 6% of the pipeline's evicted pods cannot land on their planned
+destination under deletion-cost scale-down, presumably because capacity changes between planning and placement
+(W2 scales down while moves are in flight; not diagnosed further in the session). The fidelity numbers above are measured the same way in every cell, so the comparisons stand;
+the flag says the measure's ceiling is below 1 for this arm.
+
+**What it shows.** Under upstream's default scheduler profile, the pipeline's plans mostly do not survive contact
+with placement (B2's fidelity is higher, 0.45, since its moves are whole-node deletions whose destinations come
+from a full scheduling simulation). Steering the moved pods is the most effective lever measured; deletion-cost
+scale-down has no measurable effect on fidelity.
+
 ### H6. Savings vs disruption against upstream and the descheduler (Exp 6; complete)
 
 **Hypothesis.** Sweeping lambda traces a savings vs disruption frontier that matches or dominates B2, B3 and B5. Per
