@@ -371,3 +371,26 @@ matrix session: 180 cells, 90 done, 0 failed, 90 pending; 4 workers, wall budget
 [106/180 done] done exp1-n1000__arm-random-savings-only_scenario-w2_seed-106__e88e64d6 in 1038.8s
 matrix session: wall budget 1h0m0s spent; re-invoke to continue
 matrix session: 106/180 done, 0 failed, 74 pending
+matrix session: 180 cells, 106 done, 0 failed, 74 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+[107/180 done] done exp1-n1000__arm-random-savings-only_scenario-w2_seed-109__5a493d3f in 937.1s
+[108/180 done] done exp1-n1000__arm-random-savings-only_scenario-w2_seed-108__5343c402 in 952.0s
+[109/180 done] done exp1-n1000__arm-random-savings-only_scenario-w2_seed-110__1601807f in 1033.8s
+[110/180 done] done exp1-n1000__arm-random-savings-only_scenario-w2_seed-107__8454aefe in 1093.0s
+[111/180 done] done exp1-n1000__arm-random-savings-only_scenario-w4_seed-102__da874e87 in 734.0s
+[112/180 done] done exp1-n1000__arm-random-savings-only_scenario-w4_seed-101__38534d57 in 784.4s
+[113/180 done] done exp1-n1000__arm-random-savings-only_scenario-w4_seed-103__4f0e8dbf in 746.7s
+[114/180 done] done exp1-n1000__arm-random-savings-only_scenario-w4_seed-104__181811e5 in 742.3s
+[115/180 done] done exp1-n1000__arm-random-savings-only_scenario-w4_seed-105__2167a15e in 717.6s
+[116/180 done] done exp1-n1000__arm-random-savings-only_scenario-w4_seed-106__184c5c4c in 731.1s
+[117/180 done] done exp1-n1000__arm-random-savings-only_scenario-w4_seed-107__5873b2de in 720.7s
+[118/180 done] done exp1-n1000__arm-random-savings-only_scenario-w4_seed-108__84553d0b in 750.9s
+[119/180 done] done exp1-n1000__arm-random-savings-only_scenario-w4_seed-109__88902fe7 in 772.2s
+[120/180 done] done exp1-n1000__arm-random-savings-only_scenario-w4_seed-110__083b7cbb in 757.5s
+[121/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w1_seed-102__ea0c7abf in 696.7s
+[122/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w1_seed-101__2b3cccc8 in 884.7s
+[123/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w1_seed-104__e70ebcfe in 757.4s
+[124/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w1_seed-103__8c5776dc in 801.7s
+[125/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w1_seed-105__5bdc7ac7 in 738.8s
+[126/180 done] done exp1-n1000__arm-random-entropy-greedy_scenario-w1_seed-106__5a8bac9e in 720.8s
+matrix session: wall budget 1h0m0s spent; re-invoke to continue
+matrix session: 126/180 done, 0 failed, 54 pending
