@@ -1,0 +1,14 @@
+{
+  "arm": {
+    "label": "B2",
+    "name": "B2-when-empty-or-underutilized"
+  },
+  "duration": "3h",
+  "maxWall": "0s",
+  "runID": "exp6-baselines__arm-b2_scenario-w2_seed-108__57a61252",
+  "scenario": {
+    "name": "W2",
+    "nodes": 200
+  },
+  "seed": 108
+}
