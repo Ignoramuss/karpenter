@@ -422,3 +422,12 @@ Every decision taken without asking, every fallback, and every blocked host, in 
 - **Disruption tests green at the session source (13:47 UTC).** `go test ./pkg/controllers/disruption/... -race`:
   the controller (479 s), the pipeline package with its parity and conformance suites (421 s) and the four strategy
   packages all pass (`nice 10`, beside `exp6`).
+- **Container restart #3, Oct 28 about 23:24 UTC (epoch D).** The VM was replaced during `realism-w5`, its first
+  cut-candidate group, which had started at 23:08:40 UTC under a recorded START decision. Every group before it had
+  finished (1,550 cells, all valid). The four in-flight W5 cells (none had finished in 16 minutes) died without a
+  `summary.json` and are relaunched. The new VM reports "Intel(R) Xeon(R) Processor @ 2.80GHz" (boot
+  `e21797db`, logged by driver v3 in `machine-log.txt`). Driver v3 was restarted alone at 23:24 UTC and followed the
+  recorded decision: `realism-w5` continues and runs to completion. The cut rule projected it at 2.0 minutes per cell
+  (the same-scale fallback median); W5 cells are evidently slower, so the later candidates' projections will use
+  W5's actual times through the elapsed clock. The claim check of the RESULTS ablation, H2, Exp 8 and B4 sections
+  that was running was lost and is rerun.
