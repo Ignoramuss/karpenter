@@ -1,0 +1,44 @@
+{
+  "cost_at_drop": 69.04799999999997,
+  "decision_evaluation_seconds": {
+    "": 16.795922861999998,
+    "empty": 20.665275747000017,
+    "pipeline": 415.80791397
+  },
+  "decision_evaluations": {
+    "": 574,
+    "empty": 192,
+    "pipeline": 191
+  },
+  "decisions_by_consolidation": {
+    "empty": 1,
+    "pipeline": 16
+  },
+  "drop_at": "2026-10-29T21:03:28.340781651Z",
+  "evictions": 646,
+  "evictions_before_drop": 0,
+  "finished_at": "2026-10-29T21:33:28.307282839Z",
+  "gate": true,
+  "karpenter_avg_cpu_cores": 0.0977595438176029,
+  "karpenter_cpu_core_seconds": 175.96390404300791,
+  "karpenter_max_cpu_cores": 0.36600876642236774,
+  "karpenter_max_heap_mb": 80.61032104492188,
+  "karpenter_max_memory_mb": 214.2421875,
+  "karpenter_p95_cpu_cores": 0.2121843997984453,
+  "karpenter_p95_memory_mb": 184.6271484375,
+  "karpenter_pod": "karpenter-67465bdf6c-hcbph",
+  "karpenter_restarted": false,
+  "label": "B4",
+  "method_ok": true,
+  "metrics_sample_count": 360,
+  "nodes_at_drop": 45,
+  "pending_at_drop": 0,
+  "policy": "WhenEmptyOrUnderutilized",
+  "run_id": "tierb-kwok__arm-b4_nodes-200_seed-102",
+  "scenario_nodes": 200,
+  "seed": 102,
+  "started_at": "2026-10-29T20:58:28.294628664Z",
+  "valid": true,
+  "warmup": "5m",
+  "window": "30m"
+}

@@ -29,3 +29,9 @@
 2026-10-29T19:42:01Z START tierb-kwok__arm-random-entropy-greedy_nodes-200_seed-102 (attempt 1)
 2026-10-29T20:19:12Z DONE tierb-kwok__arm-random-entropy-greedy_nodes-200_seed-102 rc=0 valid=True in 37.2 min
 2026-10-29T20:19:12Z START tierb-kwok__arm-random-anneal-plan_nodes-200_seed-102 (attempt 1)
+2026-10-29T20:56:26Z DONE tierb-kwok__arm-random-anneal-plan_nodes-200_seed-102 rc=0 valid=True in 37.2 min
+2026-10-29T20:56:26Z START tierb-kwok__arm-b4_nodes-200_seed-102 (attempt 1)
+2026-10-29T21:33:39Z DONE tierb-kwok__arm-b4_nodes-200_seed-102 rc=0 valid=True in 37.2 min
+2026-10-29T21:33:39Z START tierb-kwok__arm-b2_nodes-200_seed-102 (attempt 1)
+2026-10-29T22:10:52Z DONE tierb-kwok__arm-b2_nodes-200_seed-102 rc=0 valid=True in 37.2 min
+2026-10-29T22:10:52Z START tierb-kwok__arm-b3_nodes-200_seed-102 (attempt 1)
