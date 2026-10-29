@@ -3,7 +3,7 @@
 # anchors verbatim. Groups:
 #
 #   tierb-cal  pilot seeds 1-5, a 45-minute window: fixes the observation window T (TIERB.md, "Observation window")
-#   tierb-a    seeds 101-110, the window T fixed from tierb-cal (set below once calibrated, logged in RESEARCH_LOG)
+#   tierb-a    seeds 101-110, the window T = 30 min fixed from tierb-cal (RESEARCH_LOG, "Tier B protocol and window")
 #
 #   bin/csim matrix --matrix experiments/matrix/tierb.yaml --only tierb-cal --workers 4
 name: tierb
@@ -49,3 +49,6 @@ groups:
   - name: tierb-cal
     set: {duration: 50m}
     vary: {scenario.nodes: [50, 200], arm: *arms, seed: {from: 1, to: 5}}
+  - name: tierb-a
+    set: {duration: 35m}
+    vary: {scenario.nodes: [50, 200], arm: *arms, seed: {from: 101, to: 110}}

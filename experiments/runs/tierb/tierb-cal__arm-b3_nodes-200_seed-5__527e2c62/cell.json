@@ -1,0 +1,18 @@
+{
+  "arm": {
+    "label": "B3",
+    "name": "B3-balanced"
+  },
+  "duration": "50m",
+  "maxWall": "0s",
+  "runID": "tierb-cal__arm-b3_nodes-200_seed-5__527e2c62",
+  "scenario": {
+    "name": "WB",
+    "nodes": 200,
+    "params": {
+      "dropAt": "5m"
+    }
+  },
+  "seed": 5,
+  "warmup": "5m"
+}

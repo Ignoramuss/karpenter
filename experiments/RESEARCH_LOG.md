@@ -675,3 +675,27 @@ Every decision taken without asking, every fallback, and every blocked host, in 
      controller's own `/metrics` through the API server, so it needs neither Prometheus nor metrics-server.
   The tools are `kind` v0.30.0 and `ko` v0.18.0 (`go install`), helm v3.19.0, and envtest's kubectl v1.36.2. The
   controller image was built by `ko` from `a54fb19`.
+- **Tier B protocol and window (Oct 29, 08:10-08:40 UTC; before any evaluation-seed run in either tier).** The
+  protocol is `experiments/TIERB.md` (committed in `eff89a1`, with the simulator's new WB scenario and
+  `consolidation-sim workload`). The calibration group `tierb-cal` ran on pilot seeds 1-5: 7 configurations, n = 50
+  and 200, a 45-minute window, on the binary built from a clean clone at `eff89a1`. All 70 runs were valid. Settle
+  times are long because late single moves keep trickling in. The per-configuration 90th percentile of minutes from
+  the drop to the last node-count change was:
+
+  | B2 | B3 | B4 | heuristic/entropy-greedy | heuristic/anneal-plan | random/anneal-plan | random/entropy-greedy |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | 41.3 | 29.7 | 41.1 | 42.1 | 34.9 | 42.3 | 43.2 |
+
+  The rule (largest value, rounded up to 5 minutes, clamped to 10-30) gives **T = 30 minutes**; the clamp binds.
+  WB at n = 50 averaged 12.4 nodes at the drop and 6.2 at the window's end; at n = 200, 45.2 and 18.2. The
+  `tierb-a` group (seeds 101-110, duration 35 minutes) is added to `experiments/matrix/tierb.yaml`.
+- **Tier B harness.**
+  - `test/suites/performance/tierb_test.go` replays one cell. It skips unless `TIERB_CELL` is set, so CI is
+    unaffected. `experiments/tierb/run_tierb.py` drives the cells in plan order.
+  - The controller image was rebuilt by `ko` from the clean clone at `eff89a1` (tag `f5ee205e…`) and runs the
+    session catalog's 15 types: a ConfigMap of the 15 Linux entries of `aws_instance_types.json` is mounted as
+    `INSTANCE_TYPES_FILE_PATH`, and its on-demand prices were checked equal to `experiments/catalog.json`.
+  - The controller runs at info log level for every arm, because debug logging would inflate the controller CPU
+    being measured.
+  - One mechanics check (B2, n = 50, pilot seed 1, a 5-minute window, written outside the run tree) runs before
+    the evaluation cells. It checks the files and the eviction counter, not the numbers.

@@ -1,0 +1,66 @@
+{
+  "run_id": "tierb-cal__arm-b3_nodes-50_seed-4__0d2f9f27",
+  "binary_revision": "eff89a17bb3a7c22ac2db77621d72d96f2843215",
+  "binary_modified": false,
+  "git_sha": "eff89a17bb3a7c22ac2db77621d72d96f2843215",
+  "git_dirty": false,
+  "config": {
+    "runID": "tierb-cal__arm-b3_nodes-50_seed-4__0d2f9f27",
+    "seed": 4,
+    "scenario": {
+      "name": "WB",
+      "nodes": 50,
+      "params": {
+        "dropAt": "5m"
+      }
+    },
+    "arm": {
+      "name": "B3-balanced",
+      "label": "B3"
+    },
+    "placement": "least-allocated",
+    "scaleDown": "spread",
+    "duration": "50m0s",
+    "warmup": "5m0s",
+    "metricsInterval": "1m0s",
+    "catalog": {
+      "path": "",
+      "families": null,
+      "capacityTypes": null,
+      "zones": null,
+      "maxCPU": 32
+    },
+    "consolidateAfter": "30s",
+    "budget": "10%",
+    "latency": {
+      "launch": {
+        "min": "2s",
+        "max": "5s"
+      },
+      "registration": {
+        "min": "30s",
+        "max": "1m0s"
+      },
+      "podStartup": {
+        "min": "2s",
+        "max": "10s"
+      },
+      "podShutdown": {
+        "min": "1s",
+        "max": "5s"
+      }
+    },
+    "maxWall": "0s"
+  },
+  "seed": 4,
+  "scenario": "WB",
+  "environment": {
+    "go_version": "go1.26.10",
+    "os": "linux",
+    "arch": "amd64",
+    "cpus": 4,
+    "hostname": "vm"
+  },
+  "started_at": "2026-10-29T08:30:37.150844747Z",
+  "finished_at": "2026-10-29T08:30:41.676325659Z"
+}

@@ -1,0 +1,11 @@
+{
+  "run_id": "tierb-smoke__arm-b2_nodes-50_seed-1",
+  "image_revision": "eff89a17bb3a7c22ac2db77621d72d96f2843215",
+  "image": "kind.local/kwok-418fdffba63cc91b994a09d2373a7ccc:f5ee205ea6d56724ca96906b5cb3ec3ada805a25c06dd3a93fbf4f2da7c4cc06",
+  "harness_revision": "eff89a17bb3a7c22ac2db77621d72d96f2843215",
+  "csim": "/tmp/claude-0/-home-user-karpenter/2126f28c-53c0-5a8a-b14d-70c0de9f8c9e/scratchpad/bin/csim-eff89a1",
+  "kind_node_image": "kindest/node:v1.34.0",
+  "started_at": "2026-10-29T08:37:15Z",
+  "finished_at": "2026-10-29T08:47:46Z",
+  "test_exit_status": 0
+}

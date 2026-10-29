@@ -1,0 +1,103 @@
+{
+  "run_id": "tierb-cal__arm-random-entropy-greedy_nodes-50_seed-5__f449ba63",
+  "binary_revision": "eff89a17bb3a7c22ac2db77621d72d96f2843215",
+  "binary_modified": false,
+  "git_sha": "eff89a17bb3a7c22ac2db77621d72d96f2843215",
+  "git_dirty": false,
+  "config": {
+    "runID": "tierb-cal__arm-random-entropy-greedy_nodes-50_seed-5__f449ba63",
+    "seed": 5,
+    "scenario": {
+      "name": "WB",
+      "nodes": 50,
+      "params": {
+        "dropAt": "5m"
+      }
+    },
+    "arm": {
+      "name": "pipeline",
+      "label": "random/entropy-greedy",
+      "pipeline": {
+        "candidates": {
+          "name": "uniform-random",
+          "params": {
+            "sourceFraction": 0.25
+          }
+        },
+        "moves": [
+          {
+            "name": "random-merge",
+            "params": {
+              "confirm": true
+            }
+          },
+          {
+            "name": "random-shift"
+          }
+        ],
+        "movesMode": "pooled",
+        "planner": {
+          "name": "entropy-greedy",
+          "params": {
+            "lambda": 0.1
+          }
+        },
+        "executor": {
+          "name": "shift-evict"
+        },
+        "potential": {
+          "name": "util-entropy"
+        },
+        "seed": 0,
+        "search": {
+          "maxAttempts": 500,
+          "maxFullSimulations": 16
+        }
+      }
+    },
+    "placement": "least-allocated",
+    "scaleDown": "spread",
+    "duration": "50m0s",
+    "warmup": "5m0s",
+    "metricsInterval": "1m0s",
+    "catalog": {
+      "path": "",
+      "families": null,
+      "capacityTypes": null,
+      "zones": null,
+      "maxCPU": 32
+    },
+    "consolidateAfter": "30s",
+    "budget": "10%",
+    "latency": {
+      "launch": {
+        "min": "2s",
+        "max": "5s"
+      },
+      "registration": {
+        "min": "30s",
+        "max": "1m0s"
+      },
+      "podStartup": {
+        "min": "2s",
+        "max": "10s"
+      },
+      "podShutdown": {
+        "min": "1s",
+        "max": "5s"
+      }
+    },
+    "maxWall": "0s"
+  },
+  "seed": 5,
+  "scenario": "WB",
+  "environment": {
+    "go_version": "go1.26.10",
+    "os": "linux",
+    "arch": "amd64",
+    "cpus": 4,
+    "hostname": "vm"
+  },
+  "started_at": "2026-10-29T08:34:50.486589036Z",
+  "finished_at": "2026-10-29T08:34:57.691425699Z"
+}

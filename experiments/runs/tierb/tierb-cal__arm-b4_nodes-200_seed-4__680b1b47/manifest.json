@@ -1,0 +1,96 @@
+{
+  "run_id": "tierb-cal__arm-b4_nodes-200_seed-4__680b1b47",
+  "binary_revision": "eff89a17bb3a7c22ac2db77621d72d96f2843215",
+  "binary_modified": false,
+  "git_sha": "eff89a17bb3a7c22ac2db77621d72d96f2843215",
+  "git_dirty": false,
+  "config": {
+    "runID": "tierb-cal__arm-b4_nodes-200_seed-4__680b1b47",
+    "seed": 4,
+    "scenario": {
+      "name": "WB",
+      "nodes": 200,
+      "params": {
+        "dropAt": "5m"
+      }
+    },
+    "arm": {
+      "name": "pipeline",
+      "label": "B4",
+      "pipeline": {
+        "candidates": {
+          "name": "upstream"
+        },
+        "moves": [
+          {
+            "name": "upstream-multi",
+            "params": {
+              "mode": "fine"
+            }
+          },
+          {
+            "name": "upstream-single",
+            "params": {
+              "mode": "fine"
+            }
+          }
+        ],
+        "movesMode": "sequential",
+        "planner": {
+          "name": "upstream"
+        },
+        "executor": {
+          "name": "upstream-queue"
+        },
+        "potential": {
+          "name": "none"
+        },
+        "seed": 0
+      }
+    },
+    "placement": "least-allocated",
+    "scaleDown": "spread",
+    "duration": "50m0s",
+    "warmup": "5m0s",
+    "metricsInterval": "1m0s",
+    "catalog": {
+      "path": "",
+      "families": null,
+      "capacityTypes": null,
+      "zones": null,
+      "maxCPU": 32
+    },
+    "consolidateAfter": "30s",
+    "budget": "10%",
+    "latency": {
+      "launch": {
+        "min": "2s",
+        "max": "5s"
+      },
+      "registration": {
+        "min": "30s",
+        "max": "1m0s"
+      },
+      "podStartup": {
+        "min": "2s",
+        "max": "10s"
+      },
+      "podShutdown": {
+        "min": "1s",
+        "max": "5s"
+      }
+    },
+    "maxWall": "0s"
+  },
+  "seed": 4,
+  "scenario": "WB",
+  "environment": {
+    "go_version": "go1.26.10",
+    "os": "linux",
+    "arch": "amd64",
+    "cpus": 4,
+    "hostname": "vm"
+  },
+  "started_at": "2026-10-29T08:31:33.581115177Z",
+  "finished_at": "2026-10-29T08:32:01.570461865Z"
+}

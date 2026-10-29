@@ -1,0 +1,57 @@
+{
+  "arm": {
+    "label": "random/anneal-plan",
+    "name": "pipeline",
+    "pipeline": {
+      "candidates": {
+        "name": "uniform-random",
+        "params": {
+          "sourceFraction": 0.25
+        }
+      },
+      "executor": {
+        "name": "shift-evict"
+      },
+      "moves": [
+        {
+          "name": "random-merge",
+          "params": {
+            "confirm": true
+          }
+        },
+        {
+          "name": "random-shift"
+        }
+      ],
+      "movesMode": "pooled",
+      "planner": {
+        "name": "anneal-plan",
+        "params": {
+          "cooling": 0.98,
+          "lambda": 0.1,
+          "t0": 1,
+          "temperatureUnit": "per-node"
+        }
+      },
+      "potential": {
+        "name": "util-entropy"
+      },
+      "search": {
+        "maxAttempts": 500,
+        "maxFullSimulations": 16
+      }
+    }
+  },
+  "duration": "50m",
+  "maxWall": "0s",
+  "runID": "tierb-cal__arm-random-anneal-plan_nodes-200_seed-1__b6ad4a12",
+  "scenario": {
+    "name": "WB",
+    "nodes": 200,
+    "params": {
+      "dropAt": "5m"
+    }
+  },
+  "seed": 1,
+  "warmup": "5m"
+}
