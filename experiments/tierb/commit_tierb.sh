@@ -15,7 +15,6 @@ if git diff --cached --quiet; then
   echo "nothing new to commit"
   exit 0
 fi
-total=$(ls -d experiments/runs/tierb-kwok/*/ 2>/dev/null | grep -vc '\.' || true)
 git commit -q -m "data(tierb): Tier B KWOK cells, $n finished so far
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
