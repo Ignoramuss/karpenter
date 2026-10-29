@@ -1,0 +1,3 @@
+policy=WhenEmptyOrUnderutilized catalog=assorted config=coarse states=10000 match=10000/10000 upstream_decided=8961 upstream_nondeterministic=84
+policy=WhenEmptyOrUnderutilized catalog=assorted config=fine states=10000 match=10000/10000 upstream_decided=8961 upstream_nondeterministic=84
+test_exit_status=0

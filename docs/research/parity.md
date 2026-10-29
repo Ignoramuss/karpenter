@@ -40,7 +40,7 @@ Single-NodePool states must match exactly, with upstream run twice as a control.
 | Development, coarse and fine adapters | 200 | 10 | 200/200 in every cell |
 | Gate 1 (`PARITY_SEED=1`, `experiments/parity/parity-1000-seed1.*`) | 1,000 | 10 | 1,000/1,000 in every cell |
 | Re-checks after each later pipeline change | 100-150 | 10 | all matched |
-| Final (`PARITY_SEED=2`, `experiments/parity/parity-10000-seed2.*`) | 10,000 | 10 | see `experiments/parity/parity-10000-seed2.summary.txt` (filled in when the run completes) |
+| Final (`PARITY_SEED=2`, four chunks in `experiments/parity/chunks/`) | 10,000 | 10 | per chunk below |
 
 The 1,000-state run, per cell (upstream decided on 846-925 states; it disagreed with itself on 10-22 multi-NodePool
 states per cell, all resolved within the observed decision set):
@@ -51,6 +51,24 @@ states per cell, all resolved within the observed decision set):
 | WhenEmptyOrUnderutilized | assorted | 1,000/1,000 | 1,000/1,000 | |
 | Balanced | kwok | 1,000/1,000 | 1,000/1,000 | 1,000/1,000 |
 | Balanced | assorted | 1,000/1,000 | 1,000/1,000 | 1,000/1,000 |
+
+The 10,000-state run (`PARITY_SEED=2`), one chunk per policy and catalog (`parity-10000-seed2-<chunk>.summary.txt`
+and `.jsonl.gz`); "nondeterministic" counts the multi-NodePool states on which upstream disagreed with itself, all
+resolved within the observed decision set:
+
+| Chunk | Ran (UTC) | coarse | fine | fine-balanced-planner | Upstream decided | Nondeterministic |
+| --- | --- | --- | --- | --- | --- | --- |
+| WhenEmptyOrUnderutilized, kwok | Oct 27, before 20:52 | 10,000/10,000 | 10,000/10,000 | | 9,141 | 228 |
+| WhenEmptyOrUnderutilized, assorted | Oct 29 02:17-03:14 | 10,000/10,000 | 10,000/10,000 | | 8,961 | 84 |
+| Balanced, kwok | Oct 29, from 03:14 | running | running | running | | |
+| Balanced, assorted | after Balanced, kwok | pending | pending | pending | | |
+
+The first chunk ran with both catalogs selected and was stopped when the session started. Its output file also holds
+the first 4,474 assorted states, all matched. The assorted chunk regenerated them from the same seed, which checks
+the generator and the test across runs. All 4,474 states and every match verdict are identical between the two runs.
+39 records differ, all multi-NodePool states, and only in the decisions observed (upstream's and the adapters',
+which keep upstream's map-order nondeterminism, and the nondeterminism flag). The 2,625 single-NodePool records are
+byte-identical.
 
 **Mutation check** (does the test catch adapter bugs?). Three bugs were injected one at a time into the fine
 adapters. Dropping the multi-node budget decrement was caught (44/60 match). Making the upstream planner accept every
