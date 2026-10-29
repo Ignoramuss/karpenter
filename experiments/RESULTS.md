@@ -6,12 +6,14 @@
 > the raw runs.
 
 Every verdict, effect and run count here comes from `make figures` (`paper/tables/`, `paper/figures/out/`) run over
-`experiments/runs/` (two runs over the same data are byte-identical). The run history (session and H7-S times, VM
-epochs, cut projections) comes from `experiments/session-driver/` (`session.log`, `machine-log.txt`,
-`cut-decisions.txt`), and the decision-level parity counts from `experiments/parity/` (`docs/research/parity.md`). The
-preregistration (`experiments/PREREGISTRATION.md`, Gate 3, `c78b5f9`) defines each test, family and verdict rule;
-`experiments/RESEARCH_LOG.md` records every decision taken after it, with its reason and when it was made relative to
-the data. How to rebuild everything: `paper/REPRODUCE.md`.
+`experiments/runs/` (two runs over the same data are byte-identical). A few descriptive numbers that no table holds
+come straight from the runs' own files: the W1/W4 mean CPU utilization at t = 0 (`timeseries.csv`), the W2, W3 and W5
+peak node counts (`summary.json`, `peak_nodes`) and the slowest single passes (`summary.json`, `wall_pass_max_ms`).
+The run history (session and H7-S times, VM epochs, cut projections) comes from `experiments/session-driver/`
+(`session.log`, `machine-log.txt`, `cut-decisions.txt`), and the decision-level parity counts from
+`experiments/parity/` (`docs/research/parity.md`). The preregistration (`experiments/PREREGISTRATION.md`, Gate 3,
+`c78b5f9`) defines each test, family and verdict rule; `experiments/RESEARCH_LOG.md` records every decision taken
+after it, with its reason and when it was made relative to the data. How to rebuild everything: `paper/REPRODUCE.md`.
 
 ## What ran
 
@@ -30,12 +32,13 @@ the data. How to rebuild everything: `paper/REPRODUCE.md`.
 - **Session matrix:** `experiments/matrix/session.yaml`, 20 groups in the preregistered order, from Oct 27 20:52 to
   Oct 29 00:29 UTC. 1,551 of the 1,740 preregistered runs finished, every one valid: the first 16 groups complete
   (1,550 runs) and one W5 cell. The four cut-candidate groups (`realism-w5`, `realism-w6`, `exp7-b2-n1000`,
-  `exp1-baselines-n1000`: 190 cells, 189 of them unrun) were cut on time alone
-  (`experiments/session-driver/cut-decisions.txt`). `realism-w5` passed the preregistered start check on a projection
-  that turned out to be wrong by more than 30x. It was then stopped under a time-only overrun rule declared in the
-  session, and that rule, not the preregistered one, cut the other three with it (deviation 7 below). The session ran
-  on four VMs in turn (epochs A-D, `experiments/session-driver/machine-log.txt`); the three replacements killed
-  in-flight cells, which were relaunched from scratch.
+  `exp1-baselines-n1000`: 190 cells, 189 of them unfinished, including four in-flight W5 B2 cells that were stopped
+  mid-run and discarded) were cut on time alone (`experiments/session-driver/cut-decisions.txt`). `realism-w5` passed
+  the preregistered start check on a projection that turned out to be wrong by more than 30x. It was then stopped
+  under a time-only overrun rule declared in the session, and that rule, not the preregistered one, cut the other
+  three with it (deviation 7 below). The session ran on four VMs in turn (epochs A-D,
+  `experiments/session-driver/machine-log.txt`); the three replacements killed in-flight cells, which were relaunched
+  from scratch.
 - **Supplementary H7 timing pass (H7-S):** `experiments/matrix/h7-timing.yaml`, Oct 29 00:29-02:18 UTC on VM D: 20
   measured cells (both arms of H7's ten seeds, interleaved at 4-way load) and 4 discarded fillers; no seed's arms were
   split across VMs and no attempt was retried.
@@ -46,10 +49,10 @@ the data. How to rebuild everything: `paper/REPRODUCE.md`.
 
 ## Verdicts
 
-From `paper/tables/summary.md` (each item's verdict and rule counts, intervals for H1, H1-P0, H3, H4, H7, H7-S
-and the ablations, and the tables and figures behind each) and the per-experiment tables it points to, which give
-the other intervals and p values (H2 `exp2_correlation`, H4 `exp4_h4`, H5 `exp5_tests`, H6 `exp6_dominance`, B4
-`b4_parity`, H7-S `h7s_runs`):
+From `paper/tables/summary.md` (each item's verdict and rule counts, intervals for H1, H1-P0, H3, H4, H7, H7-S and the
+ablations, and the tables and figures behind each) and the per-experiment tables it points to, which give the other
+intervals and all p values (H1 `exp1_h1`, H2 `exp2_correlation`, H3 `exp3_h3`, H4 `exp4_h4`, H5 `exp5_tests`, H6
+`exp6_dominance`, H7 `exp7_tests`, H7-S `h7s_tests` and `h7s_runs`, ablations `fig8_ablation`, B4 `b4_parity`):
 
 | Item | Verdict | Deciding effects |
 | --- | --- | --- |
@@ -444,29 +447,37 @@ the log gives no time, the item below gives the commit time.
    under-projects the B2 and B3 groups at 1,000 nodes; it is applied as written.
 5. **Analysis code after Gate 3.** The analysis was aligned with the preregistered text after Gate 3: one alignment
    commit (`5b6b2e3`, Oct 27 21:14 UTC, when 33 session cells had finished), then ten fixes from an independent
-   verifier, each with a regression test (`df7831e`, 21:50 UTC, 88 finished). Neither changed a test, family, margin
-   or decision rule. Later changes added the supplementary H7-S family and descriptive output (the summary table,
+   verifier, each with a regression test (`df7831e`, 21:50 UTC, 88 finished). Both changed the code toward the
+   preregistered text, not the text. Before them the code ran, for example, H7 on wall time per pass and H4 as 16
+   tests. Neither changed a preregistered test, family, margin or decision rule. One rule is a reading of the text:
+   H4's "partially otherwise" is read as "not supported" when no clause cell holds, and H4 is partial on the data
+   either way. Later changes added the supplementary H7-S family and descriptive output (the summary table,
    wall-to-CPU ratios, machine epochs).
 6. **A third VM replacement** (Oct 28 23:24 UTC), during `realism-w5`; nothing finished was lost.
 7. **Overrun rule; four groups cut.** The cut rule started `realism-w5` projecting 2.0 minutes per cell (the
    same-scale fallback median, as W5 had never run at 200 nodes), but its B2 cells take over an hour (one finished in
    63.5 minutes). A time-only rule, declared before any W5 result was looked at, re-projects a started candidate from
-   its own timing and cuts it whole if it then ends after the deadline. `realism-w5` was cut. The cut record (00:29
-   UTC) used an in-flight estimate (20 B2/B3 cells x 62 min / 4 = 5.2 h), which is not a strict lower bound, since no
-   B3 W5 cell had run. The one finished B2 cell, noticed minutes later, gives 59 pending cells x 63.5 min / 4 = 15.6
-   h, ending long after the deadline. The same new rule then cut `realism-w6`, `exp7-b2-n1000` and
-   `exp1-baselines-n1000`, treating the stop as if the original projection had been right. The preregistered rule
-   cascades only after a failed start check, which `realism-w5` had passed. This cascade also departed from the log's
-   own plan at restart #3 to decide each later candidate fresh. Judged each on its own start projection at 00:29,
-   `realism-w6` (60 x 2.0 min / 4 = 30 min, on the same-scale fallback median W5 had just shown to be unreliable) and
-   `exp7-b2-n1000` (10 x 16.0 min / 4 = 40 min) would have started, and only `exp1-baselines-n1000` (about 3.7 h)
-   would have been cut. Lost: H1-realism, H2's W6 tests and its B2 and B3 W2 runs at 1,000 nodes, H7-B2 and Exp 7's
-   1,000-node B2 scaling point, and the 1,000-node B2 and B3 reference rows of Exp 1 and Exp 8.
+   its own timing and cuts it whole if it then ends after the deadline. `realism-w5` was cut. The cut record (00:29:08
+   UTC) gives two figures. One is an in-flight estimate (20 B2/B3 cells x 62 min / 4 = 5.2 h), which is not a strict
+   lower bound, since no B3 W5 cell had run. The other is the re-projection from the one B2 cell that finished at
+   00:28:24, while the rule was being written: 59 pending cells x 63.5 min / 4 = 15.6 h, ending long after the
+   deadline. The same new rule then cut `realism-w6`, `exp7-b2-n1000` and `exp1-baselines-n1000`, treating the stop as
+   if the original projection had been right. The preregistered rule cascades only after a failed start check, which
+   `realism-w5` had passed. This cascade also departed from the log's own plan at restart #3 to decide each later
+   candidate fresh. Judged each on its own start projection at 00:29, `realism-w6` (60 x 2.0 min / 4 = 30 min) and
+   `exp7-b2-n1000` (10 x 16.0 min / 4 = 40 min) would have passed their start checks, and only `exp1-baselines-n1000`
+   (about 3.7 h) would have been cut. Both projections are unreliable. The W6 one uses the same-scale fallback median
+   that W5 had just shown to be wrong. The `exp7-b2-n1000` one uses the W1 1,000-node median of pipeline cells, and a
+   1,000-node B2 cell takes far longer (the pilot's hit its 100-minute wall limit at simulated minute 160 of 180, and
+   deviation 4 notes that the rule under-projects B2 and B3 at 1,000 nodes). So whether either would have finished by
+   the deadline is unknown. Lost: H1-realism, H2's W6 tests and its B2 and B3 W2 runs at 1,000 nodes, H7-B2 and Exp
+   7's 1,000-node B2 scaling point, and the 1,000-node B2 and B3 reference rows of Exp 1 and Exp 8.
 8. **Driver v4** lets the last recorded decision for a group win, so the overrun cut supersedes the earlier START.
 9. **Scale wording.** The preregistration says `scenario.nodes = n` sizes each workload as n mid-size nodes at 70%
    fill, and that W2, W3, W5 and W6 run fewer, larger nodes. The Gate 3 code (`scenario.go` in
-   `hack/consolidation-sim/sim`) fills W1 and W4's n starting nodes to a random 15-75% each, and W3 peaks above n. The
-   code was not changed. The text was a description error, found after the session, and "What ran" states what ran.
+   `hack/consolidation-sim/sim`) fills W1 and W4's n starting nodes to a random 15-75% each, and W3 (124-339 in Exp 6)
+   and the one W5 cell (255) peak above n. The code was not changed. The text was a description error, found after the
+   session, and "What ran" states what ran.
 
 ## Threats to validity
 
@@ -498,10 +509,13 @@ measured on a 4-vCPU VM with up to 4 concurrent cells. Added in the session:
   beside a rerun of those cells at the same load, interleaved by seed as in H7-S
   (`experiments/matrix/h7-timing.yaml`), or report it as a cross-machine comparison with each run's `machine_epoch`,
   as H7 is.
-- Fix W5's simulator cost before running it. A post-session CPU profile of one W5 B2 cell (30 simulated minutes,
-  `experiments/RESEARCH_LOG.md`, "W5 timing probe") traced it to upstream topology counting. That code lists pods by
-  label selector, which the harness's pod index does not serve, so each list goes through the fake client's deep copy
-  and JSON round trip. The fix (serving those lists from the index) must leave every decision unchanged.
+- Fix W5's simulator cost before running `realism-w5`, or budget for it with the Gate 3 binary. A post-session CPU
+  profile of one W5 B2 cell (30 simulated minutes, `experiments/RESEARCH_LOG.md`, "W5 timing probe") traced it to
+  upstream topology counting. That code lists pods by label selector, which the harness's pod index does not serve, so
+  each list goes through the fake client's deep copy and JSON round trip. The fix (serving those lists from the index)
+  is a new binary, so its cells will not carry the Gate 3 `binary_revision` and `make figures` will mark them invalid
+  in the session tree. Before using it, check that every decision is unchanged with a byte-identical rerun of the
+  finished W5 cell, and log the new binary as a deviation with its own run tree.
 - The full profile (`experiments/matrix/full.yaml`: 20 seeds, 5,000-node cells) and Tier B on KWOK, on a machine that
   can reach `registry.k8s.io` and `cgr.dev` (`docs/research/runbook.md`).
 - Diagnose two things the session only measured: why the pipeline misses about 6% of plan-following placements in one

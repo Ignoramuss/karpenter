@@ -1,7 +1,8 @@
 # Session driver
 
-The scripts that ran the session matrix in the cloud VM, kept for audit, and the records they write. They hard-code
-the session's scratch paths. Decisions and their reasons are in `experiments/RESEARCH_LOG.md`.
+The scripts that ran the session matrix on the session's cloud VMs (four in turn, epochs A-D, one line each in
+`machine-log.txt`), kept for audit, and the records they write. They hard-code the session's scratch paths. Decisions
+and their reasons are in `experiments/RESEARCH_LOG.md`.
 
 - `run_session_v1.sh` ran from the first session cell (2026-10-27T20:52:41Z) through `exp1-n1000`. Its group list
   omitted `b4` and swapped `exp7-b2-n1000` and `exp1-baselines-n1000` relative to the preregistered order; the

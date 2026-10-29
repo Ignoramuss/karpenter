@@ -6,9 +6,10 @@ feature gate, `ConsolidationPipeline`, which is off by default. With the gate on
 upstream adapters make the same decisions as today's multi-node and single-node consolidation. A differential parity
 test checks this.
 
-**Status: draft.** The interfaces, adapters, parity test and simulator exist on the research branch. **Experimental
-results are pending.** They will be linked from `experiments/RESULTS.md`, which does not exist yet. This document
-quotes no experimental numbers. The figures it does quote are parity results and timing measurements recorded in
+**Status: draft.** The interfaces, adapters, parity test and simulator exist on the research branch. The
+session-profile results (Tier A only, with four groups cut) are in
+[`experiments/RESULTS.md`](../experiments/RESULTS.md). This document quotes no experimental numbers. The figures it
+does quote are parity results and timing measurements recorded in
 [`experiments/RESEARCH_LOG.md`](../experiments/RESEARCH_LOG.md).
 
 ## Motivation
@@ -757,8 +758,9 @@ run took 21 minutes.
   `WhenEmptyOrUnderutilized` states.
 - Skipping the `CanPass` pre-filter was not caught, and cannot be: it changes compute, never decisions.
 
-**Not yet done.** The 10,000-state run is scheduled but has not run. The test compares decisions, not events or
-metric deltas.
+**10,000-state run.** It is split into four chunks, one per policy and catalog (`experiments/parity/chunks/`). Every
+finished chunk matched 10,000 of 10,000 states in every configuration, and `docs/research/parity.md` reports each
+chunk. The test compares decisions, not events or metric deltas.
 
 **In CI.** A 40-state run (the `PARITY_STATES` default) runs with `make test`. Larger runs are invoked by hand.
 

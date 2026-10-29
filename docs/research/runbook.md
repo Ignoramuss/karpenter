@@ -20,13 +20,16 @@ not: the full profile, Tier B on KWOK, and an optional Tier C pass on EKS. Sessi
 - For Tier B: Docker, `kind` (`go install sigs.k8s.io/kind@v0.30.0`), `kubectl`, `helm`, and network access to
   `registry.k8s.io` (KWOK images) and `cgr.dev` (the `ko` base image). Both were blocked in the session.
 - Build one simulator binary per commit and use it for a whole matrix, so every cell's manifest carries one SHA.
-  To extend the session's runs (reused cells, the cut groups), build the Gate 3 commit in a clean worktree:
+  To extend the session's runs (reused cells, the cut groups), build the Gate 3 commit in a separate clone. Do not
+  use a `git worktree`: its `.git` is a file, so Go writes no VCS stamp and `binary_revision` reads "unknown".
 
   ```bash
-  git worktree add /tmp/csim-c78b5f9 c78b5f95063c1995b10fa6d66571a16d0a32b243
+  git clone . /tmp/csim-c78b5f9 && git -C /tmp/csim-c78b5f9 checkout --detach c78b5f95063c1995b10fa6d66571a16d0a32b243
   (cd /tmp/csim-c78b5f9 && go build -o bin/csim ./hack/consolidation-sim)
   mkdir -p bin && cp /tmp/csim-c78b5f9/bin/csim bin/csim-c78b5f9
-  SHA=c78b5f9                                   # or $(git rev-parse --short HEAD) for a fresh profile
+  SHA=c78b5f9
+  # For a fresh profile at the current commit instead, from a clean tree:
+  #   SHA=$(git rev-parse --short HEAD) && go build -o bin/csim-$SHA ./hack/consolidation-sim
   ```
 
 ## 1. Tier A, full profile
@@ -55,19 +58,26 @@ on W3, and the slowest W2 pipeline arms take about 13. W3 is slower: its pipelin
 B2 and B3 baselines 6.6-45.7. A 1,000-node pipeline cell takes 7-26 minutes. No 1,000-node B2 or B3 cell ran in the
 session. The pilot's one 1,000-node B2 run (W1, sharing the VM) hit its 100-minute wall limit at simulated minute
 160, so budget over two hours of one core per 1,000-node B2 or B3 cell (`experiments/PILOT.md`; research log, "B2 at
-1,000 nodes is the expensive cell"). B2 and B3 are the slowest because upstream single-node consolidation simulates
-every candidate each pass. Memory per cell was not recorded; all 1,551 session cells finished without running out of
-memory, four at a time on the 15 GiB VM. W5 is the exception: its one finished session cell (B2, 200 nodes, seed
-101) took 63.5 minutes, and a 30-minute probe of the same cell took 16 minutes. The cause is a simulator cost
-(`experiments/RESEARCH_LOG.md`, "W5 timing probe"): upstream topology counting lists pods by label selector for each
-of W5's hostname spread and anti-affinity groups, and the controller-runtime fake client deep-copies every pod and
-round-trips the list through JSON on each call. With the Gate 3 binary, budget about an hour per W5 B2 or B3 cell.
-Serving label-selector pod lists from the harness's pod index (`pkg/controllers/disruption/pipeline/harness/env.go`,
-`interceptors`) should remove most of that cost. Verify that decisions are unchanged before using it
-(`TestDeterminism` and a byte-identical rerun of a finished W5 cell), and log the new binary as a deviation.
-5,000-node cells are untested; expect several hours each for B2 and give each worker 8 GB. A 64-core machine should
-finish the full profile in about a day. Keep `--workers` at or below the core count: CPU time per pass is a measured
-outcome (H7), and oversubscription and co-runners shift it.
+1,000 nodes is the expensive cell"). At 1,000 nodes and on W3, B2 and B3 are the slowest cells, because upstream
+single-node consolidation simulates every candidate each pass. On W1 and W4 at 200 nodes they are only slightly
+slower than the slowest pipeline arms, and on W2 they are faster (1.2-2.7 minutes). Memory per cell was not
+recorded; all 1,551 session cells finished without running out of memory, four at a time on the 15 GiB VM. W5 is the
+exception: its one finished session cell (B2, 200 nodes, seed 101) took 63.5 minutes, and a 30-minute probe of the
+same cell took 16 minutes. The cause is a simulator cost (`experiments/RESEARCH_LOG.md`, "W5 timing probe"):
+upstream topology counting lists pods by label selector for each of W5's hostname spread and anti-affinity groups,
+and the controller-runtime fake client deep-copies every pod and round-trips the list through JSON on each call.
+With the Gate 3 binary, budget more than an hour per W5 B2 cell: the one that finished took 63.5 minutes, and the
+three B2 cells launched with it ran about 64 minutes without finishing before they were stopped. No B3 or pipeline
+W5 cell has been timed. Serving label-selector pod lists from the harness's pod index
+(`pkg/controllers/disruption/pipeline/harness/env.go`, `interceptors`) should remove most of that cost. Before using
+it, verify that decisions are unchanged with a byte-identical rerun of the finished W5 cell
+(`realism-w5__arm-b2_seed-101__421f66a6`): the decompressed decision log, `timeseries.csv`, `podsets.jsonl` and the
+simulated `summary.json` fields should match the session's. Also check that the new binary still passes
+`TestDeterminism`, which checks only run-to-run determinism within one binary. A fixed binary has a new
+`binary_revision`, so its cells are invalid in the session tree under the preregistered binary rule. They need their
+own run tree and a logged deviation. 5,000-node cells are untested; expect several hours each for B2 and give each
+worker 8 GB. A 64-core machine should finish the full profile in about a day. Keep `--workers` at or below the core
+count: CPU time per pass is a measured outcome (H7), and oversubscription and co-runners shift it.
 
 ### The session's cut groups
 
@@ -83,15 +93,25 @@ bin/csim-c78b5f9 matrix --matrix experiments/matrix/session.yaml --workers $(npr
 ```
 
 Use the Gate 3 binary (`c78b5f9`, built as in section 0 from that commit), so the new cells match the session's
-`binary_revision`; `make figures` checks this. Fix W5's simulator cost first, or budget for it (above).
+`binary_revision`; `make figures` checks this. Run W5 with the Gate 3 binary too, and budget more than an hour per
+W5 B2 cell (above), or use a fixed binary in its own run tree under a logged deviation.
 
 H7-B2 tests CPU time per pass (mean and p95) for B2 against the session's random/entropy-greedy W1 1,000-node cells.
-Those cells ran on VM C at 4-way load, beside cells of the same arm. A B2 run on another machine or at another load
-is not directly comparable: in H7-S, random's CPU time per pass rose 12% beside mixed co-runners. So run
-`exp7-b2-n1000` in its own invocation beside a rerun of those random cells, interleaved by seed at 4-way load, the
-way `experiments/matrix/h7-timing.yaml` pairs H7's arms. Or run it alone and report H7-B2 as a cross-machine
-comparison with each run's `machine_epoch`, as H7 is. The preregistered analysis then covers these groups
-unchanged.
+Those cells ran on VM C at about 4-way load, beside other random-generation cells (for the first seeds partly
+random/savings-only). A B2 run on another machine or at another load is not directly comparable: in H7-S, random's
+CPU time per pass was 12% higher on VM D beside a mix of both arms than on VM C beside random cells, with the
+machine and the co-runners changing together. So run `exp7-b2-n1000` in its own invocation beside a rerun of those
+random cells, interleaved by seed at 4-way load, the way `experiments/matrix/h7-timing.yaml` pairs H7's arms. That
+takes a new matrix, because the session's random cells are finished and the runner skips any cell that has a
+`summary.json`. It also takes an analysis change, logged as a deviation the way H7-S was. The analysis takes a run's
+group from its run-ID prefix, and H7-B2 compares B2 only with `exp1-n1000`'s session random cells, so the new groups
+need an alias (`analysis.group_aliases` in `paper/analysis/experiments.yaml`), H7-B2 must point at the reruns, and
+the new matrix must join `SESSION_BINARY_MATRICES` in `paper/analysis/common.py` for the binary check. Or run
+`exp7-b2-n1000` alone from `session.yaml` into the session tree and report H7-B2 as a cross-machine comparison with
+each run's `machine_epoch`, as H7 is. First append the new machine to `experiments/session-driver/machine-log.txt`,
+in the format `run_session_v4.sh` writes (boot ID, boot time, CPU, nproc). `bin/csim` does not log the machine, and
+without that line its runs are labeled with the last logged VM (D). The preregistered analysis covers the three
+non-timing groups and this cross-machine option unchanged.
 
 ## 2. Analysis and figures
 
@@ -105,8 +125,10 @@ are cached in `paper/tables/cache/`; delete the cache to recompute them.
 
 ## 3. Parity at scale
 
-The session ran 1,000 states per policy and catalog (all cells matched) and 10,000 states in four chunks, one per
-policy and catalog, in `experiments/parity/chunks/`. To rerun one chunk, or all four in one command:
+Gate 1 ran 1,000 states per policy and catalog (all cells matched). The 10,000-state run is split into four chunks,
+one per policy and catalog, in `experiments/parity/chunks/`. The WhenEmptyOrUnderutilized/kwok chunk ran before the
+session and the other three after it (`docs/research/parity.md` reports each). To rerun one chunk, or all four in
+one command:
 
 ```bash
 PARITY_STATES=10000 PARITY_SEED=2 PARITY_POLICIES=Balanced PARITY_CATALOGS=kwok \
