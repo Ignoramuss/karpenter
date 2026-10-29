@@ -1,1 +1,5 @@
 2026-10-28T23:08:40Z START realism-w5 :: START realism-w5: projected end 2026-10-28T23:38Z vs deadline 2026-10-29T02:52Z (now 2026-10-28T23:08Z; W5@200: 60 cells x median 2.0 min (fallback: all 200-node cells, n=1070); /4 workers)
+2026-10-29T00:29:08Z CUT realism-w5 :: overrun rule (RESEARCH_LOG, 'Overrun rule for a started cut candidate'): re-projected from its own timing, at least 20 B2/B3 cells x 62 min / 4 = 5.2 h (one finished B2 cell: 63.5 min; 59 pending x 63.5 / 4 = 15.6 h), ends after the deadline 2026-10-29T02:52Z
+2026-10-29T00:29:10Z CUT realism-w6 :: an earlier cut candidate was cut
+2026-10-29T00:29:10Z CUT exp7-b2-n1000 :: an earlier cut candidate was cut
+2026-10-29T00:29:10Z CUT exp1-baselines-n1000 :: an earlier cut candidate was cut

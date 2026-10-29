@@ -1548,3 +1548,4 @@
 {"run_id":"b4__arm-b4-balanced_scenario-w4_seed-108__11fcbd77","group":"b4","status":"done","exit_code":0,"wall_seconds":114.093,"finished_at":"2026-10-28T23:08:38.657791064Z","attempt":1}
 {"run_id":"b4__arm-b4-balanced_scenario-w4_seed-109__f9a1f950","group":"b4","status":"done","exit_code":0,"wall_seconds":101.252,"finished_at":"2026-10-28T23:08:38.748888145Z","attempt":1}
 {"run_id":"b4__arm-b4-balanced_scenario-w4_seed-110__35c63929","group":"b4","status":"done","exit_code":0,"wall_seconds":94.401,"finished_at":"2026-10-28T23:08:40.266280905Z","attempt":1}
+{"run_id":"realism-w5__arm-b2_seed-101__421f66a6","group":"realism-w5","status":"done","exit_code":0,"wall_seconds":3808.59,"finished_at":"2026-10-29T00:28:24.751512059Z","attempt":1}

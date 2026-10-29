@@ -1715,3 +1715,75 @@ matrix session: 60/60 done, 0 failed, 0 pending
 2026-10-28T23:24:56Z DONE b4 :: matrix session: 60/60 done, 0 failed, 0 pending
 2026-10-28T23:24:56Z CUT-RULE 2026-10-28T23:08:40Z START realism-w5 :: START realism-w5: projected end 2026-10-28T23:38Z vs deadline 2026-10-29T02:52Z (now 2026-10-28T23:08Z; W5@200: 60 cells x median 2.0 min (fallback: all 200-node cells, n=1070); /4 workers)
 2026-10-28T23:24:56Z START realism-w5
+=== driver v3 stopped; driver v4 started 2026-10-29T00:29:08Z after the overrun cut of realism-w5
+2026-10-29T00:29:08Z DRIVER v3 takes over (boot e21797db-4fdf-439d-93c4-94c72f8c6f71, cpu: Intel(R) Xeon(R) Processor @ 2.80GHz)
+2026-10-29T00:29:08Z START exp1-n200
+matrix session: 180 cells, 180 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 180/180 done, 0 failed, 0 pending
+2026-10-29T00:29:08Z DONE exp1-n200 :: matrix session: 180/180 done, 0 failed, 0 pending
+2026-10-29T00:29:08Z START exp1-baselines-n200
+matrix session: 60 cells, 60 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 60/60 done, 0 failed, 0 pending
+2026-10-29T00:29:08Z DONE exp1-baselines-n200 :: matrix session: 60/60 done, 0 failed, 0 pending
+2026-10-29T00:29:08Z START exp1-n1000
+matrix session: 180 cells, 180 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 180/180 done, 0 failed, 0 pending
+2026-10-29T00:29:09Z DONE exp1-n1000 :: matrix session: 180/180 done, 0 failed, 0 pending
+2026-10-29T00:29:09Z START exp6
+matrix session: 140 cells, 140 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 140/140 done, 0 failed, 0 pending
+2026-10-29T00:29:09Z DONE exp6 :: matrix session: 140/140 done, 0 failed, 0 pending
+2026-10-29T00:29:09Z START exp6-baselines
+matrix session: 60 cells, 60 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 60/60 done, 0 failed, 0 pending
+2026-10-29T00:29:09Z DONE exp6-baselines :: matrix session: 60/60 done, 0 failed, 0 pending
+2026-10-29T00:29:09Z START exp6-b5
+matrix session: 40 cells, 40 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 40/40 done, 0 failed, 0 pending
+2026-10-29T00:29:09Z DONE exp6-b5 :: matrix session: 40/40 done, 0 failed, 0 pending
+2026-10-29T00:29:09Z START exp5
+matrix session: 120 cells, 120 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 120/120 done, 0 failed, 0 pending
+2026-10-29T00:29:09Z DONE exp5 :: matrix session: 120/120 done, 0 failed, 0 pending
+2026-10-29T00:29:09Z START exp5-steered
+matrix session: 20 cells, 20 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 20/20 done, 0 failed, 0 pending
+2026-10-29T00:29:09Z DONE exp5-steered :: matrix session: 20/20 done, 0 failed, 0 pending
+2026-10-29T00:29:09Z START exp3
+matrix session: 80 cells, 80 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 80/80 done, 0 failed, 0 pending
+2026-10-29T00:29:09Z DONE exp3 :: matrix session: 80/80 done, 0 failed, 0 pending
+2026-10-29T00:29:09Z START exp4
+matrix session: 200 cells, 200 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 200/200 done, 0 failed, 0 pending
+2026-10-29T00:29:09Z DONE exp4 :: matrix session: 200/200 done, 0 failed, 0 pending
+2026-10-29T00:29:09Z START exp7-n50
+matrix session: 30 cells, 30 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 30/30 done, 0 failed, 0 pending
+2026-10-29T00:29:09Z DONE exp7-n50 :: matrix session: 30/30 done, 0 failed, 0 pending
+2026-10-29T00:29:09Z START exp7-b2
+matrix session: 10 cells, 10 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 10/10 done, 0 failed, 0 pending
+2026-10-29T00:29:09Z DONE exp7-b2 :: matrix session: 10/10 done, 0 failed, 0 pending
+2026-10-29T00:29:09Z START abl
+matrix session: 100 cells, 100 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 100/100 done, 0 failed, 0 pending
+2026-10-29T00:29:09Z DONE abl :: matrix session: 100/100 done, 0 failed, 0 pending
+2026-10-29T00:29:09Z START exp8
+matrix session: 240 cells, 240 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 240/240 done, 0 failed, 0 pending
+2026-10-29T00:29:10Z DONE exp8 :: matrix session: 240/240 done, 0 failed, 0 pending
+2026-10-29T00:29:10Z START exp8-b5
+matrix session: 30 cells, 30 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 30/30 done, 0 failed, 0 pending
+2026-10-29T00:29:10Z DONE exp8-b5 :: matrix session: 30/30 done, 0 failed, 0 pending
+2026-10-29T00:29:10Z START b4
+matrix session: 60 cells, 60 done, 0 failed, 0 pending; 4 workers, wall budget 1h0m0s, out /home/user/karpenter/experiments/runs/session
+matrix session: 60/60 done, 0 failed, 0 pending
+2026-10-29T00:29:10Z DONE b4 :: matrix session: 60/60 done, 0 failed, 0 pending
+2026-10-29T00:29:10Z CUT-RULE 2026-10-29T00:29:08Z CUT realism-w5 :: overrun rule (RESEARCH_LOG, 'Overrun rule for a started cut candidate'): re-projected from its own timing, at least 20 B2/B3 cells x 62 min / 4 = 5.2 h (one finished B2 cell: 63.5 min; 59 pending x 63.5 / 4 = 15.6 h), ends after the deadline 2026-10-29T02:52Z
+2026-10-29T00:29:10Z CUT-RULE 2026-10-29T00:29:10Z CUT realism-w6 :: an earlier cut candidate was cut
+2026-10-29T00:29:10Z CUT-RULE 2026-10-29T00:29:10Z CUT exp7-b2-n1000 :: an earlier cut candidate was cut
+2026-10-29T00:29:10Z CUT-RULE 2026-10-29T00:29:10Z CUT exp1-baselines-n1000 :: an earlier cut candidate was cut
+2026-10-29T00:29:10Z SESSION COMPLETE
+2026-10-29T00:29:10Z START h7-timing
