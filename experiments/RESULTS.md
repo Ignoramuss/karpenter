@@ -466,10 +466,12 @@ the log gives no time, the item below gives the commit time.
    deadline. The same new rule then cut `realism-w6`, `exp7-b2-n1000` and `exp1-baselines-n1000`, treating the stop as
    if the original projection had been right. The preregistered rule cascades only after a failed start check, which
    `realism-w5` had passed. This cascade also departed from the log's own plan at restart #3 to decide each later
-   candidate fresh. Judged each on its own start projection at 00:29, `realism-w6` (60 x 2.0 min / 4 = 30 min) and
-   `exp7-b2-n1000` (10 x 16.0 min / 4 = 40 min) would have passed their start checks, and only `exp1-baselines-n1000`
-   (about 3.7 h) would have been cut. Both projections are unreliable. The W6 one uses the same-scale fallback median
-   that W5 had just shown to be wrong. The `exp7-b2-n1000` one uses the W1 1,000-node median of pipeline cells, and a
+   candidate fresh. Judged on its own start projection at 00:29, `realism-w6` (60 x 2.0 min / 4 = 30 min) would have
+   passed its start check, with a projected end about 00:59. The driver checks the candidates in turn, so
+   `exp7-b2-n1000` (10 x 16.0 min / 4 = 40 min) would have been checked only when `realism-w6` ended, and would have
+   passed if that was by about 02:12 (02:52 minus 40 minutes). `exp1-baselines-n1000` (about 3.7 h) would have been
+   cut whenever it was checked. Both projections are unreliable. The W6 one uses the same-scale fallback median that
+   W5 had just shown to be wrong. The `exp7-b2-n1000` one uses the W1 1,000-node median of pipeline cells, and a
    1,000-node B2 cell takes far longer (the pilot's hit its 100-minute wall limit at simulated minute 160 of 180, and
    deviation 4 notes that the rule under-projects B2 and B3 at 1,000 nodes). So whether either would have finished by
    the deadline is unknown. Lost: H1-realism, H2's W6 tests and its B2 and B3 W2 runs at 1,000 nodes, H7-B2 and Exp

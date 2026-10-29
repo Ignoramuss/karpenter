@@ -482,10 +482,11 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   pays this, and every pass pays it per topology group. W1, the H7 scenario, has none. **Cause:** a simulator cost,
   not a property of the strategies; a real controller reads an informer cache, with no JSON round trip. **Not fixed in
   the session:** a fix changes the binary, and every session cell must carry the Gate 3 `binary_revision`. Next step
-  (runbook, RESULTS "Next steps"): serve label-selector pod lists from the harness's pod index. Then check that
-  decisions are unchanged with a byte-identical rerun of the finished W5 cell
-  (`realism-w5__arm-b2_seed-101__421f66a6`), and that the new binary still passes `TestDeterminism` (which checks only
-  run-to-run determinism within one binary), before using it for new runs under a logged deviation.
+  (runbook, RESULTS "Next steps"): serve label-selector pod lists from the harness's pod index. Then rerun the
+  finished W5 cell (`realism-w5__arm-b2_seed-101__421f66a6`) and check that its decompressed decision log,
+  `timeseries.csv`, `podsets.jsonl` and simulated `summary.json` fields match the session's (its timings and manifest
+  will differ), which shows only that this cell's decisions are unchanged. Also check that the new binary still passes
+  `TestDeterminism` (run-to-run determinism within one binary), before using it for new runs under a logged deviation.
 - **Correction: the overrun cascade was the new rule's, not the preregistered rule's (found by the final claim check,
   Oct 29 02:33-03:32 UTC; no data involved).** The overrun-rule entry above cut `realism-w6`, `exp7-b2-n1000` and
   `exp1-baselines-n1000` "exactly as if the original projection had been right", and RESULTS credited that cascade to
@@ -557,10 +558,10 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   byte-identity check was recorded for the final outputs (`9c93190` records it). The third said parity.md was stale,
   which was true when it was raised and is the same point as a confirmed flag, but `272cfc3` (03:16) updated parity.md
   before its verifier read the file. Five changes from the wording points were applied anyway: "190 cells, 189 of them
-  unrun" (corrected to "unfinished" in the next round, since four of them had run before they were stopped); the
-  verdict table's words matched to summary.md ("absent (group cut)" for H7-B2, "no runs (groups cut)" for H1-realism,
-  "reported: all valid" for the run checks); H7-S "not supported" without "too"; the retry definition in the run
-  checks; and "heuristic/savings-only" in Exp 8.
+  unrun" (corrected to "unfinished" in the next round, since three of them, W5 B2 seeds 102-104, had run before they
+  were stopped); the verdict table's words matched to summary.md ("absent (group cut)" for H7-B2, "no runs (groups
+  cut)" for H1-realism, "reported: all valid" for the run checks); H7-S "not supported" without "too"; the retry
+  definition in the run checks; and "heuristic/savings-only" in Exp 8.
 - **Second check: the fixes themselves (Oct 29 03:41-04:33 UTC).** Five checkers re-read the lines `b8aabd6` added to
   RESULTS, REPRODUCE, the runbook, this log and PROGRESS. A sixth swept every document for text still stating the
   corrected facts in their old form. An independent checker re-derived each flag: 37 flags, 33 confirmed. Fixed in
@@ -592,14 +593,15 @@ Every decision taken without asking, every fallback, and every blocked host, in 
     - this log's own entries: the alignment wording, the scale entry, the unconfirmed-flag tally, "unrun" →
       "unfinished".
 - **10,000-state parity complete (Oct 29 05:18 UTC).** Driver v4 ran the last three chunks one after another:
-  `wour-assorted` 02:17-03:14, `balanced-kwok` 03:14-04:07, `balanced-assorted` 04:07-05:18. It then logged
-  `ALL BACKGROUND WORK COMPLETE` and exited. All four chunks matched 10,000 of 10,000 states in every configuration
-  (coarse and fine adapters, plus the Balanced planner on Balanced states): 40,000 states, each in two or three
-  configurations. Upstream decided on 8,347-9,141 states per chunk and disagreed with itself on 79-247
-  multi-NodePool states, all resolved within the observed decision set. Every chunk ran on a parity test binary
-  built after the last pipeline commit (`pkg/` is unchanged since `2d8fce7`). Gate 1's 10,000-state run is
-  therefore complete, with no mismatch. `docs/research/parity.md`, RESULTS, PROGRESS, the runbook, REPRODUCE and
-  the RFC give the final result. `experiments/session-driver/session.log` is the driver's complete log.
+  `wour-assorted` 02:17-03:14, `balanced-kwok` 03:14-04:07, `balanced-assorted` 04:07-05:18. It then logged `ALL
+  BACKGROUND WORK COMPLETE` and exited. All four chunks matched 10,000 of 10,000 states in every configuration (coarse
+  and fine adapters, plus the Balanced planner on Balanced states): 40,000 states, each in two or three
+  configurations. Upstream decided on 8,347-9,141 states per chunk and disagreed with itself on 79-247 multi-NodePool
+  states, all resolved within the observed decision set. Every chunk ran on a parity test binary built after the last
+  pipeline commit (`pkg/` is unchanged since `2d8fce7`). Gate 1's 10,000-state run is therefore complete, with no
+  mismatch. `docs/research/parity.md`, RESULTS, PROGRESS, the runbook and the RFC give the final result; REPRODUCE
+  gives the chunks' run times and points to `docs/research/parity.md`. `experiments/session-driver/session.log` is the
+  driver's complete log.
 - **Correction: three, not four, W5 cells were stopped at the overrun cut.** The overrun entry says "the four
   in-flight W5 cells are stopped". The runner had launched B2 seeds 101-104 at 23:24:56 UTC under a 60-minute
   wall budget per invocation. When seed 101 finished at 00:28:24, 63.5 minutes in, the budget was spent, so no
@@ -624,6 +626,24 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   - this log's own entries ("commit that follows", the flag tallies, the H7-B2 design summary, "faster than the
     pipeline", the 15.6 h citation, `TestDeterminism`'s scope in the probe entry).
 
-  The flag counts fell from 38 to 33 to 25 over the three rounds. This round's flags were all in text the earlier
-  rounds had added or in status that went stale while the parity chunks ran, and none touched a verdict, effect
-  or test.
+  The confirmed-flag counts fell from 38 to 33 to 25 over the three rounds (from 49, 37 and 25 flags raised). Most of
+  this round's flags were in text the earlier rounds had added or in status that went stale while the parity chunks
+  ran. Two were in text written just before the first check began at 02:33: RESULTS' run-check count (`d2d546f`,
+  02:27) and REPRODUCE's cut-group command (`91b2fba`, 02:32). None touched a verdict, effect or test.
+- **Fourth check, and the session's end (Oct 29 05:22-05:37 UTC).** Four checkers read only the lines `d9633aa`
+  changed. RESULTS, parity.md, REPRODUCE and the runbook drew no flags. The research log and PROGRESS drew 7, and
+  an independent checker confirmed all 7. They are fixed in the commit that adds this entry:
+  - RESULTS deviation 7 now has the candidates' order (`exp7-b2-n1000` would have been checked only when
+    `realism-w6` ended);
+  - one leftover "four" became "three";
+  - the third round's tallies and their provenance;
+  - the probe entry's rerun check;
+  - which documents state the final parity result;
+  - PROGRESS's "under driver v4", which excluded the first chunk.
+
+  The checks stop here. The last round found nothing in RESULTS or REPRODUCE, and its flags were in this log's own
+  bookkeeping. **Final reproducibility check:** `make figures` at `d9633aa`, run into a scratch directory (05:22-05:24
+  UTC, 1 min 32 s), gave all 60 committed tables and 18 committed figures byte for byte. No table, figure, verdict or
+  analysis code changed after `9c93190`. The next commit, `5ceb8d9`, added the runs it was built from that were not
+  yet committed (the 24 H7 timing runs and the two run indexes). Every later change is to the documents, the driver's
+  log and the parity records.
