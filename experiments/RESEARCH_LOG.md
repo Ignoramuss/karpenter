@@ -647,3 +647,31 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   analysis code changed after `9c93190`. The next commit, `5ceb8d9`, added the runs it was built from that were not
   yet committed (the 24 H7 timing runs and the two run indexes). Every later change is to the documents, the driver's
   log and the parity records.
+
+## 2026-10-29 (after the session): Tier B
+
+- **Tier B unblocked (Oct 29 about 07:20 UTC).** The user added network access for the Kubernetes image
+  registries. From this VM, `registry.k8s.io`, `cgr.dev`, Docker Hub, `dl.k8s.io`, `get.helm.sh`,
+  raw.githubusercontent.com and the KWOK release downloads all answer. Tier B work from here on is after the
+  session and outside the preregistration's session profile. The validation design is logged before any Tier B
+  result, below.
+- **Tier B environment: four workarounds (07:24-08:00 UTC, no data).**
+  1. **Docker.** `dockerd` was installed but not running, so it is started by hand.
+  2. **The control plane.** `kind` v0.30.0 (node image `kindest/node:v1.34.0`, containerd 2.1.3) could not start
+     the control plane. Every pod sandbox failed with runc's "can't get final child's PID from pipe". The VM
+     withholds `CAP_SYS_RESOURCE` (CapEff `0x1fffeffffff`, bit 24 clear), so no process may lower its
+     `oom_score_adj`, and runc fails on the kubelet's -997/-998 for control-plane pods. The fix is containerd's
+     rootless setting, `restrict_oom_score_adj = true`, which clamps the score instead. It is applied as a
+     `containerdConfigPatches` entry on a copy of `hack/kind/cluster.yaml`, with the repository file unchanged.
+     The kubelet still logs that it cannot set its own OOM score or the file-handle rlimit; both are non-fatal.
+  3. **Images.** The kind node inherits the host's `HTTPS_PROXY=http://127.0.0.1:40999`, which inside the node is
+     the node's own loopback, so the node cannot pull. Images are pulled on the host and loaded with
+     `kind load image-archive`. The archive is made with `docker save --platform linux/amd64`, because a plain
+     `kind load docker-image` fails on Docker's containerd image store ("content digest ... not found"). Only the
+     KWOK controller image needs this. `ko` loads the Karpenter image itself (`KO_DOCKER_REPO=kind.local`), and
+     workload pods run on KWOK's fake nodes, which pull nothing.
+  4. **Installation.** The controller is installed as `make apply-with-kind` does, minus its `verify` step and with
+     `serviceMonitor.enabled=false`, since no Prometheus operator is installed. The performance suite reads the
+     controller's own `/metrics` through the API server, so it needs neither Prometheus nor metrics-server.
+  The tools are `kind` v0.30.0 and `ko` v0.18.0 (`go install`), helm v3.19.0, and envtest's kubectl v1.36.2. The
+  controller image was built by `ko` from `a54fb19`.
