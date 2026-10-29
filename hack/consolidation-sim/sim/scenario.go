@@ -43,6 +43,9 @@ const (
 	W4MixedShapes = "W4"
 	W5Constrained = "W5"
 	W6Trace       = "W6"
+	// WBTierB is Tier B's workload (experiments/TIERB.md): W2's deployments for the same n and seed, every one
+	// dropping from peak to low at once, at params.dropAt (default 5m), so the scenario fits a KWOK run.
+	WBTierB = "WB"
 )
 
 // Shape is a pod's requests: CPU in millicores, memory in MiB.
@@ -146,6 +149,8 @@ func Generate(cfg ScenarioConfig, rng *rand.Rand, cat catalogView) (Workload, er
 		return fragmented(n, rng, cat, mixedShapes, true), nil
 	case W2Diurnal:
 		return diurnal(n, rng, cat, false), nil
+	case WBTierB:
+		return tierB(cfg, n, rng, cat)
 	case W5Constrained:
 		return diurnal(n, rng, cat, true), nil
 	case W3BatchChurn:
@@ -235,6 +240,25 @@ func diurnal(n int, rng *rand.Rand, cat catalogView, constrained bool) Workload 
 		w.Deployments = append(w.Deployments, d)
 	}
 	return w
+}
+
+// tierB is W2 drawn from the same random stream, so its shapes and replica counts match W2's for the same seed,
+// with every deployment's drop moved to one time.
+func tierB(cfg ScenarioConfig, n int, rng *rand.Rand, cat catalogView) (Workload, error) {
+	drop := 5 * time.Minute
+	if v, ok := cfg.Param["dropAt"].(string); ok {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return Workload{}, fmt.Errorf("scenario %s: params.dropAt: %w", WBTierB, err)
+		}
+		drop = d
+	}
+	w := diurnal(n, rng, cat, false)
+	w.Name = WBTierB
+	for i := range w.Deployments {
+		w.Deployments[i].Schedule[1].At = D(drop)
+	}
+	return w, nil
 }
 
 // batchChurn runs steady services at about 40% of n nodes plus job streams that add about 60% more at their mean,

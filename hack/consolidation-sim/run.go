@@ -260,6 +260,31 @@ func catalogCmd(args []string) error {
 	return enc.Encode(out)
 }
 
+// workloadCmd prints the workload a cell simulates, without running it, for replay on a KWOK cluster (Tier B).
+func workloadCmd(args []string) error {
+	fs := flag.NewFlagSet("workload", flag.ExitOnError)
+	path := fs.String("config", "", "cell config (JSON), as for run")
+	_ = fs.Parse(args)
+	if *path == "" {
+		return fmt.Errorf("workload: --config is required")
+	}
+	raw, err := os.ReadFile(*path)
+	if err != nil {
+		return err
+	}
+	var cfg sim.Config
+	if err := yaml.UnmarshalStrict(raw, &cfg); err != nil {
+		return fmt.Errorf("parsing %s, %w", *path, err)
+	}
+	w, err := sim.GenerateWorkload(cfg)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(w)
+}
+
 func strategiesCmd() error {
 	return json.NewEncoder(os.Stdout).Encode(pipeline.Registered())
 }

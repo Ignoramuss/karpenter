@@ -1,0 +1,51 @@
+# Tier A side of Tier B (experiments/TIERB.md): workload WB, W2's deployments dropping at once at t = 5 min, the
+# simulator's warmup also 5 min, then an observation window. The seven configurations are the session matrix's
+# anchors verbatim. Groups:
+#
+#   tierb-cal  pilot seeds 1-5, a 45-minute window: fixes the observation window T (TIERB.md, "Observation window")
+#   tierb-a    seeds 101-110, the window T fixed from tierb-cal (set below once calibrated, logged in RESEARCH_LOG)
+#
+#   bin/csim matrix --matrix experiments/matrix/tierb.yaml --only tierb-cal --workers 4
+name: tierb
+outDir: experiments/runs/tierb
+definitions:
+  search: &search
+    movesMode: pooled
+    search: {maxFullSimulations: 16, maxAttempts: 500}
+  std: &std
+    executor: {name: shift-evict}
+    potential: {name: util-entropy}
+  common: &common {<<: [*search, *std]}
+  heuristic: &heuristic
+    candidates: {name: upstream}
+    moves: [{name: upstream-multi, params: {mode: fine}}, {name: upstream-single, params: {mode: fine}}]
+  random-candidates: &random-candidates
+    candidates: {name: uniform-random, params: {sourceFraction: 0.25}}
+  random: &random
+    <<: *random-candidates
+    moves: [{name: random-merge, params: {confirm: true}}, {name: random-shift}]
+  p1: &p1 {name: entropy-greedy, params: {lambda: 0.1}}
+  p2: &p2 {name: anneal-plan, params: {lambda: 0.1, t0: 1, cooling: 0.98, temperatureUnit: per-node}}
+  b4-pipeline: &b4-pipeline
+    candidates: {name: upstream}
+    moves: [{name: upstream-multi, params: {mode: fine}}, {name: upstream-single, params: {mode: fine}}]
+    movesMode: sequential
+    planner: {name: upstream}
+    executor: {name: upstream-queue}
+    potential: {name: none}
+  arms: &arms
+    - {name: B2-when-empty-or-underutilized, label: B2}
+    - {name: B3-balanced, label: B3}
+    - {name: pipeline, label: B4, pipeline: *b4-pipeline}
+    - {name: pipeline, label: heuristic/entropy-greedy, pipeline: {<<: [*common, *heuristic], planner: *p1}}
+    - {name: pipeline, label: heuristic/anneal-plan, pipeline: {<<: [*common, *heuristic], planner: *p2}}
+    - {name: pipeline, label: random/anneal-plan, pipeline: {<<: [*common, *random], planner: *p2}}
+    - {name: pipeline, label: random/entropy-greedy, pipeline: {<<: [*common, *random], planner: *p1}}
+base:
+  warmup: 5m
+  maxWall: 0s
+  scenario: {name: WB, params: {dropAt: 5m}}
+groups:
+  - name: tierb-cal
+    set: {duration: 50m}
+    vary: {scenario.nodes: [50, 200], arm: *arms, seed: {from: 1, to: 5}}

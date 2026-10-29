@@ -52,6 +52,8 @@ func main() {
 		err = strategiesCmd()
 	case "catalog":
 		err = catalogCmd(os.Args[2:])
+	case "workload":
+		err = workloadCmd(os.Args[2:])
 	default:
 		usage()
 	}
@@ -62,6 +64,6 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: consolidation-sim run|matrix|strategies|catalog [flags]")
+	fmt.Fprintln(os.Stderr, "usage: consolidation-sim run|matrix|strategies|catalog|workload [flags]")
 	os.Exit(2)
 }

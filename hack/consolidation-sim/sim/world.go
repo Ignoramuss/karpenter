@@ -211,6 +211,17 @@ func New(cfg Config, decisions io.Writer) (*Sim, error) {
 	return s, nil
 }
 
+// GenerateWorkload returns the workload a run of cfg simulates, drawn as New draws it (the same seed stream and
+// catalog), without building the run. Tier B (experiments/TIERB.md) replays it on a KWOK cluster.
+func GenerateWorkload(cfg Config) (Workload, error) {
+	cfg.Defaults()
+	cat, err := catalog.Load(cfg.Catalog)
+	if err != nil {
+		return Workload{}, err
+	}
+	return Generate(cfg.Scenario, rand.New(rand.NewSource(cfg.Seed)), catalogAdapter{cat}) //nolint:gosec
+}
+
 func (s *Sim) setupNodePool() error {
 	policy := v1.ConsolidationPolicyWhenEmptyOrUnderutilized
 	switch s.cfg.Arm.Name {
