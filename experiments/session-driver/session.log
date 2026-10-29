@@ -1787,3 +1787,33 @@ matrix session: 60/60 done, 0 failed, 0 pending
 2026-10-29T00:29:10Z CUT-RULE 2026-10-29T00:29:10Z CUT exp1-baselines-n1000 :: an earlier cut candidate was cut
 2026-10-29T00:29:10Z SESSION COMPLETE
 2026-10-29T00:29:10Z START h7-timing
+matrix h7-timing: 24 cells, 0 done, 0 failed, 24 pending; 4 workers, wall budget unlimited, out /home/user/karpenter/experiments/runs/h7-timing
+[1/24 done] done h7t-102__arm-random-entropy-greedy__ea0c7abf in 754.4s
+[2/24 done] done h7t-101__arm-random-entropy-greedy__2b3cccc8 in 944.7s
+[3/24 done] done h7t-102__arm-heuristic-entropy-greedy__97a5a38b in 1252.0s
+[4/24 done] done h7t-101__arm-heuristic-entropy-greedy__0d7a1044 in 1336.7s
+[5/24 done] done h7t-103__arm-random-entropy-greedy__8c5776dc in 876.5s
+[6/24 done] done h7t-103__arm-heuristic-entropy-greedy__3ba0d01e in 1298.8s
+[7/24 done] done h7t-104__arm-random-entropy-greedy__e70ebcfe in 831.5s
+[8/24 done] done h7t-104__arm-heuristic-entropy-greedy__2573815b in 1257.6s
+[9/24 done] done h7t-105__arm-random-entropy-greedy__5bdc7ac7 in 843.2s
+[10/24 done] done h7t-105__arm-heuristic-entropy-greedy__f36fb7bd in 1284.3s
+[11/24 done] done h7t-106__arm-random-entropy-greedy__5a8bac9e in 821.6s
+[12/24 done] done h7t-106__arm-heuristic-entropy-greedy__fc7b2cd8 in 1293.0s
+[13/24 done] done h7t-107__arm-random-entropy-greedy__1835dbfa in 743.2s
+[14/24 done] done h7t-107__arm-heuristic-entropy-greedy__ae955a18 in 1213.0s
+[15/24 done] done h7t-108__arm-random-entropy-greedy__d0060c5e in 809.8s
+[16/24 done] done h7t-108__arm-heuristic-entropy-greedy__b47d10f0 in 1255.5s
+[17/24 done] done h7t-109__arm-random-entropy-greedy__0d3ee85f in 828.0s
+[18/24 done] done h7t-109__arm-heuristic-entropy-greedy__5e9ba061 in 1256.0s
+[19/24 done] done h7t-110__arm-random-entropy-greedy__196b2fe4 in 813.2s
+[20/24 done] done h7t-110__arm-heuristic-entropy-greedy__8bd8cad1 in 1290.2s
+[21/24 done] done h7fill-111__arm-random-entropy-greedy__274574d3 in 728.5s
+[22/24 done] done h7fill-111__arm-heuristic-entropy-greedy__12b56773 in 1257.9s
+[23/24 done] done h7fill-112__arm-random-entropy-greedy__bd245b44 in 689.6s
+[24/24 done] done h7fill-112__arm-heuristic-entropy-greedy__c2afcb18 in 1120.7s
+matrix h7-timing: 24/24 done, 0 failed, 0 pending
+2026-10-29T02:17:50Z DONE h7-timing :: matrix h7-timing: 24/24 done, 0 failed, 0 pending
+2026-10-29T02:17:50Z H7 PAIRS (round 0) rc=0 :: no seed to rerun: 10 seeds with both arms on one VM and no retried attempt
+2026-10-29T02:17:50Z H7 TIMING PASS COMPLETE
+2026-10-29T02:17:50Z PARITY START wour-assorted

@@ -1,0 +1,50 @@
+{
+  "arm": {
+    "label": "heuristic/entropy-greedy",
+    "name": "pipeline",
+    "pipeline": {
+      "candidates": {
+        "name": "upstream"
+      },
+      "executor": {
+        "name": "shift-evict"
+      },
+      "moves": [
+        {
+          "name": "upstream-multi",
+          "params": {
+            "mode": "fine"
+          }
+        },
+        {
+          "name": "upstream-single",
+          "params": {
+            "mode": "fine"
+          }
+        }
+      ],
+      "movesMode": "pooled",
+      "planner": {
+        "name": "entropy-greedy",
+        "params": {
+          "lambda": 0.1
+        }
+      },
+      "potential": {
+        "name": "util-entropy"
+      },
+      "search": {
+        "maxAttempts": 500,
+        "maxFullSimulations": 16
+      }
+    }
+  },
+  "duration": "3h",
+  "maxWall": "0s",
+  "runID": "h7t-110__arm-heuristic-entropy-greedy__8bd8cad1",
+  "scenario": {
+    "name": "W1",
+    "nodes": 1000
+  },
+  "seed": 110
+}
