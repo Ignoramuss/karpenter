@@ -1,0 +1,106 @@
+{
+  "run_id": "tierb-a__arm-heuristic-anneal-plan_nodes-200_seed-107__431fe724",
+  "binary_revision": "eff89a17bb3a7c22ac2db77621d72d96f2843215",
+  "binary_modified": false,
+  "git_sha": "896ba9352b1a9699c3c43d5384ef4e58df0e9084",
+  "git_dirty": true,
+  "config": {
+    "runID": "tierb-a__arm-heuristic-anneal-plan_nodes-200_seed-107__431fe724",
+    "seed": 107,
+    "scenario": {
+      "name": "WB",
+      "nodes": 200,
+      "params": {
+        "dropAt": "5m"
+      }
+    },
+    "arm": {
+      "name": "pipeline",
+      "label": "heuristic/anneal-plan",
+      "pipeline": {
+        "candidates": {
+          "name": "upstream"
+        },
+        "moves": [
+          {
+            "name": "upstream-multi",
+            "params": {
+              "mode": "fine"
+            }
+          },
+          {
+            "name": "upstream-single",
+            "params": {
+              "mode": "fine"
+            }
+          }
+        ],
+        "movesMode": "pooled",
+        "planner": {
+          "name": "anneal-plan",
+          "params": {
+            "cooling": 0.98,
+            "lambda": 0.1,
+            "t0": 1,
+            "temperatureUnit": "per-node"
+          }
+        },
+        "executor": {
+          "name": "shift-evict"
+        },
+        "potential": {
+          "name": "util-entropy"
+        },
+        "seed": 0,
+        "search": {
+          "maxAttempts": 500,
+          "maxFullSimulations": 16
+        }
+      }
+    },
+    "placement": "least-allocated",
+    "scaleDown": "spread",
+    "duration": "35m0s",
+    "warmup": "5m0s",
+    "metricsInterval": "1m0s",
+    "catalog": {
+      "path": "",
+      "families": null,
+      "capacityTypes": null,
+      "zones": null,
+      "maxCPU": 32
+    },
+    "consolidateAfter": "30s",
+    "budget": "10%",
+    "latency": {
+      "launch": {
+        "min": "2s",
+        "max": "5s"
+      },
+      "registration": {
+        "min": "30s",
+        "max": "1m0s"
+      },
+      "podStartup": {
+        "min": "2s",
+        "max": "10s"
+      },
+      "podShutdown": {
+        "min": "1s",
+        "max": "5s"
+      }
+    },
+    "maxWall": "0s"
+  },
+  "seed": 107,
+  "scenario": "WB",
+  "environment": {
+    "go_version": "go1.26.10",
+    "os": "linux",
+    "arch": "amd64",
+    "cpus": 4,
+    "hostname": "vm"
+  },
+  "started_at": "2026-10-29T08:54:23.825438688Z",
+  "finished_at": "2026-10-29T08:54:51.199938377Z"
+}

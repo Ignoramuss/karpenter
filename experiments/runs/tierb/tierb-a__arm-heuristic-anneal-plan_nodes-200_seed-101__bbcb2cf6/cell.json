@@ -1,0 +1,57 @@
+{
+  "arm": {
+    "label": "heuristic/anneal-plan",
+    "name": "pipeline",
+    "pipeline": {
+      "candidates": {
+        "name": "upstream"
+      },
+      "executor": {
+        "name": "shift-evict"
+      },
+      "moves": [
+        {
+          "name": "upstream-multi",
+          "params": {
+            "mode": "fine"
+          }
+        },
+        {
+          "name": "upstream-single",
+          "params": {
+            "mode": "fine"
+          }
+        }
+      ],
+      "movesMode": "pooled",
+      "planner": {
+        "name": "anneal-plan",
+        "params": {
+          "cooling": 0.98,
+          "lambda": 0.1,
+          "t0": 1,
+          "temperatureUnit": "per-node"
+        }
+      },
+      "potential": {
+        "name": "util-entropy"
+      },
+      "search": {
+        "maxAttempts": 500,
+        "maxFullSimulations": 16
+      }
+    }
+  },
+  "duration": "35m",
+  "maxWall": "0s",
+  "runID": "tierb-a__arm-heuristic-anneal-plan_nodes-200_seed-101__bbcb2cf6",
+  "scenario": {
+    "name": "WB",
+    "nodes": 200,
+    "params": {
+      "dropAt": "5m"
+    }
+  },
+  "seed": 101,
+  "warmup": "5m"
+}
