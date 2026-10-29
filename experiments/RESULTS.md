@@ -1,11 +1,11 @@
 # Results: consolidation as entropy reduction (session profile)
 
-> **Status: draft, session in progress.** The session matrix is still running (`experiments/session-driver/
-> session.log`). The sections marked *to be filled* get their numbers from `paper/tables/summary.md`, which
-> `make figures` regenerates from the raw runs; nothing below is final until this banner is gone.
+> **Status: final for the session matrix and the H7 timing pass** (Oct 29, 2026). The remaining 10,000-state parity
+> chunks run after the session and are reported in `docs/research/parity.md`. Every verdict and effect below comes
+> from `paper/tables/summary.md` and the tables it points to, which `make figures` regenerates from the raw runs.
 
 Every number here comes from `make figures` (`paper/tables/`, `paper/figures/out/`) run over `experiments/runs/`
-at the commit that removes this banner. The preregistration (`experiments/PREREGISTRATION.md`, Gate 3,
+(two runs over the same data are byte-identical). The preregistration (`experiments/PREREGISTRATION.md`, Gate 3,
 `c78b5f9`) defines each test, family and verdict rule; `experiments/RESEARCH_LOG.md` records every decision taken
 after it, with its reason and when it was made relative to the data. How to rebuild everything:
 `paper/REPRODUCE.md`.
@@ -20,25 +20,48 @@ after it, with its reason and when it was made relative to the data. How to rebu
   at a time, every cell with the Gate 3 binary (`c78b5f9`; each manifest's `binary_revision`) and 10 workload seeds
   (101-110). Tier B (KWOK on kind) could not run: its images come from `registry.k8s.io` and `cgr.dev`, which the
   session's network blocked. The KWOK suite compiles; `docs/research/runbook.md` has the commands.
-- **Session matrix:** `experiments/matrix/session.yaml`, 20 groups in the preregistered order. *To be filled:* runs
-  finished, cut groups (time-based rule, `experiments/session-driver/cut-decisions.txt`), invalid runs by reason
-  (`paper/tables/validity.md`).
-- **Supplementary H7 timing pass (H7-S):** `experiments/matrix/h7-timing.yaml`, after the matrix. *To be filled.*
-- **Parity:** 1,000 states per policy and catalog for Gate 1, and a 10,000-state run (`docs/research/parity.md`).
-  *To be filled:* the 10,000-state chunks.
+- **Session matrix:** `experiments/matrix/session.yaml`, 20 groups in the preregistered order, from Oct 27 20:52
+  to Oct 29 00:29 UTC. 1,551 of the 1,740 preregistered runs finished, every one valid: the first 16 groups complete
+  (1,550 runs) and one W5 cell. The four cut-candidate groups (`realism-w5`, `realism-w6`, `exp7-b2-n1000`,
+  `exp1-baselines-n1000`, 189 cells) were cut by the time-based rule (`experiments/session-driver/
+  cut-decisions.txt`): `realism-w5` started on a projection that turned out to be wrong by more than 30x and was
+  stopped under a time-only overrun rule, and the other three were cut with it (deviation 7 below). The session ran
+  on four VMs in turn (epochs A-D, `experiments/session-driver/machine-log.txt`); the three replacements killed
+  in-flight cells, which were relaunched from scratch.
+- **Supplementary H7 timing pass (H7-S):** `experiments/matrix/h7-timing.yaml`, Oct 29 00:29-02:18 UTC on VM D: 20
+  measured cells (both arms of H7's ten seeds, interleaved at 4-way load) and 4 discarded fillers; no seed's arms were
+  split across VMs and no attempt was retried.
+- **Parity:** 1,000 states per policy and catalog for Gate 1 (all matched), and a 10,000-state run whose first chunk
+  matched 10,000 of 10,000 states in both adapter modes; the other three chunks run after the session
+  (`docs/research/parity.md`).
 
 ## Verdicts
 
-*To be filled from `paper/tables/summary.md`:* one row per hypothesis (H1-H7), the secondary families (H1-P0
-contrast, H1-realism, H7-B2, H7-S), the ablation family, B4 parity and Exp 8, each with its verdict, the rule's
-counts, each test's effect with its interval, and the table and figure that show it.
+From `paper/tables/summary.md`, which also gives each test's interval and the tables and figures behind it:
+
+| Item | Verdict | Deciding effects |
+| --- | --- | --- |
+| H1: random vs heuristic generation within 3% | not supported | 3 of 12 equivalent; random 1.5-5.1% cheaper in 7 of 8 W1/W4 cells, 1.4-4.3% dearer on W2 |
+| H1-P0 contrast (savings-only) | reported | 0 of 6 equivalent |
+| H1-realism (W5, W6) | cut | no runs |
+| H2: potential drop predicts removals | P1 partial; P2, P3 not supported | P1 on W2 10 of 10 seeds (Holm p 0.006), W3 9 of 10 (0.054); W2 and W3 only |
+| H3: merge+shift beats merge-only | not supported | merge+shift 1.7-7.0% dearer, all four significant |
+| H4: anneal at plan time; online pays disruption | partial (1 of 8 clause cells) | plan: -3.0% cost on W1 but +21-38% evictions; online on W1: +68% cost, -31% evictions |
+| H5: off-plan placement and its levers | partial | off-plan share 0.75; most-allocated +29-44% fidelity; deletion-cost n.s.; run set flagged |
+| H6: frontier matches or dominates B2, B3, B5 | not supported | 3 cells dominated, 1 dominates, 2 inconclusive |
+| H7: random sampling cheaper per pass at 1,000 nodes | not supported | mean -37.2%, p95 +19.3%; no pass over 1 minute |
+| H7-B2 (random vs B2 at 1,000 nodes) | cut | no runs |
+| H7-S (timing pass, one VM) | not supported; agrees with H7 on both tests | mean -29.4%, p95 +37.9%; all 20 reruns reproduce their twins |
+| Ablations (family of 8) | reported | every removal lowers cost (-7.5% to -30.7%), 6 of 8 significant |
+| B4 parity in the wild | equivalent | 6 of 6 TOSTs at 3%; 7 of 60 seeds exact |
+| Exp 8 optimality gap | reported | 8-21% at 50 nodes (B5 78-145%), 9-22% at 200, 11-43% at 1,000 |
+| Run checks | all valid | 1,551 runs; 130 cross-group duplicate sets identical; 0 wrong binary |
 
 ## Per hypothesis
 
 Each subsection gives the hypothesis as preregistered, the verdict, the effects that decide it and what the result
 does and does not show. Percent differences are random minus heuristic (or arm minus reference) over the reference's
-mean; "90% CI" is the TOST interval, "95% CI" a paired bootstrap interval (10,000 resamples). H2-H6 and the other
-checks are *to be filled* when their groups finish.
+mean; "90% CI" is the TOST interval, "95% CI" a paired bootstrap interval (10,000 resamples).
 
 ### H1. Random generation vs heuristic generation, entropy-guided planners (Exp 1; complete)
 
@@ -80,7 +103,7 @@ question (within 3% or not); it does not say which arm is preferable, which depe
 6 measures that trade-off). Tier B did not run, so whether real kube-scheduler placement preserves the ranking is
 untested.
 
-### H2. Does a potential drop predict node removals? (Exp 2; provisional until `realism-w6` and `exp1-baselines-n1000` run or are cut)
+### H2. Does a potential drop predict node removals? (Exp 2; W2 and W3, W6 cut)
 
 **Hypothesis.** A drop in the potential over a 10-minute window predicts node removals in the next window. Per run
 (every valid W2, W3 and W6 run of the Exp 2 groups except B0, each distinct configuration and seed once):
@@ -89,9 +112,10 @@ entropy, P3 quadratic); per seed the median rho; an exact one-sided sign test ov
 x scenario with data. A potential satisfies H2 iff its test rejects after Holm and the median of per-seed medians is
 positive in every scenario with data; partially if in some.
 
-**Verdict so far** (W2 and W3; W6 adds three tests and changes Holm's m from 6 to 9, and `exp1-baselines-n1000`
-would add B2 and B3 W2 runs at 1,000 nodes;
-`paper/tables/exp2_correlation.md`, figure `fig6_leadlag`):
+**Verdict:** P1 partially supported, P2 and P3 not supported, on W2 and W3 only: `realism-w6`, whose W6 runs Exp 2
+would have used, was cut, so Holm runs over the 6 potential x scenario tests with data, and `exp1-baselines-n1000`,
+which would have added B2 and B3 W2 runs at 1,000 nodes, was cut too (`paper/tables/exp2_correlation.md`, figure
+`fig6_leadlag`):
 
 | Potential | W2: median rho (95% CI), seeds positive, Holm p | W3 | Verdict |
 | --- | --- | --- | --- |
@@ -105,8 +129,7 @@ adjusted 0.054) is not enough here. P1's 10-minute drop correlates positively wi
 descriptive) peaks at lag 0 and is roughly symmetric, so it does not show that drops come before removals; whether
 they do was not tested. On W2, P2 and P3 drops are followed by fewer removals in the next window (a non-positive
 per-seed median in every seed; overall medians -0.27 and -0.30), although minute by minute they coincide with
-removals (lag-0 median correlation about +0.36 for both). *To be finalized with W6 and the 1,000-node baselines (or
-their cut).*
+removals (lag-0 median correlation about +0.36 for both).
 
 ### H3. Merge plus shift vs merge only (Exp 3; complete)
 
@@ -310,9 +333,18 @@ all ten heuristic cells ran on VM B and all ten random cells on VM C (`machine_e
 the first seeds partly savings-only cells), never beside a cell of the other generation. Both arms saw little
 contention (wall over CPU time 1.004 each). The VMs' CPU labels differ (2.80 vs 2.10 GHz), but per unit of work the
 session's own data show no consistent speed difference (`experiments/RESEARCH_LOG.md`, "Correction: the H7
-confound's direction"). A supplementary timing pass, H7-S (`experiments/matrix/h7-timing.yaml`, declared before any
-random-arm 1,000-node result), reruns both arms of every seed on one VM, interleaved at 4-way load, after the
-matrix; *to be filled* with its result, its twin CPU ratios and its test-by-test comparison with H7.
+confound's direction"). A supplementary timing pass, H7-S, declared before any random-arm 1,000-node result, reran both
+arms of every seed on one VM.
+
+**H7-S** (`paper/tables/h7s_tests.md`, `h7s_runs.md`). All 20 reruns reproduced their session twins exactly (the
+decision log up to run IDs, the time series, the pod-set snapshots and every simulated summary field), and every
+seed's two arms ran on VM D at a mean concurrency of 4.0. Random generation's mean CPU time per pass is 29.4% lower
+(95% CI -33.6 to -25.2; 1,004 vs 1,422 ms; Holm p = 0.004) and its p95 37.9% higher (+34.0 to +41.7; 3,127 vs 2,267
+ms; Holm p = 0.004): the same outcome as H7 on both tests, so H7-S is "not supported" too and agrees with H7 test by
+test. CPU time per pass, rerun over session twin: heuristic 0.998 (0.96 to 1.03 across seeds), random 1.12 (1.07 to
+1.16). The heuristic cells cost the same on VM D beside a mix of both arms as on VM B beside heuristic cells; the
+random cells cost 12% more than on VM C beside random cells. The change of design (machine and co-runners) moved
+random's mean advantage from 37% to 29% and did not change either test's direction.
 
 **Scaling** (descriptive, `paper/tables/exp7_latency.md`, figure `fig4_latency`; W1, mean CPU time per pass):
 
@@ -320,19 +352,19 @@ matrix; *to be filled* with its result, its twin CPU ratios and its test-by-test
 | --- | --- | --- | --- |
 | 50 | 19.7 ms (p95 67.8), VM C | 16.8 ms (p95 104.0), VM C | 21.3 ms (p95 71.5), VM C |
 | 200 | 143.1 ms (p95 324.2), VM A | 97.9 ms (p95 392.3), VM A | 198.6 ms (p95 908.2), VM C |
-| 1,000 | 1,425.1 ms (p95 2,285.5), VM B | 894.8 ms (p95 2,725.6), VM C | *to be filled* (`exp7-b2-n1000`) |
+| 1,000 | 1,425.1 ms (p95 2,285.5), VM B | 894.8 ms (p95 2,725.6), VM C | cut (`exp7-b2-n1000`) |
 
 From 50 to 1,000 nodes the mean grows about 72x for heuristic and 53x for random generation, while the node count
 grows 20x (heuristic's 50- and 1,000-node cells ran on different VMs, and co-runners differ by size for both arms,
 so the two ratios are not directly comparable); random's p95 is above heuristic's at every size. B2's 200-node p95
 is 2.8x heuristic's. No measured pass came near a minute: the slowest W1 pass took 6.1 s (random/entropy-greedy,
-1,000 nodes); B2 at 1,000 nodes is pending.
+1,000 nodes); B2 at 1,000 nodes was cut.
 
 **What it shows.** Random sampling makes the typical pass cheaper and the slow passes slower: its cost per pass is
 more variable, so a fixed per-pass time limit binds on the tail, not the mean. Neither arm comes close to upstream's
 1-minute limit at 1,000 nodes in this simulator.
 
-### Exp 8. Optimality gap to the offline packing bound (descriptive; 1,000-node B2/B3 rows pending)
+### Exp 8. Optimality gap to the offline packing bound (descriptive; 1,000-node B2/B3 rows cut)
 
 Each run's fleet cost at its final pod-set snapshot against a lower bound on the cheapest fleet that could hold
 those pods (B6: CP-SAT at 50 nodes: of the 59 distinct pod sets, 48 bounds proven optimal, 8 feasible, 3 skipped
@@ -341,11 +373,12 @@ snapshots), as gap = cost / bound - 1 (`paper/tables/exp8_gap.md`, figure `fig7_
 only where CP-SAT proved optimality (25 of the 30 distinct final 50-node pod sets), so the gaps are upper estimates
 of the distance to the cheapest fleet, more so at 200 and 1,000 nodes. At 50 nodes the consolidating arms end 8-21%
 above the bound and B5 (the descheduler) 78-145% above; at 200 nodes 9-22%; at 1,000 nodes 11-43% for the six
-pipeline arms (the B2 and B3 rows come from `exp1-baselines-n1000`, not yet run), widest for savings-only planning
-on W1 and W4 (42-43% with heuristic generation). The lowest final gaps are random/savings-only's on W1 and W4 (8-12%
-at 50 and 200 nodes). Gaps are computed on the final snapshot only at 200 and 1,000 nodes. At 50 nodes the table
-also has each run's mean over its snapshots that have a CP-SAT bound; the 3 skipped pod sets (early W2 snapshots of
-two seeds, 698-739 pods) are left out of those means, not given the LP bound, and no final snapshot was skipped.
+pipeline arms (the B2 and B3 rows would have come from `exp1-baselines-n1000`, which was cut), widest for
+savings-only planning on W1 and W4 (42-43% with heuristic generation). The lowest final gaps are
+random/savings-only's on W1 and W4 (8-12% at 50 and 200 nodes). Gaps are computed on the final snapshot only at 200
+and 1,000 nodes. At 50 nodes the table also has each run's mean over its snapshots that have a CP-SAT bound; the 3
+skipped pod sets (early W2 snapshots of two seeds, 698-739 pods) are left out of those means, not given the LP
+bound, and no final snapshot was skipped.
 
 ### B4. Parity in the wild (complete)
 
@@ -362,9 +395,12 @@ methods. Whether this accounts for the 53 non-matching seeds was not tested. The
 
 ### Run checks
 
-*To be filled with the final counts.* At 23:10 UTC on Oct 28: 1,550 finished session runs, all valid (no PDB or
-do-not-disrupt violation, error, timeout, abandonment, wrong binary or nondeterminism); every one of 130 sets of
-identical configurations run in different groups (the cross-group determinism check) produced identical summaries.
+`paper/tables/validity.md`, `cut_configurations.md`, `duplicate_consistency.md`, `run_checks.json`. All 1,551
+finished session runs are valid: no PDB or do-not-disrupt violation, error, timeout, abandoned or retried cell, run
+from another binary (all 1,571 runs checked, the timing pass's included, carry `c78b5f9`, unmodified) or
+nondeterminism (TestDeterminism passed at that commit). Every one of the 130 sets of identical configurations run in
+different groups (the cross-group determinism check) produced identical summaries, as did the 20 H7-S reruns. The
+19 cut configurations are exactly the four cut groups' (one with the single finished W5 run).
 
 ## Deviations from the preregistration
 
@@ -386,6 +422,14 @@ All are logged in `experiments/RESEARCH_LOG.md` with the time they were decided 
    so it under-projects the B2 and B3 groups at 1,000 nodes; it is applied as written.
 5. **Analysis code after Gate 3** changed only toward the preregistered text (ten alignment fixes, each with a test)
    or added descriptive output (the summary table, H7-S, wall-to-CPU ratios, machine epochs).
+6. **A third VM replacement** (Oct 28 23:24 UTC), during `realism-w5`; nothing finished was lost.
+7. **Overrun rule; four groups cut.** The cut rule started `realism-w5` projecting 2.0 minutes per cell (the
+   same-scale fallback median, as W5 had never run at 200 nodes), but its B2 cells take over an hour (one finished in
+   63.5 minutes). A time-only rule, declared before any W5 result was looked at, re-projects a started candidate from
+   its own timing and cuts it whole if it then ends after the deadline: `realism-w5` (at least 5.2 hours left) was
+   cut, and `realism-w6`, `exp7-b2-n1000` and `exp1-baselines-n1000` with it, as the preregistered rule cuts every
+   later candidate. Lost: H1-realism, H7-B2, H2's W6 tests, Exp 8's 1,000-node B2 and B3 rows.
+8. **Driver v4** lets the last recorded decision for a group win, so the overrun cut supersedes the earlier START.
 
 ## Threats to validity
 
@@ -397,8 +441,16 @@ only, H1's power at 10 seeds) stand. Added in the session:
   session's own analysis and reviews ran on the VM at logged times (none during the cells H7, H7-S or Exp 7 test).
   Each run's `wall_cpu_ratio` shows the contention it saw.
 - **Tier B did not run**, so no rank-agreement check bounds the simulator's scheduler and controller models.
+- **No realism check ran.** W5 (constraints) and W6 (trace replay) were cut, so the preregistered threat that
+  synthetic workloads may flatter random generation is not mitigated in this session.
 
 ## Next steps
 
-*To be filled:* the full profile (`experiments/matrix/full.yaml`, `docs/research/runbook.md`), Tier B on a machine
-that can reach the image registries, and whatever the cuts left out.
+- Run what the cuts left out on a larger machine: `realism-w5` and `realism-w6` (budget about an hour per W5 B2 or B3
+  cell at 200 nodes on this VM's class of CPU), `exp7-b2-n1000` and `exp1-baselines-n1000`
+  (`bin/csim matrix --matrix experiments/matrix/session.yaml --only <group>`); the run IDs match the session's.
+- The full profile (`experiments/matrix/full.yaml`: 20 seeds, 5,000-node cells) and Tier B on KWOK, on a machine
+  that can reach `registry.k8s.io` and `cgr.dev` (`docs/research/runbook.md`).
+- Diagnose three things the session only measured: why W5 cells are so slow at 200 nodes, why the pipeline misses
+  6% of plan-following placements in one Exp 5 cell (seed 107), and why B2's plans survive placement better than the
+  pipeline's merges.
