@@ -1,10 +1,11 @@
 # Tier B protocol: KWOK on kind (after the session)
 
 Phase 5 of `docs/research/PLAN.md` checks whether the simulator's rankings survive a real API server, kube-scheduler
-and controller, and measures what the simulator cannot: the controller's own CPU and memory. Tier B could not run
-in the session because its image registries were blocked. They were opened afterwards (Oct 29). This protocol was
-written before any Tier B run except one smoke spec, which checked the setup and is not data. Every later change is
-logged in `experiments/RESEARCH_LOG.md`.
+and controller, and measures what the simulator cannot: the controller's own CPU and memory. Tier B could not run in
+the session because its image registries were blocked. They were opened afterwards (Oct 29). This protocol was
+written before any Tier B run except one smoke spec, which checked the setup and is not data. It was revised after
+an adversarial review of the harness, still before any evaluation-seed Tier B run (RESEARCH_LOG, "Tier B harness
+review"). Every later change is logged in `experiments/RESEARCH_LOG.md`.
 
 ## Workload: WB, one workload replayed in both tiers
 
@@ -14,8 +15,10 @@ run, so both tiers run a compressed variant, **WB(n, seed)**:
 - **Deployments:** exactly W2's for the same n and seed (same shapes, peak and low replica counts, no PDBs), from
   the simulator's own generator (`consolidation-sim workload`). Only the drop time differs: every deployment
   drops from its peak to its low count at once, at t = W.
-- **Warmup:** W = 5 minutes. Consolidation is held off during it (Tier A: the simulator's warmup; Tier B: the
-  NodePool's budget is `nodes: "0"`, then `10%` at t = W), so every arm starts from the same provisioned state.
+- **Warmup:** W = 5 minutes. Consolidation is held off during it, so every arm starts from the same provisioned
+  state. In Tier A the simulator runs no disruption pass before the warmup ends. In Tier B the NodePool has
+  `consolidateAfter: Never` and a `nodes: "0"` budget, both switched at t = W, to `30s` and `10%`. A zero budget
+  alone would not do it: the pipeline's shift moves remove no node, so they pass a node budget.
 - **Observation window:** T minutes after the drop. T is fixed before any evaluation-seed run, from Tier A WB runs
   on the pilot seeds 1-5 (all seven configurations, both sizes, a 45-minute window). Per run, the settle time is
   the last change in node count after the drop. T is the largest per-configuration 90th percentile of settle
@@ -47,6 +50,16 @@ simulations per cycle and 500 attempts per generator, lambda 0.1, t0 1.
   from `kwok/examples/aws_instance_types.json`. Tier B's KWOK provider loads that file
   (`INSTANCE_TYPES_FILE_PATH`), and the simulator builds its types the same way. The NodePool has
   `consolidateAfter: 30s` and a 10% disruption budget after warmup.
+- **Provisioning.** The simulator creates every peak pod at t = 0 and provisions them in one batch. Tier B creates
+  the deployments first and creates the NodePool only once every pod exists and is unschedulable. t = 0 is that
+  moment, so Karpenter's first pass also sees the whole workload. Otherwise the ReplicaSets' creation rate splits
+  provisioning into timing-dependent batches.
+- **Node latency.** The simulator draws launch from 2-5 s and registration from 30-60 s, a mean of 48.5 s from
+  create to registered. Tier B's KWOKNodeClass sets `nodeRegistrationDelay: 47s`: KWOK marks a NodeClaim launched at
+  once and creates its Node after the delay, which leaves KWOK's own second or so. Replacements wait for their new
+  nodes, so this matters most to arms that replace often.
+- **Randomness.** A pipeline without a seed of its own uses the run seed in both tiers. The simulator fills it in;
+  the Tier B driver writes it into the cell's pipeline config.
 - **Scheduling.** Default kube-scheduler scoring (the simulator's `least-allocated` placement). Scale-down is by
   the ReplicaSet controller (the simulator's `spread` model approximates it).
 - **Feature gates.** All arms run the same feature gates as the installed chart, plus `ConsolidationPipeline=true`
@@ -63,11 +76,12 @@ Each is computed from one-minute samples over [W, W + T], the same way in both t
 | `cost_end` | mean $/hr over the samples in the last 5 minutes | nodes' instance types x catalog prices |
 | `cost_window` | integrated cost over [W, W + T], in $ | the same samples |
 | `nodes_end` | node count at W + T | node list |
-| `evictions` | pods evicted after the drop | pods carrying `DisruptionTarget` with reason `EvictionByEvictionAPI` |
+| `evictions` | pods evicted after the drop: `evictions_cum` at W + T minus at W | pods carrying `DisruptionTarget` with reason `EvictionByEvictionAPI` |
 | `settle_min` | minutes from the drop to the last node-count change | node list |
 | `compute` | Tier A: CPU seconds in disruption passes; Tier B: controller process CPU seconds over [W, W + T] | controller `/metrics` |
+| `evaluation_s` | Tier B only: the controller's own decision-evaluation time, by consolidation type | `karpenter_voluntary_disruption_decision_evaluation_duration_seconds` |
 
-Tier B also records controller memory (max and p95) and pending pods at the drop.
+Tier B also records controller memory (max and p95), and nodes, cost and pending pods at the drop.
 
 ## Seeds, order and validity
 
@@ -76,21 +90,32 @@ Tier B also records controller memory (max and p95) and pending pods at the drop
 - **Run order.** Tier B runs one spec at a time on one kind cluster. Rounds go by seed (101, then 102, ...). Within
   a round it runs n = 200 then n = 50, and the seven configurations in an order shuffled per round and size with a
   fixed seed (`experiments/tierb/plan.json`). An interrupted round is completed before the next one starts.
-- **Stopping rule (time-only).** The first round to end after 36 hours of Tier B running is the last one.
-- **Validity.** A Tier B run is invalid in any of these cases, and invalid runs are counted, reported and rerun
-  once:
+- **Stopping rule (time-only).** No new round starts once 36 hours of wall-clock time have passed since the first
+  Tier B cell started, counting reruns and any downtime. A round already started is always finished.
+- **Validity.** A Tier B run is invalid in any of these cases:
+  - its spec exited non-zero;
   - a pod is still pending at the drop (scale-out unfinished);
-  - the controller restarted during the window;
-  - the spec errored;
+  - a pod was evicted before the drop;
+  - the controller restarted during the cell;
+  - the decisions came from the wrong methods. A gate-on arm must show pipeline evaluations and no multi-node or
+    single-node ones; a gate-off arm the reverse;
+  - the metrics poller collected no samples;
   - a PDB or `do-not-disrupt` violation (WB has neither, so none is expected).
+
+  An invalid run is counted, reported and rerun once, at once; a second invalid run abandons the cell. Two kinds of
+  failure do not count as attempts, and the cell is simply run again: a cell the container interrupted, and one
+  whose spec never reached its end (setup or infrastructure). The driver checks the cluster's health before every
+  cell, and stops after two failed cells in a row.
 
 ## Analysis (descriptive)
 
-For each size and metric, Kendall's tau-b between the two tiers' configuration orders, using means over seeds
-101-105 (7 items). A configuration pair counts as a reversal when the two tiers order it differently and both
-tiers' mean differences exceed a materiality floor. The floors are 1% for the cost metrics, 10% for evictions and
-compute, and 2 minutes for settle time. Every reversal is reported as a finding. Two pairs are also reported
-separately:
+The analysis uses only the (seed, n) blocks in which all seven configurations have a valid Tier B run. A block with
+an abandoned cell, or a seed the stopping rule did not reach, is dropped whole and reported. Tier A means use
+exactly the same blocks. For each size and metric, Kendall's tau-b between the two tiers' configuration orders,
+using means over the retained seeds (7 items). A configuration pair counts as a reversal when the two tiers order it
+differently and both tiers' mean differences exceed a materiality floor. The floors are 1% for the cost metrics, 10%
+for evictions and compute, and 2 minutes for settle time. Every reversal is reported as a finding. Two pairs are
+also reported separately:
 - random vs heuristic generation with the entropy-greedy planner (H1, H7);
 - B4 vs B2 (parity on a real cluster).
 

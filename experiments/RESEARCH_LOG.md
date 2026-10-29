@@ -699,3 +699,36 @@ Every decision taken without asking, every fallback, and every blocked host, in 
     being measured.
   - One mechanics check (B2, n = 50, pilot seed 1, a 5-minute window, written outside the run tree) runs before
     the evaluation cells. It checks the files and the eviction counter, not the numbers.
+- **Tier B harness review (Oct 29, 08:50-09:44 UTC; before any evaluation-seed Tier B run).** Three reviewers read
+  the protocol, the KWOK spec and the driver, and an independent verifier re-derived each of their 22 findings: 13
+  were confirmed. All are fixed, and `experiments/TIERB.md` is revised to match.
+  - **Blocker: a zero node budget does not hold consolidation off.** The pipeline's shift moves remove no node, so
+    `ExceedsBudgets` passes them. During warmup the two random arms would have consolidated in Tier B only, since
+    the simulator runs no pass then. The NodePool now has `consolidateAfter: Never` through the warmup, switched to
+    `30s` at the drop. A cell with any eviction before the drop is invalid.
+  - **Provisioning in batches.** The mechanics cell provisioned in six batches as the ReplicaSets created pods, and
+    ended with 14 nodes against Tier A's 12. The spec now creates the NodePool only when every pod exists and is
+    unschedulable, and t = 0 is that moment.
+  - **Node latency.** KWOK registered nodes in about 1 s, against the simulator's 32-65 s, which favors arms that
+    replace often. Tier B now sets `nodeRegistrationDelay: 47s`, near the simulator's mean of 48.5 s.
+  - **Smaller fixes.**
+    - The pipeline is seeded with the run seed, as in the simulator, instead of 0.
+    - Every attempt restarts the controller: `TIERB_RUN_ID` carries a nonce.
+    - Each cell records which methods evaluated decisions, and a cell fails validity on a mismatch. It also records
+      the controller's decision-evaluation time, nodes and cost at the drop, and evictions before it.
+    - The driver counts a cell only if its spec exited 0 and its summary is valid.
+    - It writes the manifest atomically when a cell starts, and checks env vars and cluster health first.
+    - It reruns an invalid cell once, at once. It does not count interrupted or infrastructure failures as
+      attempts, and stops after two failures in a row.
+    - The stopping rule no longer starts a new round after 36 h, but always finishes a round it has started.
+    - The analysis uses only complete (seed, n) blocks.
+  - **Not confirmed (left as is, with the verifiers' reasons).** kindnet puts a 100m/50Mi DaemonSet pod on every KWOK
+    node, and the simulator has no DaemonSets. But WB's pod shapes are multiples of 250m and 512Mi, and both tiers
+    compute allocatable the same way, so the overhead never changes what fits. The controller runs NodeRepair,
+    CapacityBuffer and StaticCapacity in every Tier B arm, and the simulator runs none. Repair only acts on node
+    conditions WB never sets, so decisions do not change. The CPU-seconds estimate from mean rates is exact when no
+    scrape fails, and none failed. The compiled test binary matched the committed spec.
+
+  Before the evaluation cells, three smoke cells on pilot seed 1 check the fixes:
+  - B2 at n = 50 and heuristic/entropy-greedy at n = 50, covering both gates and the method check;
+  - random/anneal-plan at n = 200, checking provisioning within the warmup with the 47 s delay.

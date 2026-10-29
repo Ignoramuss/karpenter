@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Tier B driver (experiments/TIERB.md): runs the KWOK cells one at a time, in the protocol's order, and is safe to
-re-invoke (finished cells are skipped; an invalid or failed cell is set aside and rerun once).
+re-invoke. A finished cell is skipped. An invalid one is set aside (.failed-N) and rerun once. One the container
+interrupted, or one that never reached the end of its spec, is set aside without counting as an attempt. Two failures
+in a row, or an unhealthy cluster, stop the driver.
 
     run_tierb.py plan                   write experiments/tierb/plan.json (deterministic) and print it
     run_tierb.py run [--only RUN_ID]    run every pending cell in plan order (or one cell), logging to run.log
-    run_tierb.py smoke                  one short mechanics check on a pilot seed, outside the run tree
+    run_tierb.py smoke [--label ARM]    one short mechanics check on a pilot seed, outside the run tree
 
 Paths it relies on (set by the environment the runbook describes): the Tier A binary at $CSIM, the compiled
 performance suite at $PERF_TEST, a kind cluster with KWOK and the controller from $IMAGE_REVISION installed.
@@ -79,67 +81,143 @@ def prices():
     return {c["name"]: c["price_per_hour"] for c in json.load(open(os.path.join(REPO, "experiments", "catalog.json")))}
 
 
+def load(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def write_json(path, obj):
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(obj, f, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
+
+
+def cell_valid(out):
+    """A cell counts only if its spec exited 0 and its summary says valid (the spec's own checks)."""
+    m, s = load(os.path.join(out, "manifest.json")), load(os.path.join(out, "summary.json"))
+    return bool(m and m.get("test_exit_status") == 0 and s and s.get("valid") is True)
+
+
+def require_env():
+    for k in ("CSIM", "PERF_TEST", "IMAGE_REVISION", "IMAGE"):
+        if not os.environ.get(k):
+            raise SystemExit(f"{k} is not set")
+    for k in ("CSIM", "PERF_TEST"):
+        if not os.access(os.environ[k], os.X_OK):
+            raise SystemExit(f"{k}={os.environ[k]} is not an executable file")
+
+
+def preflight():
+    """The cluster must be healthy before a cell starts; a failure stops the driver without touching any cell."""
+    def k(*args):
+        return subprocess.run(["kubectl", *args], capture_output=True, text=True, timeout=180).returncode == 0
+    ok = k("get", "--raw", "/readyz") and all(
+        k("-n", "kube-system", "wait", "--for=condition=Available", "--timeout=120s", f"deploy/{d}")
+        for d in ("karpenter", "kwok-controller-a", "coredns"))
+    if not ok:
+        log("PREFLIGHT FAILED: the cluster is not healthy; stopping without touching any cell")
+        sys.exit(2)
+
+
 def run_cell(c, out, window=WINDOW):
     policy, gate, slug = ARMS[c["label"]]
-    os.makedirs(out, exist_ok=True)
-    w = workload(c["seed"], c["nodes"])
+    pipe = arm_pipeline(slug) if gate else None
+    if pipe is not None and not pipe.get("seed"):
+        pipe["seed"] = c["seed"]  # as the simulator does (sim/world.go: a pipeline seed of 0 becomes the run seed)
     cell = {**{k: c[k] for k in ("run_id", "label", "seed", "nodes")}, "policy": policy, "gate": gate,
-            "pipeline": arm_pipeline(slug) if gate else None, "warmup": WARMUP, "window": window, "workload": w,
+            "pipeline": pipe, "warmup": WARMUP, "window": window, "workload": workload(c["seed"], c["nodes"]),
             "prices": prices(), "out": out}
-    json.dump(cell, open(os.path.join(out, "cell.json"), "w"), indent=2)
     manifest = {"run_id": c["run_id"], "image_revision": os.environ["IMAGE_REVISION"], "image": os.environ["IMAGE"],
                 "harness_revision": subprocess.run(["git", "-C", REPO, "rev-parse", "HEAD"], capture_output=True,
                                                    text=True).stdout.strip(),
-                "csim": os.environ["CSIM"], "kind_node_image": os.environ.get("KIND_NODE_IMAGE", ""),
-                "started_at": now()}
+                "harness_dirty": subprocess.run(["git", "-C", REPO, "status", "--porcelain", "--", "test", "experiments/tierb"],
+                                                capture_output=True, text=True).stdout.strip() != "",
+                "perf_test": os.environ["PERF_TEST"], "csim": os.environ["CSIM"],
+                "kind_node_image": os.environ.get("KIND_NODE_IMAGE", ""),
+                "boot_id": open("/proc/sys/kernel/random/boot_id").read().strip(),
+                "status": "running", "started_at": now()}
+    os.makedirs(out, exist_ok=True)
+    write_json(os.path.join(out, "cell.json"), cell)
+    write_json(os.path.join(out, "manifest.json"), manifest)
     env = {**os.environ, "TIERB_CELL": os.path.join(out, "cell.json"), "OUTPUT_DIR": out}
-    with open(os.path.join(out, "test.log"), "w") as f:
+    log_path = os.path.join(out, "test.log")
+    with open(log_path, "w") as f:
         rc = subprocess.run([os.environ["PERF_TEST"], "-test.v", "-test.timeout", "2h", "-ginkgo.focus", "Tier B",
                              "-ginkgo.timeout", "2h", "-ginkgo.grace-period", "15m", "-ginkgo.v"],
                             cwd=os.path.join(REPO, "test", "suites", "performance"), env=env, stdout=f,
                             stderr=subprocess.STDOUT).returncode
-    manifest.update(finished_at=now(), test_exit_status=rc)
-    json.dump(manifest, open(os.path.join(out, "manifest.json"), "w"), indent=2)
-    s = os.path.join(out, "summary.json")
-    valid = rc == 0 and os.path.exists(s) and json.load(open(s)).get("valid") is True
-    return rc, valid
+    subprocess.run(["gzip", "-9f", log_path], check=False)
+    manifest.update(finished_at=now(), test_exit_status=rc, status="done")
+    manifest["valid"] = rc == 0 and (load(os.path.join(out, "summary.json")) or {}).get("valid") is True
+    write_json(os.path.join(out, "manifest.json"), manifest)
+    return rc, manifest["valid"]
 
 
 def attempts(out):
     return len(glob.glob(out + ".failed-*"))
 
 
+def round_started(cells):
+    return any(os.path.exists(os.path.join(RUNS, c["run_id"])) or glob.glob(os.path.join(RUNS, c["run_id"]) + ".*")
+               for c in cells)
+
+
 def run(only=None):
+    require_env()
     cells = plan()
-    json.dump(cells, open(os.path.join(TIERB, "plan.json"), "w"), indent=1)
-    first = min((json.load(open(m))["started_at"] for m in glob.glob(os.path.join(RUNS, "*", "manifest.json"))),
-                default=now())
-    start = datetime.datetime.strptime(first, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
+    write_json(os.path.join(TIERB, "plan.json"), cells)
+    firsts = [m["started_at"] for m in (load(p) for p in glob.glob(os.path.join(RUNS, "*", "manifest.json"))
+                                        + glob.glob(os.path.join(RUNS, "*.*", "manifest.json"))) if m]
+    start = datetime.datetime.strptime(min(firsts, default=now()), "%Y-%m-%dT%H:%M:%SZ").replace(
+        tzinfo=datetime.timezone.utc)
+    failures = 0
     for rnd in SEEDS:
-        for c in (c for c in cells if c["round"] == rnd and (only is None or c["run_id"] == only)):
-            out = os.path.join(RUNS, c["run_id"])
-            s = os.path.join(out, "summary.json")
-            if os.path.exists(s) and json.load(open(s)).get("valid") is True:
-                continue
-            if os.path.exists(out):
-                if attempts(out) + 1 >= MAX_ATTEMPTS:
-                    log(f"ABANDON {c['run_id']} after {attempts(out) + 1} attempts")
-                    continue
-                shutil.move(out, f"{out}.failed-{attempts(out) + 1}")
-            log(f"START {c['run_id']}")
-            t = time.time()
-            rc, valid = run_cell(c, out)
-            log(f"DONE {c['run_id']} rc={rc} valid={valid} in {(time.time() - t) / 60:.1f} min")
+        rcells = [c for c in cells if c["round"] == rnd and (only is None or c["run_id"] == only)]
         elapsed = (datetime.datetime.now(datetime.timezone.utc) - start).total_seconds() / 3600
-        if only is None and elapsed > STOP_AFTER_H:
-            log(f"STOP after round {rnd}: {elapsed:.1f} h of Tier B running (stopping rule, {STOP_AFTER_H} h)")
+        # Stopping rule (time-only): no new round starts after STOP_AFTER_H; a round already started is finished.
+        if only is None and elapsed > STOP_AFTER_H and not round_started(rcells):
+            log(f"STOP before round {rnd}: {elapsed:.1f} h of Tier B running (stopping rule, {STOP_AFTER_H} h)")
             return
-    log("TIER B COMPLETE")
+        for c in rcells:
+            out = os.path.join(RUNS, c["run_id"])
+            while not cell_valid(out):
+                m = load(os.path.join(out, "manifest.json"))
+                if os.path.exists(out) and (m is None or m.get("status") != "done"):
+                    # interrupted mid-cell (container restart): not an attempt, the cell is simply run again
+                    shutil.move(out, f"{out}.interrupted-{int(time.time())}")
+                elif os.path.exists(out):
+                    if attempts(out) + 1 >= MAX_ATTEMPTS:
+                        log(f"ABANDON {c['run_id']} after {attempts(out) + 1} attempts")
+                        break
+                    shutil.move(out, f"{out}.failed-{attempts(out) + 1}")
+                preflight()
+                log(f"START {c['run_id']} (attempt {attempts(out) + 1})")
+                t = time.time()
+                rc, valid = run_cell(c, out)
+                log(f"DONE {c['run_id']} rc={rc} valid={valid} in {(time.time() - t) / 60:.1f} min")
+                finished = os.path.exists(os.path.join(out, "summary.json"))
+                if not finished:
+                    # the spec never reached its end (setup or infrastructure): not an attempt
+                    shutil.move(out, f"{out}.infra-{int(time.time())}")
+                failures = 0 if rc == 0 and finished else failures + 1
+                if failures >= 2:
+                    log("STOP: two cells in a row failed; check the cluster before re-invoking")
+                    sys.exit(3)
+    log("TIER B COMPLETE" if only is None else f"DONE --only {only}")
 
 
-def smoke():
-    c = {"run_id": "tierb-smoke__arm-b2_nodes-50_seed-1", "label": "B2", "seed": 1, "nodes": 50, "round": 0}
-    out = os.path.join(TIERB, "smoke-out")
+def smoke(label, nodes):
+    require_env()
+    preflight()
+    c = {"run_id": f"tierb-smoke__arm-{ARMS[label][2]}_nodes-{nodes}_seed-1", "label": label, "seed": 1,
+         "nodes": nodes, "round": 0}
+    out = os.path.join(TIERB, f"smoke-{ARMS[label][2]}-{nodes}")
     shutil.rmtree(out, ignore_errors=True)
     rc, valid = run_cell(c, out, window="5m")
     print(f"smoke rc={rc} valid={valid} out={out}")
@@ -149,6 +227,8 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("cmd", choices=["plan", "run", "smoke"])
     p.add_argument("--only")
+    p.add_argument("--label", default="B2", help="smoke: the arm to check")
+    p.add_argument("--nodes", type=int, default=50, help="smoke: the size")
     a = p.parse_args()
     if a.cmd == "plan":
         cells = plan()
@@ -157,4 +237,4 @@ if __name__ == "__main__":
     elif a.cmd == "run":
         run(a.only)
     else:
-        smoke()
+        smoke(a.label, a.nodes)
