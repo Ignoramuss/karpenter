@@ -1,0 +1,492 @@
+[
+  {
+    "run_id": "tierb-kwok__arm-b4_nodes-200_seed-101",
+    "label": "B4",
+    "seed": 101,
+    "nodes": 200,
+    "round": 101
+  },
+  {
+    "run_id": "tierb-kwok__arm-b3_nodes-200_seed-101",
+    "label": "B3",
+    "seed": 101,
+    "nodes": 200,
+    "round": 101
+  },
+  {
+    "run_id": "tierb-kwok__arm-heuristic-anneal-plan_nodes-200_seed-101",
+    "label": "heuristic/anneal-plan",
+    "seed": 101,
+    "nodes": 200,
+    "round": 101
+  },
+  {
+    "run_id": "tierb-kwok__arm-random-entropy-greedy_nodes-200_seed-101",
+    "label": "random/entropy-greedy",
+    "seed": 101,
+    "nodes": 200,
+    "round": 101
+  },
+  {
+    "run_id": "tierb-kwok__arm-random-anneal-plan_nodes-200_seed-101",
+    "label": "random/anneal-plan",
+    "seed": 101,
+    "nodes": 200,
+    "round": 101
+  },
+  {
+    "run_id": "tierb-kwok__arm-heuristic-entropy-greedy_nodes-200_seed-101",
+    "label": "heuristic/entropy-greedy",
+    "seed": 101,
+    "nodes": 200,
+    "round": 101
+  },
+  {
+    "run_id": "tierb-kwok__arm-b2_nodes-200_seed-101",
+    "label": "B2",
+    "seed": 101,
+    "nodes": 200,
+    "round": 101
+  },
+  {
+    "run_id": "tierb-kwok__arm-b3_nodes-50_seed-101",
+    "label": "B3",
+    "seed": 101,
+    "nodes": 50,
+    "round": 101
+  },
+  {
+    "run_id": "tierb-kwok__arm-random-anneal-plan_nodes-50_seed-101",
+    "label": "random/anneal-plan",
+    "seed": 101,
+    "nodes": 50,
+    "round": 101
+  },
+  {
+    "run_id": "tierb-kwok__arm-random-entropy-greedy_nodes-50_seed-101",
+    "label": "random/entropy-greedy",
+    "seed": 101,
+    "nodes": 50,
+    "round": 101
+  },
+  {
+    "run_id": "tierb-kwok__arm-b2_nodes-50_seed-101",
+    "label": "B2",
+    "seed": 101,
+    "nodes": 50,
+    "round": 101
+  },
+  {
+    "run_id": "tierb-kwok__arm-heuristic-anneal-plan_nodes-50_seed-101",
+    "label": "heuristic/anneal-plan",
+    "seed": 101,
+    "nodes": 50,
+    "round": 101
+  },
+  {
+    "run_id": "tierb-kwok__arm-b4_nodes-50_seed-101",
+    "label": "B4",
+    "seed": 101,
+    "nodes": 50,
+    "round": 101
+  },
+  {
+    "run_id": "tierb-kwok__arm-heuristic-entropy-greedy_nodes-50_seed-101",
+    "label": "heuristic/entropy-greedy",
+    "seed": 101,
+    "nodes": 50,
+    "round": 101
+  },
+  {
+    "run_id": "tierb-kwok__arm-random-entropy-greedy_nodes-200_seed-102",
+    "label": "random/entropy-greedy",
+    "seed": 102,
+    "nodes": 200,
+    "round": 102
+  },
+  {
+    "run_id": "tierb-kwok__arm-random-anneal-plan_nodes-200_seed-102",
+    "label": "random/anneal-plan",
+    "seed": 102,
+    "nodes": 200,
+    "round": 102
+  },
+  {
+    "run_id": "tierb-kwok__arm-b4_nodes-200_seed-102",
+    "label": "B4",
+    "seed": 102,
+    "nodes": 200,
+    "round": 102
+  },
+  {
+    "run_id": "tierb-kwok__arm-b2_nodes-200_seed-102",
+    "label": "B2",
+    "seed": 102,
+    "nodes": 200,
+    "round": 102
+  },
+  {
+    "run_id": "tierb-kwok__arm-b3_nodes-200_seed-102",
+    "label": "B3",
+    "seed": 102,
+    "nodes": 200,
+    "round": 102
+  },
+  {
+    "run_id": "tierb-kwok__arm-heuristic-entropy-greedy_nodes-200_seed-102",
+    "label": "heuristic/entropy-greedy",
+    "seed": 102,
+    "nodes": 200,
+    "round": 102
+  },
+  {
+    "run_id": "tierb-kwok__arm-heuristic-anneal-plan_nodes-200_seed-102",
+    "label": "heuristic/anneal-plan",
+    "seed": 102,
+    "nodes": 200,
+    "round": 102
+  },
+  {
+    "run_id": "tierb-kwok__arm-b3_nodes-50_seed-102",
+    "label": "B3",
+    "seed": 102,
+    "nodes": 50,
+    "round": 102
+  },
+  {
+    "run_id": "tierb-kwok__arm-heuristic-entropy-greedy_nodes-50_seed-102",
+    "label": "heuristic/entropy-greedy",
+    "seed": 102,
+    "nodes": 50,
+    "round": 102
+  },
+  {
+    "run_id": "tierb-kwok__arm-b2_nodes-50_seed-102",
+    "label": "B2",
+    "seed": 102,
+    "nodes": 50,
+    "round": 102
+  },
+  {
+    "run_id": "tierb-kwok__arm-random-anneal-plan_nodes-50_seed-102",
+    "label": "random/anneal-plan",
+    "seed": 102,
+    "nodes": 50,
+    "round": 102
+  },
+  {
+    "run_id": "tierb-kwok__arm-b4_nodes-50_seed-102",
+    "label": "B4",
+    "seed": 102,
+    "nodes": 50,
+    "round": 102
+  },
+  {
+    "run_id": "tierb-kwok__arm-heuristic-anneal-plan_nodes-50_seed-102",
+    "label": "heuristic/anneal-plan",
+    "seed": 102,
+    "nodes": 50,
+    "round": 102
+  },
+  {
+    "run_id": "tierb-kwok__arm-random-entropy-greedy_nodes-50_seed-102",
+    "label": "random/entropy-greedy",
+    "seed": 102,
+    "nodes": 50,
+    "round": 102
+  },
+  {
+    "run_id": "tierb-kwok__arm-b4_nodes-200_seed-103",
+    "label": "B4",
+    "seed": 103,
+    "nodes": 200,
+    "round": 103
+  },
+  {
+    "run_id": "tierb-kwok__arm-random-anneal-plan_nodes-200_seed-103",
+    "label": "random/anneal-plan",
+    "seed": 103,
+    "nodes": 200,
+    "round": 103
+  },
+  {
+    "run_id": "tierb-kwok__arm-random-entropy-greedy_nodes-200_seed-103",
+    "label": "random/entropy-greedy",
+    "seed": 103,
+    "nodes": 200,
+    "round": 103
+  },
+  {
+    "run_id": "tierb-kwok__arm-b2_nodes-200_seed-103",
+    "label": "B2",
+    "seed": 103,
+    "nodes": 200,
+    "round": 103
+  },
+  {
+    "run_id": "tierb-kwok__arm-b3_nodes-200_seed-103",
+    "label": "B3",
+    "seed": 103,
+    "nodes": 200,
+    "round": 103
+  },
+  {
+    "run_id": "tierb-kwok__arm-heuristic-anneal-plan_nodes-200_seed-103",
+    "label": "heuristic/anneal-plan",
+    "seed": 103,
+    "nodes": 200,
+    "round": 103
+  },
+  {
+    "run_id": "tierb-kwok__arm-heuristic-entropy-greedy_nodes-200_seed-103",
+    "label": "heuristic/entropy-greedy",
+    "seed": 103,
+    "nodes": 200,
+    "round": 103
+  },
+  {
+    "run_id": "tierb-kwok__arm-heuristic-anneal-plan_nodes-50_seed-103",
+    "label": "heuristic/anneal-plan",
+    "seed": 103,
+    "nodes": 50,
+    "round": 103
+  },
+  {
+    "run_id": "tierb-kwok__arm-random-entropy-greedy_nodes-50_seed-103",
+    "label": "random/entropy-greedy",
+    "seed": 103,
+    "nodes": 50,
+    "round": 103
+  },
+  {
+    "run_id": "tierb-kwok__arm-heuristic-entropy-greedy_nodes-50_seed-103",
+    "label": "heuristic/entropy-greedy",
+    "seed": 103,
+    "nodes": 50,
+    "round": 103
+  },
+  {
+    "run_id": "tierb-kwok__arm-b2_nodes-50_seed-103",
+    "label": "B2",
+    "seed": 103,
+    "nodes": 50,
+    "round": 103
+  },
+  {
+    "run_id": "tierb-kwok__arm-b4_nodes-50_seed-103",
+    "label": "B4",
+    "seed": 103,
+    "nodes": 50,
+    "round": 103
+  },
+  {
+    "run_id": "tierb-kwok__arm-b3_nodes-50_seed-103",
+    "label": "B3",
+    "seed": 103,
+    "nodes": 50,
+    "round": 103
+  },
+  {
+    "run_id": "tierb-kwok__arm-random-anneal-plan_nodes-50_seed-103",
+    "label": "random/anneal-plan",
+    "seed": 103,
+    "nodes": 50,
+    "round": 103
+  },
+  {
+    "run_id": "tierb-kwok__arm-random-entropy-greedy_nodes-200_seed-104",
+    "label": "random/entropy-greedy",
+    "seed": 104,
+    "nodes": 200,
+    "round": 104
+  },
+  {
+    "run_id": "tierb-kwok__arm-heuristic-entropy-greedy_nodes-200_seed-104",
+    "label": "heuristic/entropy-greedy",
+    "seed": 104,
+    "nodes": 200,
+    "round": 104
+  },
+  {
+    "run_id": "tierb-kwok__arm-b4_nodes-200_seed-104",
+    "label": "B4",
+    "seed": 104,
+    "nodes": 200,
+    "round": 104
+  },
+  {
+    "run_id": "tierb-kwok__arm-heuristic-anneal-plan_nodes-200_seed-104",
+    "label": "heuristic/anneal-plan",
+    "seed": 104,
+    "nodes": 200,
+    "round": 104
+  },
+  {
+    "run_id": "tierb-kwok__arm-b2_nodes-200_seed-104",
+    "label": "B2",
+    "seed": 104,
+    "nodes": 200,
+    "round": 104
+  },
+  {
+    "run_id": "tierb-kwok__arm-random-anneal-plan_nodes-200_seed-104",
+    "label": "random/anneal-plan",
+    "seed": 104,
+    "nodes": 200,
+    "round": 104
+  },
+  {
+    "run_id": "tierb-kwok__arm-b3_nodes-200_seed-104",
+    "label": "B3",
+    "seed": 104,
+    "nodes": 200,
+    "round": 104
+  },
+  {
+    "run_id": "tierb-kwok__arm-random-anneal-plan_nodes-50_seed-104",
+    "label": "random/anneal-plan",
+    "seed": 104,
+    "nodes": 50,
+    "round": 104
+  },
+  {
+    "run_id": "tierb-kwok__arm-heuristic-entropy-greedy_nodes-50_seed-104",
+    "label": "heuristic/entropy-greedy",
+    "seed": 104,
+    "nodes": 50,
+    "round": 104
+  },
+  {
+    "run_id": "tierb-kwok__arm-b4_nodes-50_seed-104",
+    "label": "B4",
+    "seed": 104,
+    "nodes": 50,
+    "round": 104
+  },
+  {
+    "run_id": "tierb-kwok__arm-heuristic-anneal-plan_nodes-50_seed-104",
+    "label": "heuristic/anneal-plan",
+    "seed": 104,
+    "nodes": 50,
+    "round": 104
+  },
+  {
+    "run_id": "tierb-kwok__arm-b2_nodes-50_seed-104",
+    "label": "B2",
+    "seed": 104,
+    "nodes": 50,
+    "round": 104
+  },
+  {
+    "run_id": "tierb-kwok__arm-random-entropy-greedy_nodes-50_seed-104",
+    "label": "random/entropy-greedy",
+    "seed": 104,
+    "nodes": 50,
+    "round": 104
+  },
+  {
+    "run_id": "tierb-kwok__arm-b3_nodes-50_seed-104",
+    "label": "B3",
+    "seed": 104,
+    "nodes": 50,
+    "round": 104
+  },
+  {
+    "run_id": "tierb-kwok__arm-random-anneal-plan_nodes-200_seed-105",
+    "label": "random/anneal-plan",
+    "seed": 105,
+    "nodes": 200,
+    "round": 105
+  },
+  {
+    "run_id": "tierb-kwok__arm-b2_nodes-200_seed-105",
+    "label": "B2",
+    "seed": 105,
+    "nodes": 200,
+    "round": 105
+  },
+  {
+    "run_id": "tierb-kwok__arm-heuristic-anneal-plan_nodes-200_seed-105",
+    "label": "heuristic/anneal-plan",
+    "seed": 105,
+    "nodes": 200,
+    "round": 105
+  },
+  {
+    "run_id": "tierb-kwok__arm-random-entropy-greedy_nodes-200_seed-105",
+    "label": "random/entropy-greedy",
+    "seed": 105,
+    "nodes": 200,
+    "round": 105
+  },
+  {
+    "run_id": "tierb-kwok__arm-b3_nodes-200_seed-105",
+    "label": "B3",
+    "seed": 105,
+    "nodes": 200,
+    "round": 105
+  },
+  {
+    "run_id": "tierb-kwok__arm-b4_nodes-200_seed-105",
+    "label": "B4",
+    "seed": 105,
+    "nodes": 200,
+    "round": 105
+  },
+  {
+    "run_id": "tierb-kwok__arm-heuristic-entropy-greedy_nodes-200_seed-105",
+    "label": "heuristic/entropy-greedy",
+    "seed": 105,
+    "nodes": 200,
+    "round": 105
+  },
+  {
+    "run_id": "tierb-kwok__arm-b3_nodes-50_seed-105",
+    "label": "B3",
+    "seed": 105,
+    "nodes": 50,
+    "round": 105
+  },
+  {
+    "run_id": "tierb-kwok__arm-b2_nodes-50_seed-105",
+    "label": "B2",
+    "seed": 105,
+    "nodes": 50,
+    "round": 105
+  },
+  {
+    "run_id": "tierb-kwok__arm-random-anneal-plan_nodes-50_seed-105",
+    "label": "random/anneal-plan",
+    "seed": 105,
+    "nodes": 50,
+    "round": 105
+  },
+  {
+    "run_id": "tierb-kwok__arm-random-entropy-greedy_nodes-50_seed-105",
+    "label": "random/entropy-greedy",
+    "seed": 105,
+    "nodes": 50,
+    "round": 105
+  },
+  {
+    "run_id": "tierb-kwok__arm-b4_nodes-50_seed-105",
+    "label": "B4",
+    "seed": 105,
+    "nodes": 50,
+    "round": 105
+  },
+  {
+    "run_id": "tierb-kwok__arm-heuristic-entropy-greedy_nodes-50_seed-105",
+    "label": "heuristic/entropy-greedy",
+    "seed": 105,
+    "nodes": 50,
+    "round": 105
+  },
+  {
+    "run_id": "tierb-kwok__arm-heuristic-anneal-plan_nodes-50_seed-105",
+    "label": "heuristic/anneal-plan",
+    "seed": 105,
+    "nodes": 50,
+    "round": 105
+  }
+]
