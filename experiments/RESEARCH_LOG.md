@@ -485,3 +485,56 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   serve label-selector pod lists from the harness's pod index. Then check that decisions are unchanged with
   `TestDeterminism`, plus a byte-identical rerun of the finished W5 cell, before using it for new runs under a
   logged deviation.
+- **Correction: the overrun cascade was the new rule's, not the preregistered rule's (found by the final claim
+  check, Oct 29 02:33-03:32 UTC; no data involved).** The overrun-rule entry above cut `realism-w6`,
+  `exp7-b2-n1000` and `exp1-baselines-n1000` "exactly as if the original projection had been right", and RESULTS
+  credited that cascade to the preregistered rule. The preregistered rule is a start check only: a candidate that
+  fails it is cut with every later candidate. `realism-w5` passed it (START at 23:08:40 UTC), so the cascade comes
+  from the overrun rule. It also departs from this log's own plan at restart #3 ("the next candidates are decided
+  when `realism-w5` ends"). Judged each on its own start projection at 00:29 UTC, with the mechanized rule over the
+  1,551 runs then finished: `realism-w6` 60 x 2.0 min / 4 = 30 min (the same-scale fallback median over 1,071
+  cells, the one W5 had just shown to be unreliable), `exp7-b2-n1000` 10 x 16.0 min / 4 = 40 min (W1 1,000-node
+  median over 60 cells), and `exp1-baselines-n1000` 20 x (16.0 + 15.9 + 13.1) min / 4 = 3.75 h. The first two would
+  have started and ended about 01:40 UTC, before the deadline. The decision stands as recorded, since the deadline
+  has passed. RESULTS deviation 7, "What ran", REPRODUCE, the runbook and PROGRESS now name the overrun rule as the
+  cause of all four cuts and give this counterfactual. The record's 5.2 h estimate (20 B2/B3 cells x 62 min / 4)
+  is also not a strict lower bound, since no B3 W5 cell had run. The finished-cell re-projection (15.6 h) is the
+  one RESULTS now cites.
+- **Correction: the preregistration's scale wording (RESULTS deviation 9).** PREREGISTRATION.md says
+  `scenario.nodes = n` sizes each workload as n mid-size nodes at 70% fill, and that W2, W3, W5 and W6 run fewer,
+  larger nodes. The Gate 3 code fills W1 and W4's n starting nodes to a random 15-75% each (`fragmented` in
+  `hack/consolidation-sim/sim/scenario.go`; mean CPU utilization 0.39-0.44 at t = 0 for n = 200). The 70% fill
+  applies to W2, W3, W5 (`capCPU`) and W6 (`traceFill`). W3 peaks above n in most cells (above 200 in 73 of 120
+  Exp 6 cells). The code was not changed. The text was a description error, and RESULTS "What ran" now states what
+  ran.
+- **Analysis changes after Gate 3, with times.** The alignment commit `5b6b2e3` (Oct 27 21:14 UTC) landed when 33
+  session cells had finished, and the verifier's ten fixes `df7831e` (21:50 UTC) when 88 had. Neither changed a
+  test, family, margin or decision rule. Two presentation-only commits touched `paper/analysis` without their own entry
+  here: `bd2277c` (the summary reads H5's nested verdict, Oct 28 17:26) and `a83907b` (H3 counts in the summary,
+  19:08). The others have entries: `032fe98` H7-S, `7dccb8d` and `e9117f7` from the reviews, `e776227` the summary
+  module ("Provisional analysis and a summary module"), and `dcd657b` machine epochs.
+- **Final claim check (Oct 29 02:33-03:32 UTC).** Six checkers, one per passage, read RESULTS' status banner, "What
+  ran", verdicts, H2 and H7-S, Exp 8 and run checks, deviations, threats and next steps, plus REPRODUCE, the runbook
+  and PROGRESS. A second, independent checker re-derived each of their 49 flags. 38 were confirmed and are fixed in
+  the commit that follows, with every replacement number recomputed from the run tree, the tables or git:
+  - the cascade and scale corrections above;
+  - the W1/W4 fill and W3 node counts;
+  - "one VM" (four in turn);
+  - where the parity counts and run history come from;
+  - the verdict table's sources;
+  - the slowest passes (W1 7.0 s, H7-S 20.8 s, the W5 B2 cell 52.3 s);
+  - the complete list of what the cuts lost;
+  - which tables carry `machine_epoch`;
+  - the analysis commit times;
+  - the first driver's error;
+  - the threats list, including the full preregistered set and what `wall_cpu_ratio` shows;
+  - the Exp 5 seed-107 clause;
+  - running `exp7-b2-n1000` as a paired pass;
+  - in REPRODUCE: building at Gate 3 in a worktree; `TestDeterminism`'s actual scope, with the H7-S twin check as
+    the cross-VM evidence; the upstream 1-minute multi-node timeout, never reached; rebuilding the pilot with its
+    own binaries;
+  - in the runbook: the full matrix size (3,900), cell timings from the session data, and memory (not recorded).
+
+  The 11 unconfirmed flags were wording points. Four of them were applied anyway: "190 cells, 189 of them unrun",
+  the "absent" label for H7-B2, the retry definition in the run checks, and the narrower "heuristic/savings-only"
+  in Exp 8.

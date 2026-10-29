@@ -11,8 +11,9 @@ file before the next action. Decisions and fallbacks are logged in `experiments/
       tests, behind the `ConsolidationPipeline` gate, off by default.
 - [x] `hack/consolidation-sim/`: the simulator, a determinism test, and the resumable experiment runner.
 - [x] `experiments/PREREGISTRATION.md`, committed before the main runs, and session-profile results for all eight
-      experiments in `experiments/runs/`: 1,551 of 1,740 session runs (four cut-candidate groups cut by the
-      preregistered time-based rule; every experiment has data, though Exp 8 lacks its 1,000-node B2/B3 rows) and
+      experiments in `experiments/runs/`: 1,551 of 1,740 session runs (four cut-candidate groups cut on time
+      alone, by an overrun rule declared in the session; every experiment has data, though Exp 8 lacks its
+      1,000-node B2/B3 rows) and
       the supplementary H7 timing pass (24 runs).
 - [x] `paper/figures/` built by `make figures`, plus `experiments/RESULTS.md` (final for the session).
 - [x] `docs/research/`: code map, parity report (10,000-state chunks appended as they finish), runbook; RFC draft at
@@ -23,7 +24,9 @@ file before the next action. Decisions and fallbacks are logged in `experiments/
 
 - [x] Gate 0: rebased on upstream main; `go build ./...` and the disruption tests pass.
 - [x] Gate 1: 100% parity on sampled states: 1,000/1,000 per policy and catalog, coarse and fine adapters, and
-      re-checked on 150 states after each later pipeline change. The 10,000-state run is pending (background chunk).
+      re-checked on 100-150 states per cell after later pipeline changes (`docs/research/parity.md`). The
+      10,000-state run uses a test binary built after the last pipeline commit (`2d8fce7`; `pkg/` is unchanged
+      since). Both WhenEmptyOrUnderutilized chunks are 10,000/10,000; the Balanced chunks are running.
 - [x] Gate 2: determinism test passes (14 cases: W1-W6, B2, B3, B5, both scale-down models, five pipeline arms).
 - [x] Gate 3: `experiments/PREREGISTRATION.md` committed (`c78b5f9`) before the first session run (20:52 UTC).
 - [x] Gate 4: `make figures` rebuilds every figure and table from raw runs (byte-identical across two runs; outputs
@@ -75,8 +78,8 @@ file before the next action. Decisions and fallbacks are logged in `experiments/
 - [x] Supplementary H7 timing pass (`experiments/matrix/h7-timing.yaml`), Oct 29 00:29-02:18 UTC on VM D: 20 cells
       plus 4 fillers, no seed split, no retry, determinism 20/20; agrees with H7 on both tests.
 - [x] Exp 2 from logs (H2 on W2 and W3; W6 cut).
-- [ ] 10,000-state parity: `wour-kwok` done (10,000/10,000 in both adapter modes); `wour-assorted`,
-      `balanced-kwok` and `balanced-assorted` run after the session under driver v4.
+- [ ] 10,000-state parity: `wour-kwok` and `wour-assorted` done (10,000/10,000 in both adapter modes);
+      `balanced-kwok` (from 03:14 UTC) and `balanced-assorted` run after the session under driver v4.
 
 ## Phases 5-6: validation and artifacts
 

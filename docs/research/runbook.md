@@ -19,18 +19,22 @@ not: the full profile, Tier B on KWOK, and an optional Tier C pass on EKS. Sessi
 
 - For Tier B: Docker, `kind` (`go install sigs.k8s.io/kind@v0.30.0`), `kubectl`, `helm`, and network access to
   `registry.k8s.io` (KWOK images) and `cgr.dev` (the `ko` base image). Both were blocked in the session.
-- Build one simulator binary per commit and use it for a whole matrix, so every cell's manifest carries one SHA:
+- Build one simulator binary per commit and use it for a whole matrix, so every cell's manifest carries one SHA.
+  To extend the session's runs (reused cells, the cut groups), build the Gate 3 commit in a clean worktree:
 
   ```bash
-  SHA=$(git rev-parse --short HEAD)
-  go build -o bin/csim-$SHA ./hack/consolidation-sim
+  git worktree add /tmp/csim-c78b5f9 c78b5f95063c1995b10fa6d66571a16d0a32b243
+  (cd /tmp/csim-c78b5f9 && go build -o bin/csim ./hack/consolidation-sim)
+  mkdir -p bin && cp /tmp/csim-c78b5f9/bin/csim bin/csim-c78b5f9
+  SHA=c78b5f9                                   # or $(git rev-parse --short HEAD) for a fresh profile
   ```
 
 ## 1. Tier A, full profile
 
 `experiments/matrix/full.yaml` is the session matrix with 20 seeds per cell (101-120) plus 5,000-node cells for
-Exp 1 and Exp 7 (3,440 cells). Its first ten seeds have the session cells' run IDs, so session results can be copied
-in instead of rerun:
+Exp 1 and Exp 7 (3,900 cells: 3,480 at 20 seeds, plus 360 Exp 1 and 60 Exp 7 cells at 5,000 nodes). Its first ten
+seeds have the session cells' run IDs, so session results can be copied in instead of rerun. Then run the rest with
+the Gate 3 binary (`SHA=c78b5f9` above), so copied and new cells share one `binary_revision`:
 
 ```bash
 mkdir -p experiments/runs/full
@@ -45,35 +49,49 @@ until bin/csim-$SHA matrix --matrix experiments/matrix/full.yaml --workers $(npr
     | tee -a full.log | grep -q ' 0 pending'; do :; done
 ```
 
-Sizing (measured in the session on 4 vCPUs, one cell per vCPU; see `experiments/PILOT.md` and the research log):
-a 200-node cell takes 2-15 minutes of one core, a 1,000-node cell up to about an hour (B2 and B3 are the slowest,
-since upstream single-node consolidation simulates every candidate each pass), and memory stays under 2 GB per cell.
-W5 is the exception: its one finished session cell (B2, 200 nodes, seed 101) took 63.5 minutes, and a 30-minute
-probe of the same cell took 16 minutes. The cause is a simulator cost (`experiments/RESEARCH_LOG.md`, "W5 timing
-probe"): upstream topology counting lists pods by label selector for each of W5's hostname spread and
-anti-affinity groups, and the controller-runtime fake client deep-copies every pod and round-trips the list through
-JSON on each call. With the Gate 3 binary, budget about an hour per W5 B2 or B3 cell. Serving label-selector pod
-lists from the harness's pod index (`pkg/controllers/disruption/pipeline/harness/env.go`, `interceptors`) should
-remove most of that cost. Verify that decisions are unchanged before using it (`TestDeterminism` and a byte-identical
-rerun of a finished W5 cell), and log the new binary as a deviation.
+Sizing (wall time measured in the session on 4 vCPUs, one cell per vCPU). A 200-node cell takes 0.07-45.7 minutes,
+W5 aside (1,070 cells). Most W1, W2 and W4 cells take 1-5 minutes; B0 and B5 take under 1 minute on W2 and up to 3.1
+on W3, and the slowest W2 pipeline arms take about 13. W3 is slower: its pipeline arms take 3-19.5 minutes and its
+B2 and B3 baselines 6.6-45.7. A 1,000-node pipeline cell takes 7-26 minutes. No 1,000-node B2 or B3 cell ran in the
+session. The pilot's one 1,000-node B2 run (W1, sharing the VM) hit its 100-minute wall limit at simulated minute
+160, so budget over two hours of one core per 1,000-node B2 or B3 cell (`experiments/PILOT.md`; research log, "B2 at
+1,000 nodes is the expensive cell"). B2 and B3 are the slowest because upstream single-node consolidation simulates
+every candidate each pass. Memory per cell was not recorded; all 1,551 session cells finished without running out of
+memory, four at a time on the 15 GiB VM. W5 is the exception: its one finished session cell (B2, 200 nodes, seed
+101) took 63.5 minutes, and a 30-minute probe of the same cell took 16 minutes. The cause is a simulator cost
+(`experiments/RESEARCH_LOG.md`, "W5 timing probe"): upstream topology counting lists pods by label selector for each
+of W5's hostname spread and anti-affinity groups, and the controller-runtime fake client deep-copies every pod and
+round-trips the list through JSON on each call. With the Gate 3 binary, budget about an hour per W5 B2 or B3 cell.
+Serving label-selector pod lists from the harness's pod index (`pkg/controllers/disruption/pipeline/harness/env.go`,
+`interceptors`) should remove most of that cost. Verify that decisions are unchanged before using it
+(`TestDeterminism` and a byte-identical rerun of a finished W5 cell), and log the new binary as a deviation.
 5,000-node cells are untested; expect several hours each for B2 and give each worker 8 GB. A 64-core machine should
-finish the full profile in about a day. Keep `--workers` at or below the core count: per-pass wall time is a measured
-outcome (H7), so oversubscription biases it.
+finish the full profile in about a day. Keep `--workers` at or below the core count: CPU time per pass is a measured
+outcome (H7), and oversubscription and co-runners shift it.
 
 ### The session's cut groups
 
-The session cut four groups by its time-based rule (`experiments/session-driver/cut-decisions.txt`). With those
-groups, H1 gets its realism TOSTs (W5, W6), H7-B2 gets data, H2 gets its W6 tests, and Exp 8 gets its 1,000-node
-B2 and B3 rows. To run only them, into the session tree:
+The session cut four groups on time alone: `realism-w5` under a time-only overrun rule declared in the session, and
+the other three with it (`experiments/session-driver/cut-decisions.txt`; RESULTS deviation 7). With those groups,
+H1 gets its realism TOSTs (W5, W6), H7-B2 gets data, H2 gets its W6 tests and its 1,000-node B2 and B3 runs, and
+Exp 8 gets its 1,000-node B2 and B3 rows. To run only the three that are not timing comparisons, into the session
+tree:
 
 ```bash
 bin/csim-c78b5f9 matrix --matrix experiments/matrix/session.yaml --workers $(nproc) \
-  --only realism-w5,realism-w6,exp7-b2-n1000,exp1-baselines-n1000
+  --only realism-w5,realism-w6,exp1-baselines-n1000
 ```
 
 Use the Gate 3 binary (`c78b5f9`, built as in section 0 from that commit), so the new cells match the session's
-`binary_revision`; `make figures` checks this. Run `exp7-b2-n1000` with no other work on the machine, because its
-per-pass wall time is the measured outcome. The preregistered analysis then covers these groups unchanged.
+`binary_revision`; `make figures` checks this. Fix W5's simulator cost first, or budget for it (above).
+
+H7-B2 tests CPU time per pass (mean and p95) for B2 against the session's random/entropy-greedy W1 1,000-node cells.
+Those cells ran on VM C at 4-way load, beside cells of the same arm. A B2 run on another machine or at another load
+is not directly comparable: in H7-S, random's CPU time per pass rose 12% beside mixed co-runners. So run
+`exp7-b2-n1000` in its own invocation beside a rerun of those random cells, interleaved by seed at 4-way load, the
+way `experiments/matrix/h7-timing.yaml` pairs H7's arms. Or run it alone and report H7-B2 as a cross-machine
+comparison with each run's `machine_epoch`, as H7 is. The preregistered analysis then covers these groups
+unchanged.
 
 ## 2. Analysis and figures
 
