@@ -77,7 +77,11 @@ type tierBCell struct {
 	Pipeline json.RawMessage `json:"pipeline,omitempty"`
 	Warmup   string          `json:"warmup"`
 	Window   string          `json:"window"`
-	Workload struct {
+	// WarmupRegistrationDelay and RegistrationDelay are the KWOKNodeClass's nodeRegistrationDelay before and after
+	// the drop (experiments/TIERB.md, "Node latency").
+	WarmupRegistrationDelay string `json:"warmup_registration_delay"`
+	RegistrationDelay       string `json:"registration_delay"`
+	Workload                struct {
 		Name        string            `json:"name"`
 		Deployments []tierBDeployment `json:"deployments"`
 	} `json:"workload"`
@@ -148,10 +152,11 @@ var _ = Describe("Tier B", Label(debug.NoWatch), func() {
 		nodePool.Spec.Disruption.ConsolidationPolicy = v1.ConsolidationPolicy(cell.Policy)
 		nodePool.Spec.Disruption.ConsolidateAfter = v1.MustParseNillableDuration("Never")
 		nodePool.Spec.Disruption.Budgets = []v1.Budget{{Nodes: "0"}}
-		// The simulator's mean create-to-registered time: launch 2-5 s plus registration 30-60 s
-		// (hack/consolidation-sim/sim/config.go). KWOK marks a NodeClaim launched at once and creates its Node after
-		// this delay, about a second faster than the simulator's mean of 48.5 s.
-		Expect(unstructured.SetNestedField(nodeClass.Object, "47s", "spec", "nodeRegistrationDelay")).To(Succeed())
+		// KWOK marks a NodeClaim launched at once and creates its Node after nodeRegistrationDelay. After the drop it is
+		// near the simulator's mean create-to-registered time (launch 2-5 s plus registration 30-60 s,
+		// hack/consolidation-sim/sim/config.go), so replacements wait as long. During the warmup it is short, so pods
+		// bind before Karpenter's next 10 s provisioning pass and every arm starts from the same fleet.
+		Expect(unstructured.SetNestedField(nodeClass.Object, cell.WarmupRegistrationDelay, "spec", "nodeRegistrationDelay")).To(Succeed())
 		nodePool.Spec.Template.Spec.Requirements = []v1.NodeSelectorRequirementWithMinValues{
 			{Key: corev1.LabelOSStable, Operator: corev1.NodeSelectorOpIn, Values: []string{string(corev1.Linux)}},
 			{Key: v1.CapacityTypeLabelKey, Operator: corev1.NodeSelectorOpIn, Values: []string{v1.CapacityTypeOnDemand}},
@@ -225,6 +230,9 @@ var _ = Describe("Tier B", Label(debug.NoWatch), func() {
 		poller := common.StartKarpenterMetricsPoller(env)
 		dropAt := time.Now()
 
+		storedClass := nodeClass.DeepCopy()
+		Expect(unstructured.SetNestedField(nodeClass.Object, cell.RegistrationDelay, "spec", "nodeRegistrationDelay")).To(Succeed())
+		Expect(env.Client.Patch(env.Context, nodeClass, client.MergeFrom(storedClass))).To(Succeed())
 		stored := nodePool.DeepCopy()
 		nodePool.Spec.Disruption.ConsolidateAfter = v1.MustParseNillableDuration("30s")
 		nodePool.Spec.Disruption.Budgets = []v1.Budget{{Nodes: "10%"}}

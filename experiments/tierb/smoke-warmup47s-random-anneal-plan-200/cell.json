@@ -1,0 +1,973 @@
+{
+  "run_id": "tierb-smoke__arm-random-anneal-plan_nodes-200_seed-1",
+  "label": "random/anneal-plan",
+  "seed": 1,
+  "nodes": 200,
+  "policy": "WhenEmptyOrUnderutilized",
+  "gate": true,
+  "pipeline": {
+    "candidates": {
+      "name": "uniform-random",
+      "params": {
+        "sourceFraction": 0.25
+      }
+    },
+    "executor": {
+      "name": "shift-evict"
+    },
+    "moves": [
+      {
+        "name": "random-merge",
+        "params": {
+          "confirm": true
+        }
+      },
+      {
+        "name": "random-shift"
+      }
+    ],
+    "movesMode": "pooled",
+    "planner": {
+      "name": "anneal-plan",
+      "params": {
+        "cooling": 0.98,
+        "lambda": 0.1,
+        "t0": 1,
+        "temperatureUnit": "per-node"
+      }
+    },
+    "potential": {
+      "name": "util-entropy"
+    },
+    "search": {
+      "maxAttempts": 500,
+      "maxFullSimulations": 16
+    },
+    "seed": 1
+  },
+  "warmup": "5m",
+  "window": "5m",
+  "workload": {
+    "name": "WB",
+    "deployments": [
+      {
+        "name": "app-000",
+        "shape": {
+          "cpu": 500,
+          "memory": 1024
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 74
+          },
+          {
+            "at": "5m0s",
+            "replicas": 27
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-001",
+        "shape": {
+          "cpu": 500,
+          "memory": 1024
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 61
+          },
+          {
+            "at": "5m0s",
+            "replicas": 30
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-002",
+        "shape": {
+          "cpu": 250,
+          "memory": 512
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 82
+          },
+          {
+            "at": "5m0s",
+            "replicas": 33
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-003",
+        "shape": {
+          "cpu": 1000,
+          "memory": 2048
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 22
+          },
+          {
+            "at": "5m0s",
+            "replicas": 10
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-004",
+        "shape": {
+          "cpu": 1000,
+          "memory": 4096
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 20
+          },
+          {
+            "at": "5m0s",
+            "replicas": 7
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-005",
+        "shape": {
+          "cpu": 4000,
+          "memory": 8192
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 5
+          },
+          {
+            "at": "5m0s",
+            "replicas": 2
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-006",
+        "shape": {
+          "cpu": 4000,
+          "memory": 8192
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 5
+          },
+          {
+            "at": "5m0s",
+            "replicas": 2
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-007",
+        "shape": {
+          "cpu": 500,
+          "memory": 2048
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 61
+          },
+          {
+            "at": "5m0s",
+            "replicas": 24
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-008",
+        "shape": {
+          "cpu": 1000,
+          "memory": 4096
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 28
+          },
+          {
+            "at": "5m0s",
+            "replicas": 9
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-009",
+        "shape": {
+          "cpu": 500,
+          "memory": 1024
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 28
+          },
+          {
+            "at": "5m0s",
+            "replicas": 10
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-010",
+        "shape": {
+          "cpu": 2000,
+          "memory": 8192
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 13
+          },
+          {
+            "at": "5m0s",
+            "replicas": 5
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-011",
+        "shape": {
+          "cpu": 500,
+          "memory": 1024
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 53
+          },
+          {
+            "at": "5m0s",
+            "replicas": 24
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-012",
+        "shape": {
+          "cpu": 4000,
+          "memory": 8192
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 5
+          },
+          {
+            "at": "5m0s",
+            "replicas": 2
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-013",
+        "shape": {
+          "cpu": 2000,
+          "memory": 8192
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 7
+          },
+          {
+            "at": "5m0s",
+            "replicas": 2
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-014",
+        "shape": {
+          "cpu": 250,
+          "memory": 512
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 122
+          },
+          {
+            "at": "5m0s",
+            "replicas": 55
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-015",
+        "shape": {
+          "cpu": 1000,
+          "memory": 4096
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 32
+          },
+          {
+            "at": "5m0s",
+            "replicas": 11
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-016",
+        "shape": {
+          "cpu": 1000,
+          "memory": 2048
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 24
+          },
+          {
+            "at": "5m0s",
+            "replicas": 8
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-017",
+        "shape": {
+          "cpu": 4000,
+          "memory": 8192
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 9
+          },
+          {
+            "at": "5m0s",
+            "replicas": 4
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-018",
+        "shape": {
+          "cpu": 1000,
+          "memory": 2048
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 37
+          },
+          {
+            "at": "5m0s",
+            "replicas": 16
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-019",
+        "shape": {
+          "cpu": 500,
+          "memory": 1024
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 55
+          },
+          {
+            "at": "5m0s",
+            "replicas": 20
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-020",
+        "shape": {
+          "cpu": 4000,
+          "memory": 8192
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 5
+          },
+          {
+            "at": "5m0s",
+            "replicas": 2
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-021",
+        "shape": {
+          "cpu": 500,
+          "memory": 1024
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 42
+          },
+          {
+            "at": "5m0s",
+            "replicas": 15
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-022",
+        "shape": {
+          "cpu": 1000,
+          "memory": 4096
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 30
+          },
+          {
+            "at": "5m0s",
+            "replicas": 11
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-023",
+        "shape": {
+          "cpu": 1000,
+          "memory": 2048
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 26
+          },
+          {
+            "at": "5m0s",
+            "replicas": 12
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-024",
+        "shape": {
+          "cpu": 250,
+          "memory": 512
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 64
+          },
+          {
+            "at": "5m0s",
+            "replicas": 28
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-025",
+        "shape": {
+          "cpu": 500,
+          "memory": 1024
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 58
+          },
+          {
+            "at": "5m0s",
+            "replicas": 23
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-026",
+        "shape": {
+          "cpu": 4000,
+          "memory": 8192
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 8
+          },
+          {
+            "at": "5m0s",
+            "replicas": 4
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-027",
+        "shape": {
+          "cpu": 500,
+          "memory": 2048
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 51
+          },
+          {
+            "at": "5m0s",
+            "replicas": 19
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-028",
+        "shape": {
+          "cpu": 4000,
+          "memory": 8192
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 3
+          },
+          {
+            "at": "5m0s",
+            "replicas": 1
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-029",
+        "shape": {
+          "cpu": 1000,
+          "memory": 4096
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 27
+          },
+          {
+            "at": "5m0s",
+            "replicas": 9
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-030",
+        "shape": {
+          "cpu": 500,
+          "memory": 2048
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 56
+          },
+          {
+            "at": "5m0s",
+            "replicas": 28
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-031",
+        "shape": {
+          "cpu": 1000,
+          "memory": 2048
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 29
+          },
+          {
+            "at": "5m0s",
+            "replicas": 13
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-032",
+        "shape": {
+          "cpu": 1000,
+          "memory": 4096
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 33
+          },
+          {
+            "at": "5m0s",
+            "replicas": 12
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-033",
+        "shape": {
+          "cpu": 2000,
+          "memory": 8192
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 19
+          },
+          {
+            "at": "5m0s",
+            "replicas": 7
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-034",
+        "shape": {
+          "cpu": 250,
+          "memory": 512
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 67
+          },
+          {
+            "at": "5m0s",
+            "replicas": 29
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-035",
+        "shape": {
+          "cpu": 250,
+          "memory": 512
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 116
+          },
+          {
+            "at": "5m0s",
+            "replicas": 46
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-036",
+        "shape": {
+          "cpu": 250,
+          "memory": 512
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 92
+          },
+          {
+            "at": "5m0s",
+            "replicas": 35
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-037",
+        "shape": {
+          "cpu": 1000,
+          "memory": 4096
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 28
+          },
+          {
+            "at": "5m0s",
+            "replicas": 12
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-038",
+        "shape": {
+          "cpu": 2000,
+          "memory": 4096
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 18
+          },
+          {
+            "at": "5m0s",
+            "replicas": 6
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-039",
+        "shape": {
+          "cpu": 500,
+          "memory": 1024
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 46
+          },
+          {
+            "at": "5m0s",
+            "replicas": 22
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-040",
+        "shape": {
+          "cpu": 4000,
+          "memory": 8192
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 7
+          },
+          {
+            "at": "5m0s",
+            "replicas": 3
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-041",
+        "shape": {
+          "cpu": 500,
+          "memory": 2048
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 33
+          },
+          {
+            "at": "5m0s",
+            "replicas": 16
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-042",
+        "shape": {
+          "cpu": 4000,
+          "memory": 8192
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 4
+          },
+          {
+            "at": "5m0s",
+            "replicas": 2
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-043",
+        "shape": {
+          "cpu": 4000,
+          "memory": 8192
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 6
+          },
+          {
+            "at": "5m0s",
+            "replicas": 2
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-044",
+        "shape": {
+          "cpu": 500,
+          "memory": 1024
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 59
+          },
+          {
+            "at": "5m0s",
+            "replicas": 21
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-045",
+        "shape": {
+          "cpu": 500,
+          "memory": 2048
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 27
+          },
+          {
+            "at": "5m0s",
+            "replicas": 13
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-046",
+        "shape": {
+          "cpu": 250,
+          "memory": 512
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 87
+          },
+          {
+            "at": "5m0s",
+            "replicas": 38
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-047",
+        "shape": {
+          "cpu": 4000,
+          "memory": 8192
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 6
+          },
+          {
+            "at": "5m0s",
+            "replicas": 3
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-048",
+        "shape": {
+          "cpu": 2000,
+          "memory": 8192
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 10
+          },
+          {
+            "at": "5m0s",
+            "replicas": 3
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      },
+      {
+        "name": "app-049",
+        "shape": {
+          "cpu": 4000,
+          "memory": 8192
+        },
+        "schedule": [
+          {
+            "at": "0s",
+            "replicas": 9
+          },
+          {
+            "at": "5m0s",
+            "replicas": 4
+          }
+        ],
+        "pdbMaxUnavailable": -1
+      }
+    ]
+  },
+  "prices": {
+    "c7i.2xlarge": 0.357,
+    "c7i.4xlarge": 0.7854,
+    "c7i.8xlarge": 1.5708,
+    "c7i.large": 0.09818,
+    "c7i.xlarge": 0.19635,
+    "m7i.2xlarge": 0.44352,
+    "m7i.4xlarge": 0.88704,
+    "m7i.8xlarge": 1.6128,
+    "m7i.large": 0.1008,
+    "m7i.xlarge": 0.2016,
+    "r7i.2xlarge": 0.58212,
+    "r7i.4xlarge": 1.16424,
+    "r7i.8xlarge": 2.1168,
+    "r7i.large": 0.14553,
+    "r7i.xlarge": 0.2646
+  },
+  "out": "/home/user/karpenter/experiments/tierb/smoke-random-anneal-plan-200"
+}

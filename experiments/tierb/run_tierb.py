@@ -20,6 +20,8 @@ CAL = os.path.join(REPO, "experiments", "runs", "tierb")
 LOG = os.path.join(TIERB, "run.log")
 SEEDS = range(101, 106)
 SIZES = (200, 50)
+# KWOK nodeRegistrationDelay during the warmup and after the drop (TIERB.md, "Node latency")
+WARMUP_REGISTRATION_DELAY, REGISTRATION_DELAY = "0s", "47s"
 WARMUP, WINDOW = "5m", "30m"  # WINDOW from the calibration on pilot seeds (RESEARCH_LOG, "Tier B protocol and window")
 STOP_AFTER_H = 36.0
 MAX_ATTEMPTS = 2
@@ -131,7 +133,8 @@ def run_cell(c, out, window=WINDOW):
     if pipe is not None and not pipe.get("seed"):
         pipe["seed"] = c["seed"]  # as the simulator does (sim/world.go: a pipeline seed of 0 becomes the run seed)
     cell = {**{k: c[k] for k in ("run_id", "label", "seed", "nodes")}, "policy": policy, "gate": gate,
-            "pipeline": pipe, "warmup": WARMUP, "window": window, "workload": workload(c["seed"], c["nodes"]),
+            "pipeline": pipe, "warmup": WARMUP, "window": window,
+            "warmup_registration_delay": WARMUP_REGISTRATION_DELAY, "registration_delay": REGISTRATION_DELAY, "workload": workload(c["seed"], c["nodes"]),
             "prices": prices(), "out": out}
     manifest = {"run_id": c["run_id"], "image_revision": os.environ["IMAGE_REVISION"], "image": os.environ["IMAGE"],
                 "harness_revision": subprocess.run(["git", "-C", REPO, "rev-parse", "HEAD"], capture_output=True,

@@ -1,0 +1,46 @@
+{
+  "cost_at_drop": 19.199779999999997,
+  "decision_evaluation_seconds": {
+    "": 1.4866017830000002,
+    "empty": 30.592434936999997,
+    "multi": 0.4834904149999999,
+    "single": 105.93102808800003
+  },
+  "decision_evaluations": {
+    "": 167,
+    "empty": 57,
+    "multi": 55,
+    "single": 55
+  },
+  "decisions_by_consolidation": {
+    "empty": 2,
+    "single": 6
+  },
+  "drop_at": "2026-10-29T09:53:10.084821102Z",
+  "evictions": 71,
+  "evictions_before_drop": 0,
+  "finished_at": "2026-10-29T09:58:10.088240165Z",
+  "gate": false,
+  "karpenter_avg_cpu_cores": 0.04196609588826053,
+  "karpenter_cpu_core_seconds": 12.58997225082617,
+  "karpenter_max_cpu_cores": 0.18598296440681938,
+  "karpenter_max_heap_mb": 26.018165588378906,
+  "karpenter_max_memory_mb": 109.7734375,
+  "karpenter_p95_cpu_cores": 0.09919927556482624,
+  "karpenter_p95_memory_mb": 108.33828125,
+  "karpenter_pod": "karpenter-595c786d87-2kt8k",
+  "karpenter_restarted": false,
+  "label": "B2",
+  "method_ok": true,
+  "metrics_sample_count": 60,
+  "nodes_at_drop": 14,
+  "pending_at_drop": 0,
+  "policy": "WhenEmptyOrUnderutilized",
+  "run_id": "tierb-smoke__arm-b2_nodes-50_seed-1",
+  "scenario_nodes": 50,
+  "seed": 1,
+  "started_at": "2026-10-29T09:48:10.077905288Z",
+  "valid": true,
+  "warmup": "5m",
+  "window": "5m"
+}
