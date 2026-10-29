@@ -1,0 +1,16 @@
+{
+  "run_id": "tierb-kwok__arm-random-entropy-greedy_nodes-200_seed-102",
+  "image_revision": "eff89a17bb3a7c22ac2db77621d72d96f2843215",
+  "image": "kind.local/kwok-418fdffba63cc91b994a09d2373a7ccc:f5ee205ea6d56724ca96906b5cb3ec3ada805a25c06dd3a93fbf4f2da7c4cc06",
+  "harness_revision": "fe7d74c855abcb272ab95418b124bdee49bc55e5",
+  "harness_dirty": true,
+  "perf_test": "/tmp/claude-0/-home-user-karpenter/2126f28c-53c0-5a8a-b14d-70c0de9f8c9e/scratchpad/bin/perf.test",
+  "csim": "/tmp/claude-0/-home-user-karpenter/2126f28c-53c0-5a8a-b14d-70c0de9f8c9e/scratchpad/bin/csim-eff89a1",
+  "kind_node_image": "kindest/node:v1.34.0",
+  "boot_id": "51dc11d6-d0f9-49f8-abe6-261d5e7514ab",
+  "status": "done",
+  "started_at": "2026-10-29T19:42:01Z",
+  "finished_at": "2026-10-29T20:19:12Z",
+  "test_exit_status": 0,
+  "valid": true
+}
