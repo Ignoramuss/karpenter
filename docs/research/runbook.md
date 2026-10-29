@@ -48,8 +48,14 @@ until bin/csim-$SHA matrix --matrix experiments/matrix/full.yaml --workers $(npr
 Sizing (measured in the session on 4 vCPUs, one cell per vCPU; see `experiments/PILOT.md` and the research log):
 a 200-node cell takes 2-15 minutes of one core, a 1,000-node cell up to about an hour (B2 and B3 are the slowest,
 since upstream single-node consolidation simulates every candidate each pass), and memory stays under 2 GB per cell.
-W5 is the exception: its one finished session cell (B2, 200 nodes, seed 101) took 63.5 minutes, and its B2 and B3
-cells are the slowest at 200 nodes. Budget about an hour per W5 B2 or B3 cell until W5's cost is diagnosed.
+W5 is the exception: its one finished session cell (B2, 200 nodes, seed 101) took 63.5 minutes, and a 30-minute
+probe of the same cell took 16 minutes. The cause is a simulator cost (`experiments/RESEARCH_LOG.md`, "W5 timing
+probe"): upstream topology counting lists pods by label selector for each of W5's hostname spread and
+anti-affinity groups, and the controller-runtime fake client deep-copies every pod and round-trips the list through
+JSON on each call. With the Gate 3 binary, budget about an hour per W5 B2 or B3 cell. Serving label-selector pod
+lists from the harness's pod index (`pkg/controllers/disruption/pipeline/harness/env.go`, `interceptors`) should
+remove most of that cost. Verify that decisions are unchanged before using it (`TestDeterminism` and a byte-identical
+rerun of a finished W5 cell), and log the new binary as a deviation.
 5,000-node cells are untested; expect several hours each for B2 and give each worker 8 GB. A 64-core machine should
 finish the full profile in about a day. Keep `--workers` at or below the core count: per-pass wall time is a measured
 outcome (H7), so oversubscription biases it.

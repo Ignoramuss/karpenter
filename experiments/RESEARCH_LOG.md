@@ -470,3 +470,18 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   1.26.6, and every binary built after the rebase used go1.26.10: `go version` reports go1.26.10 for the pilot
   binaries (`c3e9e35`, `2d8fce7`), the Gate 3 session binary and the parity test binary. `paper/REPRODUCE.md` and
   `PROGRESS.md` give 1.26.10.
+- **W5 timing probe: why W5 is slow (Oct 29, 02:31-02:47 UTC, VM D, beside one parity chunk).** One B2 cell (W5,
+  200 nodes, seed 101) run for 30 simulated minutes with the Gate 3 binary and `--cpuprofile`, outside the run tree
+  (scratch directory; not a session run). It took 16 min 10 s of wall time (17 min 9 s user) for 94 disruption
+  passes, with a peak of 255 nodes. Percentages are of all CPU samples. 84% is upstream `SimulateScheduling`, called from
+  single-node consolidation (66% in all) and multi-node consolidation (18%). 80.5% is `scheduling.NewTopology` →
+  `Topology.countDomains`, which lists pods by label selector once per topology group. The harness's pod index serves only `spec.nodeName` lists, so these lists
+  fall through to the controller-runtime fake client. Its `List` (76% of CPU) deep-copies every pod in the tracker
+  and converts the list through JSON (unmarshal 42%, marshal 20%). W5 is the only built-in scenario with hostname
+  spread and anti-affinity (`scenario.go`; `ZoneSpread` is unused), so only W5 pays this, and every pass pays it per
+  topology group. W1, the H7 scenario, has none. **Cause:** a simulator cost, not a property of the strategies; a
+  real controller reads an informer cache, with no JSON round trip. **Not fixed in the session:** a fix changes the
+  binary, and every session cell must carry the Gate 3 `binary_revision`. Next step (runbook, RESULTS "Next steps"):
+  serve label-selector pod lists from the harness's pod index. Then check that decisions are unchanged with
+  `TestDeterminism`, plus a byte-identical rerun of the finished W5 cell, before using it for new runs under a
+  logged deviation.
