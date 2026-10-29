@@ -425,12 +425,13 @@ Every decision taken without asking, every fallback, and every blocked host, in 
 - **Container restart #3, Oct 28 about 23:24 UTC (epoch D).** The VM was replaced during `realism-w5`, its first
   cut-candidate group, which had started at 23:08:40 UTC under a recorded START decision. Every group before it had
   finished (1,550 cells, all valid). The four in-flight W5 cells (none had finished in 16 minutes) died without a
-  `summary.json` and are relaunched. The new VM reports "Intel(R) Xeon(R) Processor @ 2.80GHz" (boot
-  `e21797db`, logged by driver v3 in `machine-log.txt`). Driver v3 was restarted alone at 23:24 UTC and followed the
-  recorded decision: `realism-w5` continues and runs to completion. The cut rule projected it at 2.0 minutes per cell
-  (the same-scale fallback median); W5 cells are evidently slower. The next candidates are decided when `realism-w5` ends, so its real
-  duration enters their decisions through the clock (and W5's finished cells enter W6's same-scale fallback median). The claim check of the RESULTS ablation, H2, Exp 8 and B4 sections
-  that was running was lost and is rerun.
+  `summary.json` and are relaunched. The new VM reports "Intel(R) Xeon(R) Processor @ 2.80GHz" (boot `e21797db`,
+  logged by driver v3 in `machine-log.txt`). Driver v3 was restarted alone at 23:24 UTC and followed the recorded
+  decision: `realism-w5` continues and runs to completion. The cut rule projected it at 2.0 minutes per cell (the
+  same-scale fallback median); W5 cells are evidently slower. The next candidates are decided when `realism-w5` ends,
+  so its real duration enters their decisions through the clock (and W5's finished cells enter W6's same-scale
+  fallback median). The claim check of the RESULTS ablation, H2, Exp 8 and B4 sections that was running was lost and
+  is rerun.
 - **Overrun rule for a started cut candidate; `realism-w5` and every later candidate cut (Oct 29, about 00:28
   UTC, recorded at 00:29:08; time-only).** The cut rule started `realism-w5` at 23:08 UTC projecting 2.0
   minutes per cell (the same-scale fallback median, as no W5 cell had ever run at 200 nodes; the pilot ran W1 and W2
@@ -456,3 +457,16 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   it.
   Driver v4 cut the four candidates at 00:29:10 UTC, reported `SESSION COMPLETE` and started the H7 timing pass at
   once (its start-up banner still says "v3"; the code is v4). The session matrix ends with 1,551 finished runs.
+- **H7 timing pass complete; final analysis (Oct 29, 02:18-02:28 UTC).** The H7 timing pass ran 24 of 24 cells on
+  VM D in one invocation (00:29-02:18 UTC). `h7_pairs.py` round 0 found no seed with arms on two VMs and no retried
+  attempt, so nothing was rerun. `make figures` then ran over the complete run tree (1,551 session runs and 24 H7
+  timing runs), and its outputs were committed (`9c93190`). `experiments/RESULTS.md` was finalized from
+  `paper/tables/summary.md` (`d2d546f`). After the session the driver runs the three remaining 10,000-state parity
+  chunks (`wour-assorted` from 02:17:50 UTC, then `balanced-kwok` and `balanced-assorted`). They are not
+  timing-sensitive, so the W5 timing probe promised above runs beside them.
+- **Correction: the Go version in the Phase 0 toolchain entry.** That entry reads `go.mod` as `go 1.26.6`, but this
+  was the pre-rebase fork head (`d1aacae`). The upstream base `32fd95b` has `go 1.26.10` (upstream `700a369`). The
+  image's own Go is 1.24.7, and `GOTOOLCHAIN=auto` fetches the version `go.mod` names. So the Phase 0 check ran
+  1.26.6, and every binary built after the rebase used go1.26.10: `go version` reports go1.26.10 for the pilot
+  binaries (`c3e9e35`, `2d8fce7`), the Gate 3 session binary and the parity test binary. `paper/REPRODUCE.md` and
+  `PROGRESS.md` give 1.26.10.

@@ -10,10 +10,12 @@ file before the next action. Decisions and fallbacks are logged in `experiments/
 - [x] `pkg/controllers/disruption/pipeline`: interfaces, registry, adapters, strategies, conformance and parity
       tests, behind the `ConsolidationPipeline` gate, off by default.
 - [x] `hack/consolidation-sim/`: the simulator, a determinism test, and the resumable experiment runner.
-- [ ] `experiments/PREREGISTRATION.md`, committed before the main runs, and session-profile results for all eight
-      experiments in `experiments/runs/`.
-- [ ] `paper/figures/` built by `make figures` (tooling done and verified), plus `experiments/RESULTS.md`.
-- [x] `docs/research/`: code map, parity report (10,000-state run to be appended), runbook; RFC draft at
+- [x] `experiments/PREREGISTRATION.md`, committed before the main runs, and session-profile results for all eight
+      experiments in `experiments/runs/`: 1,551 of 1,740 session runs (four cut-candidate groups cut by the
+      preregistered time-based rule; every experiment has data, though Exp 8 lacks its 1,000-node B2/B3 rows) and
+      the supplementary H7 timing pass (24 runs).
+- [x] `paper/figures/` built by `make figures`, plus `experiments/RESULTS.md` (final for the session).
+- [x] `docs/research/`: code map, parity report (10,000-state chunks appended as they finish), runbook; RFC draft at
       `designs/consolidation-pipeline.md`.
 - [x] Branch pushed (blocked by 403 until 18:40 UTC, then restored; pushed at every milestone since).
 
@@ -24,12 +26,14 @@ file before the next action. Decisions and fallbacks are logged in `experiments/
       re-checked on 150 states after each later pipeline change. The 10,000-state run is pending (background chunk).
 - [x] Gate 2: determinism test passes (14 cases: W1-W6, B2, B3, B5, both scale-down models, five pipeline arms).
 - [x] Gate 3: `experiments/PREREGISTRATION.md` committed (`c78b5f9`) before the first session run (20:52 UTC).
-- [ ] Gate 4: `make figures` rebuilds every figure and table from raw runs.
+- [x] Gate 4: `make figures` rebuilds every figure and table from raw runs (byte-identical across two runs; outputs
+      committed in `paper/tables/` and `paper/figures/out/`).
 
 ## Phase 0: rebase, environment, code map
 
 - [x] Rebase onto upstream main (no conflicts: the fork had no commits of its own).
-- [x] Toolchain: Go 1.26.6, envtest 1.36.2, Python analysis venv (`paper/requirements.txt`).
+- [x] Toolchain: Go 1.26.10 (from `go.mod` at the base; the Phase 0 log's 1.26.6 was the pre-rebase fork's),
+      envtest 1.36.2, Python analysis venv (`paper/requirements.txt`).
 - [x] Baseline: `go build ./...` 93 s; `go test ./pkg/controllers/disruption/... -race` green, 400 s.
 - [x] Code map with seams, nondeterminism sources, time limits and measurement assets (`docs/research/code-map.md`).
 - [x] Tier B blocked hosts recorded (`registry.k8s.io`, `cgr.dev`).
@@ -63,16 +67,20 @@ file before the next action. Decisions and fallbacks are logged in `experiments/
 
 - [x] Pilot (W1, W2 at 200 nodes, seeds 1-5): 120 cells, all valid; calibration in `experiments/PILOT.md`.
 - [x] Preregistration, reviewed adversarially and finalized (Gate 3); analysis aligned and independently verified.
-- [ ] Session matrix (1,740 runs, 20 groups, preregistered order): running since 20:52 UTC. Done: `exp1-n200`,
-      `exp1-baselines-n200`. Running: `exp1-n1000`. Two VM replacements so far (23:52 and 03:30 UTC); in-flight
-      cells relaunched. Driver v2 (`experiments/session-driver/`) takes over after `exp1-n1000` with the
-      preregistered order (v1 omitted `b4`) and the cut rule mechanized.
-- [ ] Supplementary H7 timing pass (`experiments/matrix/h7-timing.yaml`, 20 cells plus 4 fillers, one interleaved
-      invocation), queued after the session. Driver v3 (restart-safe cut decisions, machine log) armed after two
-      adversarial reviews of the driver, the cut rule and the H7-S analysis.
-- [ ] Exp 2 from logs; 10,000-state parity (first chunk done: 10,000/10,000 x 2), resumes after the session.
+- [x] Session matrix (1,740 runs, 20 groups, preregistered order), Oct 27 20:52 to Oct 29 00:29 UTC: the first 16
+      groups complete (1,550 runs) plus one W5 cell, all valid. `realism-w5` started on a projection that proved
+      wrong by more than 30x and was cut under a time-only overrun rule. `realism-w6`, `exp7-b2-n1000` and
+      `exp1-baselines-n1000` were cut with it (`experiments/session-driver/cut-decisions.txt`). Three VM
+      replacements (epochs A-D), with in-flight cells relaunched. Drivers v1 to v4 (`experiments/session-driver/`).
+- [x] Supplementary H7 timing pass (`experiments/matrix/h7-timing.yaml`), Oct 29 00:29-02:18 UTC on VM D: 20 cells
+      plus 4 fillers, no seed split, no retry, determinism 20/20; agrees with H7 on both tests.
+- [x] Exp 2 from logs (H2 on W2 and W3; W6 cut).
+- [ ] 10,000-state parity: `wour-kwok` done (10,000/10,000 in both adapter modes); `wour-assorted`,
+      `balanced-kwok` and `balanced-assorted` run after the session under driver v4.
 
 ## Phases 5-6: validation and artifacts
 
-- [ ] Tier B validation (skipped: blocked hosts); figures (tooling done, `make figures`), RESULTS (after the
-      session), REPRODUCE (done), related work (drafted), runbook (done), full matrix (done).
+- [x] Tier B validation skipped (blocked hosts `registry.k8s.io`, `cgr.dev`; said so in RESULTS); figures and
+      tables (`make figures`), RESULTS (final), REPRODUCE (hardware epochs, H7-S, cut groups), related work
+      (drafted, every reference marked "verify"), runbook (full profile, cut groups, KWOK, EKS), full matrix.
+- [ ] Final push and session summary.

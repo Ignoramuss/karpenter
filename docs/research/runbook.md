@@ -34,7 +34,7 @@ in instead of rerun:
 
 ```bash
 mkdir -p experiments/runs/full
-cp -r experiments/runs/session/*__* experiments/runs/full/    # optional: reuse the session's 1,510 cells
+cp -r experiments/runs/session/*__* experiments/runs/full/    # optional: reuse the session's 1,551 cells
 ```
 
 Run it in chunks; the runner skips finished cells, retries a failed cell once, and exits 0 when its wall budget is
@@ -48,9 +48,26 @@ until bin/csim-$SHA matrix --matrix experiments/matrix/full.yaml --workers $(npr
 Sizing (measured in the session on 4 vCPUs, one cell per vCPU; see `experiments/PILOT.md` and the research log):
 a 200-node cell takes 2-15 minutes of one core, a 1,000-node cell up to about an hour (B2 and B3 are the slowest,
 since upstream single-node consolidation simulates every candidate each pass), and memory stays under 2 GB per cell.
+W5 is the exception: its one finished session cell (B2, 200 nodes, seed 101) took 63.5 minutes, and its B2 and B3
+cells are the slowest at 200 nodes. Budget about an hour per W5 B2 or B3 cell until W5's cost is diagnosed.
 5,000-node cells are untested; expect several hours each for B2 and give each worker 8 GB. A 64-core machine should
 finish the full profile in about a day. Keep `--workers` at or below the core count: per-pass wall time is a measured
 outcome (H7), so oversubscription biases it.
+
+### The session's cut groups
+
+The session cut four groups by its time-based rule (`experiments/session-driver/cut-decisions.txt`). With those
+groups, H1 gets its realism TOSTs (W5, W6), H7-B2 gets data, H2 gets its W6 tests, and Exp 8 gets its 1,000-node
+B2 and B3 rows. To run only them, into the session tree:
+
+```bash
+bin/csim-c78b5f9 matrix --matrix experiments/matrix/session.yaml --workers $(nproc) \
+  --only realism-w5,realism-w6,exp7-b2-n1000,exp1-baselines-n1000
+```
+
+Use the Gate 3 binary (`c78b5f9`, built as in section 0 from that commit), so the new cells match the session's
+`binary_revision`; `make figures` checks this. Run `exp7-b2-n1000` with no other work on the machine, because its
+per-pass wall time is the measured outcome. The preregistered analysis then covers these groups unchanged.
 
 ## 2. Analysis and figures
 
@@ -64,12 +81,15 @@ are cached in `paper/tables/cache/`; delete the cache to recompute them.
 
 ## 3. Parity at scale
 
-The session ran 1,000 states per policy and catalog (all cells matched) and 10,000 states as a background chunk.
-To rerun or extend:
+The session ran 1,000 states per policy and catalog (all cells matched) and 10,000 states in four chunks, one per
+policy and catalog, in `experiments/parity/chunks/`. To rerun one chunk, or all four in one command:
 
 ```bash
+PARITY_STATES=10000 PARITY_SEED=2 PARITY_POLICIES=Balanced PARITY_CATALOGS=kwok \
+  PARITY_OUT=$PWD/experiments/parity/chunks/parity-10000-seed2-balanced-kwok.jsonl \
+  go test ./pkg/controllers/disruption/pipeline/ -run TestParity -count=1 -timeout 30h -v
 PARITY_STATES=10000 PARITY_SEED=2 PARITY_OUT=$PWD/experiments/parity/parity-10000-seed2.jsonl \
-  go test ./pkg/controllers/disruption/pipeline/ -run TestParity -count=1 -timeout 24h
+  go test ./pkg/controllers/disruption/pipeline/ -run TestParity -count=1 -timeout 30h
 ```
 
 `docs/research/parity.md` explains the comparison, including how multi-NodePool states, where upstream is itself
