@@ -1,0 +1,18 @@
+{
+  "arm": {
+    "label": "B2",
+    "name": "B2-when-empty-or-underutilized"
+  },
+  "duration": "35m",
+  "maxWall": "0s",
+  "runID": "tierb-a__arm-b2_nodes-200_seed-103__a27426a2",
+  "scenario": {
+    "name": "WB",
+    "nodes": 200,
+    "params": {
+      "dropAt": "5m"
+    }
+  },
+  "seed": 103,
+  "warmup": "5m"
+}

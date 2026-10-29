@@ -100,3 +100,13 @@
 {"run_id":"tierb-a__arm-b3_nodes-50_seed-110__d205db4c","group":"tierb-a","status":"done","exit_code":0,"wall_seconds":6.922,"finished_at":"2026-10-29T08:49:28.325511736Z","attempt":1}
 {"run_id":"tierb-a__arm-b3_nodes-200_seed-101__8a87933d","group":"tierb-a","status":"done","exit_code":0,"wall_seconds":21.798,"finished_at":"2026-10-29T08:49:43.627331256Z","attempt":1}
 {"run_id":"tierb-a__arm-b3_nodes-200_seed-102__a1661cf9","group":"tierb-a","status":"done","exit_code":0,"wall_seconds":22.836,"finished_at":"2026-10-29T08:49:46.561951292Z","attempt":1}
+{"run_id":"tierb-a__arm-b3_nodes-200_seed-103__1b5ce66a","group":"tierb-a","status":"done","exit_code":0,"wall_seconds":24.932,"finished_at":"2026-10-29T08:49:53.258102321Z","attempt":1}
+{"run_id":"tierb-a__arm-b3_nodes-200_seed-104__5dafca74","group":"tierb-a","status":"done","exit_code":0,"wall_seconds":17.704,"finished_at":"2026-10-29T08:50:01.331266103Z","attempt":1}
+{"run_id":"tierb-a__arm-b3_nodes-200_seed-105__3aa16aae","group":"tierb-a","status":"done","exit_code":0,"wall_seconds":21.018,"finished_at":"2026-10-29T08:50:07.580441949Z","attempt":1}
+{"run_id":"tierb-a__arm-b3_nodes-200_seed-106__455e558f","group":"tierb-a","status":"done","exit_code":0,"wall_seconds":25.055,"finished_at":"2026-10-29T08:50:18.313432275Z","attempt":1}
+{"run_id":"tierb-a__arm-b3_nodes-200_seed-107__f4fcffee","group":"tierb-a","status":"done","exit_code":0,"wall_seconds":22.16,"finished_at":"2026-10-29T08:50:23.491162119Z","attempt":1}
+{"run_id":"tierb-a__arm-b3_nodes-200_seed-108__5f897cf6","group":"tierb-a","status":"done","exit_code":0,"wall_seconds":16.018,"finished_at":"2026-10-29T08:50:23.598903519Z","attempt":1}
+{"run_id":"tierb-a__arm-b4_nodes-50_seed-101__35b43f08","group":"tierb-a","status":"done","exit_code":0,"wall_seconds":2.909,"finished_at":"2026-10-29T08:50:26.507851802Z","attempt":1}
+{"run_id":"tierb-a__arm-b4_nodes-50_seed-102__0a593b4c","group":"tierb-a","status":"done","exit_code":0,"wall_seconds":3.885,"finished_at":"2026-10-29T08:50:30.392568335Z","attempt":1}
+{"run_id":"tierb-a__arm-b3_nodes-200_seed-109__e0793cf8","group":"tierb-a","status":"done","exit_code":0,"wall_seconds":15.159,"finished_at":"2026-10-29T08:50:33.472658501Z","attempt":1}
+{"run_id":"tierb-a__arm-b4_nodes-50_seed-103__b3b8a2f0","group":"tierb-a","status":"done","exit_code":0,"wall_seconds":4.234,"finished_at":"2026-10-29T08:50:34.627141503Z","attempt":1}
