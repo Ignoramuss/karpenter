@@ -431,3 +431,28 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   (the same-scale fallback median); W5 cells are evidently slower. The next candidates are decided when `realism-w5` ends, so its real
   duration enters their decisions through the clock (and W5's finished cells enter W6's same-scale fallback median). The claim check of the RESULTS ablation, H2, Exp 8 and B4 sections
   that was running was lost and is rerun.
+- **Overrun rule for a started cut candidate; `realism-w5` and every later candidate cut (Oct 29, about 00:28
+  UTC, recorded at 00:29:08; time-only).** The cut rule started `realism-w5` at 23:08 UTC projecting 2.0
+  minutes per cell (the same-scale fallback median, as no W5 cell had ever run at 200 nodes; the pilot ran W1 and W2
+  only). Its B2 cells have since run 16 minutes (before restart #3) and then 62 more without finishing, so a B2 W5
+  cell takes over an hour. Rule, declared now: a started cut-candidate group is re-projected from its own timing
+  once any exists (its finished cells' median, or, before any finishes, the elapsed time of its in-flight cells as a
+  lower bound per cell of that arm); if the re-projection ends after the deadline (2026-10-29T02:52Z), the group is
+  stopped and cut whole (no analysis uses its cells), and every later candidate is cut, exactly as if the original
+  projection had been right. Re-projection for `realism-w5`: its 20 B2 and B3 cells alone need at least
+  20 x 62 min / 4 = 5.2 h, ending after 05:40 UTC whatever the pipeline arms cost, so it is cut, with `realism-w6`,
+  `exp7-b2-n1000` and `exp1-baselines-n1000`. This replaces the earlier "a candidate group that starts runs to
+  completion", which was meant to keep decisions restart-safe, not to commit to an unbounded run. Consequences:
+  H1-realism (the W5 and W6 TOSTs) and H7-B2 have no data; H2 is decided on W2 and W3 only; Exp 8 has no 1,000-node
+  B2 or B3 rows. The four in-flight W5 cells are stopped (none had a summary) and their directories removed. Driver
+  v4 (`run_session_v4.sh`: v3 with the last recorded decision for a group taking effect, so a decision can be
+  superseded only by a later logged one) records the CUT and moves on to the H7 timing pass. Why W5 is so slow at
+  200 nodes was not diagnosed; a timing probe runs after the H7 pass, for the runbook.
+  *Correction:* one W5 cell finished while the rule was being written (B2, seed 101, at 00:28:24 UTC, 3,809 s of
+  wall time), unnoticed because the check looked at the time-series files, which the
+  simulator writes only at the end. Only its wall time has been looked at. It confirms the decision: re-projected
+  from it, the 59 pending cells need 59 x 63.5 min / 4 = 15.6 h. It stays in the run tree as a valid session run;
+  its configuration has 1 of 10 seeds, so the completeness rule keeps it out of every test, and the cut table lists
+  it.
+  Driver v4 cut the four candidates at 00:29:10 UTC, reported `SESSION COMPLETE` and started the H7 timing pass at
+  once (its start-up banner still says "v3"; the code is v4). The session matrix ends with 1,551 finished runs.
