@@ -1817,3 +1817,9 @@ matrix h7-timing: 24/24 done, 0 failed, 0 pending
 2026-10-29T02:17:50Z H7 PAIRS (round 0) rc=0 :: no seed to rerun: 10 seeds with both arms on one VM and no retried attempt
 2026-10-29T02:17:50Z H7 TIMING PASS COMPLETE
 2026-10-29T02:17:50Z PARITY START wour-assorted
+2026-10-29T03:14:46Z PARITY DONE wour-assorted rc=0 :: 2 of 2 configs
+2026-10-29T03:14:47Z PARITY START balanced-kwok
+2026-10-29T04:07:50Z PARITY DONE balanced-kwok rc=0 :: 3 of 3 configs
+2026-10-29T04:07:50Z PARITY START balanced-assorted
+2026-10-29T05:18:42Z PARITY DONE balanced-assorted rc=0 :: 3 of 3 configs
+2026-10-29T05:18:43Z ALL BACKGROUND WORK COMPLETE

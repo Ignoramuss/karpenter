@@ -97,17 +97,21 @@ what each changed, and `session.log` is the full log). 1,551 of the 1,740 sessio
 cut-candidate groups were cut on time alone (`experiments/session-driver/cut-decisions.txt`). `realism-w5` passed
 the preregistered start check, but its projection was wrong by more than 30x, and it was stopped under a time-only
 overrun rule declared during the session. That rule also cut the three later candidates (deviation 7 in
-`experiments/RESULTS.md`). One `realism-w5` cell had finished by then. To run them on a larger machine:
+`experiments/RESULTS.md`). One `realism-w5` cell had finished by then. To run the three that are not timing
+comparisons on a larger machine:
 
 ```bash
 bin/csim matrix --matrix experiments/matrix/session.yaml --workers $(nproc) \
-  --only realism-w5,realism-w6,exp7-b2-n1000,exp1-baselines-n1000
+  --only realism-w5,realism-w6,exp1-baselines-n1000
 ```
 
 `make figures` then includes them, since the completeness rule (10 seeds per configuration) admits them once
 they are complete. `exp7-b2-n1000` is a timing comparison (CPU time per pass) against the session's
-random/entropy-greedy W1 1,000-node cells, which ran on VM C at 4-way load. Run it in its own invocation beside a
-rerun of those cells, interleaved by seed as in `h7-timing.yaml`, or report it as a cross-machine comparison.
+random/entropy-greedy W1 1,000-node cells, which ran on VM C at 4-way load, so run it separately
+(`docs/research/runbook.md`, "The session's cut groups"). One way is to run it beside a rerun of those cells,
+interleaved by seed as in `h7-timing.yaml`, which needs a new matrix and an analysis change. The other is to run it
+alone and report it as a cross-machine comparison, after adding the new machine to
+`experiments/session-driver/machine-log.txt`.
 
 ## Rebuilding the analysis
 
@@ -131,9 +135,9 @@ PARITY_STATES=10000 PARITY_SEED=2 go test ./pkg/controllers/disruption/pipeline/
 
 The 10,000-state run is split into four chunks, one per policy and catalog, written to `experiments/parity/chunks/`.
 The WhenEmptyOrUnderutilized/kwok chunk is the first part of a run with both catalogs selected. That run started
-before the session and was stopped when the session started, so its output file also holds the first 4,474
-assorted states, while its summary covers kwok only. The other three chunks run after the session under the session
-driver, each selected with `PARITY_POLICIES` and `PARITY_CATALOGS`, for example:
+before the session and was stopped when the session started, so its output file also holds the first 4,474 assorted
+states, while its summary covers kwok only. The other three chunks ran after the session under the session driver
+(Oct 29 02:17-05:18 UTC), each selected with `PARITY_POLICIES` and `PARITY_CATALOGS`, for example:
 
 ```bash
 PARITY_STATES=10000 PARITY_SEED=2 PARITY_POLICIES=Balanced PARITY_CATALOGS=assorted \

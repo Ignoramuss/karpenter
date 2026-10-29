@@ -1,0 +1,4 @@
+policy=Balanced catalog=assorted config=coarse states=10000 match=10000/10000 upstream_decided=8347 upstream_nondeterministic=79
+policy=Balanced catalog=assorted config=fine states=10000 match=10000/10000 upstream_decided=8347 upstream_nondeterministic=79
+policy=Balanced catalog=assorted config=fine-balanced-planner states=10000 match=10000/10000 upstream_decided=8347 upstream_nondeterministic=79
+test_exit_status=0

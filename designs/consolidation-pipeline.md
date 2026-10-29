@@ -758,9 +758,9 @@ run took 21 minutes.
   `WhenEmptyOrUnderutilized` states.
 - Skipping the `CanPass` pre-filter was not caught, and cannot be: it changes compute, never decisions.
 
-**10,000-state run.** It is split into four chunks, one per policy and catalog (`experiments/parity/chunks/`). Every
-finished chunk matched 10,000 of 10,000 states in every configuration, and `docs/research/parity.md` reports each
-chunk. The test compares decisions, not events or metric deltas.
+**10,000-state run.** It is split into four chunks, one per policy and catalog (`experiments/parity/chunks/`). All
+four matched 10,000 of 10,000 states in every configuration (`docs/research/parity.md`). The test compares decisions,
+not events or metric deltas.
 
 **In CI.** A 40-state run (the `PARITY_STATES` default) runs with `make test`. Larger runs are invoked by hand.
 
@@ -800,7 +800,8 @@ Each item is a known risk, how the current code handles it, and the decision tha
    - `make-before-break`.
 
    How much fidelity loss is acceptable, and is a mutating webhook for preferred node affinity in scope at all? The
-   simulator measures this (plan fidelity), and the results are pending.
+   simulator measures this (plan fidelity, Exp 5 / H5); the session results are in `experiments/RESULTS.md`, which
+   rates H5 partial and flags the Exp 5 run set.
 4. **The wall-clock multi-node timeout becomes the injected clock in fine mode.** Upstream bounds the multi-node
    search with a 1-minute `context.WithTimeout`. The scheduler checks that context between pod scheduling attempts,
    so the search can stop partway through a simulation. The fine adapter checks the same duration on the injected
@@ -841,7 +842,8 @@ Each item is a known risk, how the current code handles it, and the decision tha
   method must preserve, the adapters, the snapshot contents, command and move conversion, and what parity holds fixed.
 - [`experiments/RESEARCH_LOG.md`](../experiments/RESEARCH_LOG.md): decisions, timing measurements, parity and
   nondeterminism findings.
-- `experiments/RESULTS.md`: experimental results (pending).
+- [`experiments/RESULTS.md`](../experiments/RESULTS.md): session-profile experimental results (Tier A only, four groups
+  cut).
 - Code: `pkg/controllers/disruption/pipeline` (interfaces, adapters, method, registry, conformance, harness),
   `pkg/controllers/disruption/pipeline_hooks.go`, `pkg/controllers/controllers.go` (`disruptionMethods`),
   `pkg/operator/options/options.go` (`ConsolidationPipelineFeatureGate`, `--consolidation-pipeline-config`),

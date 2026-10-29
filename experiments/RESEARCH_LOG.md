@@ -483,8 +483,9 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   not a property of the strategies; a real controller reads an informer cache, with no JSON round trip. **Not fixed in
   the session:** a fix changes the binary, and every session cell must carry the Gate 3 `binary_revision`. Next step
   (runbook, RESULTS "Next steps"): serve label-selector pod lists from the harness's pod index. Then check that
-  decisions are unchanged with `TestDeterminism`, plus a byte-identical rerun of the finished W5 cell, before using it
-  for new runs under a logged deviation.
+  decisions are unchanged with a byte-identical rerun of the finished W5 cell
+  (`realism-w5__arm-b2_seed-101__421f66a6`), and that the new binary still passes `TestDeterminism` (which checks only
+  run-to-run determinism within one binary), before using it for new runs under a logged deviation.
 - **Correction: the overrun cascade was the new rule's, not the preregistered rule's (found by the final claim check,
   Oct 29 02:33-03:32 UTC; no data involved).** The overrun-rule entry above cut `realism-w6`, `exp7-b2-n1000` and
   `exp1-baselines-n1000` "exactly as if the original projection had been right", and RESULTS credited that cascade to
@@ -494,23 +495,26 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   each on its own start projection at 00:29 UTC, with the mechanized rule over the 1,551 runs then finished:
   `realism-w6` 60 x 2.0 min / 4 = 30 min (the same-scale fallback median over 1,071 cells, the one W5 had just shown
   to be unreliable), `exp7-b2-n1000` 10 x 16.0 min / 4 = 40 min (W1 1,000-node median over 60 cells), and
-  `exp1-baselines-n1000` 20 x (16.0 + 15.9 + 13.1) min / 4 = 3.75 h. The first two would have passed their start
-  checks, with projected ends about 00:59 and 01:39 UTC. These are projections only. The W6 one uses the fallback
-  median that W5 had just shown to be wrong. The W1 1,000-node median comes from pipeline cells, while a 1,000-node B2
-  cell runs far longer (the pilot's hit its 100-minute wall limit at simulated minute 160). Whether either would have
-  finished by the deadline is unknown. The decision stands as recorded, since the deadline has passed. RESULTS
-  deviation 7, "What ran", REPRODUCE, the runbook and PROGRESS now name the overrun rule as the cause of all four
-  cuts, and RESULTS deviation 7 gives this counterfactual. The record's 5.2 h estimate (20 B2/B3 cells x 62 min / 4)
-  is also not a strict lower bound, since no B3 W5 cell had run. The finished-cell re-projection (15.6 h) is the one
-  RESULTS now cites.
+  `exp1-baselines-n1000` 20 x (16.0 + 15.9 + 13.1) min / 4 = 3.75 h. `realism-w6` would have passed its start check,
+  with a projected end about 00:59 UTC. The driver runs the candidates in turn, so `exp7-b2-n1000` would have been
+  checked only when `realism-w6` ended. It would have passed if that was by about 02:12 UTC (02:52 minus its 40
+  minutes), with a projected end about 01:39 UTC if `realism-w6` took its projected 30 minutes. These are projections
+  only. The W6 one uses the fallback median that W5 had just shown to be wrong. The W1 1,000-node median comes from
+  pipeline cells, while a 1,000-node B2 cell runs far longer (the pilot's hit its 100-minute wall limit at simulated
+  minute 160). Whether either would have finished by the deadline is unknown. The decision stands as recorded, since
+  the deadline has passed. RESULTS deviation 7, "What ran", REPRODUCE, the runbook and PROGRESS now name the overrun
+  rule as the cause of all four cuts, and RESULTS deviation 7 gives this counterfactual. The record's 5.2 h estimate
+  (20 B2/B3 cells x 62 min / 4) is also not a strict lower bound, since no B3 W5 cell had run. RESULTS now cites both
+  of the record's figures: the 5.2 h estimate, with that caveat, and the finished-cell re-projection (15.6 h).
 - **Correction: the preregistration's scale wording (RESULTS deviation 9).** PREREGISTRATION.md says `scenario.nodes =
   n` sizes each workload as n mid-size nodes at 70% fill, and that W2, W3, W5 and W6 run fewer, larger nodes. The Gate
   3 code fills W1 and W4's n starting nodes to a random 15-75% each (`fragmented` in
   `hack/consolidation-sim/sim/scenario.go`; mean CPU utilization 0.39-0.44 at t = 0 for n = 200). The 70% fill applies
   to W2, W3, W5 (`capCPU`) and W6 (`traceFill`). W3 peaks above n in most cells (above 200 in 73 of 120 Exp 6 cells).
   The code was not changed. The text was a description error, and this log's own "Scenario scale" entry (Oct 27) makes
-  the same one. W1 and W4 are not at 70% fill, and W3's node count is not lower than n (it peaks above 200 in 73 of
-  120 Exp 6 cells). RESULTS "What ran" now states what ran.
+  the same one. W1 and W4 are not at 70% fill, and W3 does not consistently run fewer nodes than n: it peaks above 200
+  in 73 of 120 Exp 6 cells (peaks 124-339) and at or below 200 in the other 47. RESULTS "What ran" now states what
+  ran.
 - **Analysis changes after Gate 3, with times.** The alignment commit `5b6b2e3` (Oct 27 21:14 UTC) landed when 33
   session cells had finished, and the verifier's ten fixes `df7831e` (21:50 UTC) when 88 had. Both changed the code
   toward the preregistered text, not the text. Before them the code ran, for example, H7 on wall time per pass and H4
@@ -540,23 +544,27 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   - the threats list, including the full preregistered set and what `wall_cpu_ratio` shows;
   - the Exp 5 seed-107 clause;
   - running `exp7-b2-n1000` as a paired pass;
+  - in RESULTS "Next steps": fixing W5's simulator cost first, from the timing probe;
+  - in PROGRESS: parity re-checks on 100-150 states per cell (was "150 states");
+  - in REPRODUCE: the driver order (v1, then v3, then v4; v2 was armed but never acted);
   - in REPRODUCE: building at Gate 3 in a separate build tree (first written as a `git worktree`, which gets no Go VCS
     stamp, as the Gate 3 entry says; corrected to a clean clone in the next round); `TestDeterminism`'s actual scope,
     with the H7-S twin check as the cross-VM evidence; the upstream 1-minute multi-node timeout, never reached;
     rebuilding the pilot with its own binaries;
   - in the runbook: the full matrix size (3,900), cell timings from the session data, and memory (not recorded).
 
-  Of the 11 unconfirmed flags, eight were wording points. The other three were wrong on the facts: two said no two-run
-  byte-identity check was recorded for the final outputs (`9c93190` records it), and one said parity.md was stale
-  (updated in `272cfc3`). Five changes from the wording points were applied anyway: "190 cells, 189 of them unrun"
-  (corrected to "unfinished" in the next round, since four of them had run before they were stopped); the verdict
-  table's words matched to summary.md ("absent (group cut)" for H7-B2, "no runs (groups cut)" for H1-realism,
+  Of the 11 unconfirmed flags, eight were wording points. Two were wrong on the facts: they said no two-run
+  byte-identity check was recorded for the final outputs (`9c93190` records it). The third said parity.md was stale,
+  which was true when it was raised and is the same point as a confirmed flag, but `272cfc3` (03:16) updated parity.md
+  before its verifier read the file. Five changes from the wording points were applied anyway: "190 cells, 189 of them
+  unrun" (corrected to "unfinished" in the next round, since four of them had run before they were stopped); the
+  verdict table's words matched to summary.md ("absent (group cut)" for H7-B2, "no runs (groups cut)" for H1-realism,
   "reported: all valid" for the run checks); H7-S "not supported" without "too"; the retry definition in the run
   checks; and "heuristic/savings-only" in Exp 8.
-- **Second check: the fixes themselves (Oct 29 03:41-04:33 UTC).** Five checkers re-read the lines `b8aabd6` added
-  to RESULTS, REPRODUCE, the runbook, this log and PROGRESS. A sixth swept every document for text still stating
-  the corrected facts in their old form. An independent checker re-derived each flag: 37 flags, 33 confirmed.
-  Fixed in the commit that follows:
+- **Second check: the fixes themselves (Oct 29 03:41-04:33 UTC).** Five checkers re-read the lines `b8aabd6` added to
+  RESULTS, REPRODUCE, the runbook, this log and PROGRESS. A sixth swept every document for text still stating the
+  corrected facts in their old form. An independent checker re-derived each flag: 37 flags, 33 confirmed. Fixed in
+  `ddc71b6`, the commit that adds this entry:
   - **The worktree build.** REPRODUCE and the runbook had said to build the Gate 3 binary in a `git worktree`. Go
     1.26.10 detects a Git root only when `.git` is a directory (`cmd/go/internal/vcs`), so a worktree build has no
     VCS stamp and its runs would read as the wrong binary. Both now use a separate clone, as the session did.
@@ -567,17 +575,55 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   - **W5 instructions.** RESULTS and the runbook gave conflicting orders for W5: run it with the Gate 3 binary, and
     fix the simulator first. A fixed binary is a new `binary_revision`, invalid in the session tree, so it needs its
     own run tree and a logged deviation; the docs now say so.
-  - **The paired H7-B2 design.** It needs a new matrix, an analysis alias, a registry change and a machine-log line.
+  - **The paired H7-B2 design.** It needs a new matrix, a group alias and an H7-B2 change in the analysis registry
+    (`experiments.yaml`), and the new matrix added to `SESSION_BINARY_MATRICES` in `paper/analysis/common.py`. The
+    cross-machine option instead needs the new machine's line in `machine-log.txt`.
   - **Smaller points:**
     - where the p values live (`h7s_tests`, `exp1_h1`, `exp3_h3`, `exp7_tests`, `fig8_ablation`);
     - which numbers come straight from run files;
     - the inputs `make figures` reads;
     - the first parity chunk's two-catalog run;
     - W5 B2 timing (more than an hour; B3 never timed);
-    - B2/B3 being faster than the pipeline on W2;
+    - B2/B3 being faster than the slowest pipeline arms on W2;
     - the 12% H7-S rise (machine and co-runners together);
     - `TestDeterminism` cannot compare two binaries;
     - stale parity status in the runbook, the RFC and PROGRESS;
     - the driver README's "the cloud VM";
     - this log's own entries: the alignment wording, the scale entry, the unconfirmed-flag tally, "unrun" →
       "unfinished".
+- **10,000-state parity complete (Oct 29 05:18 UTC).** Driver v4 ran the last three chunks one after another:
+  `wour-assorted` 02:17-03:14, `balanced-kwok` 03:14-04:07, `balanced-assorted` 04:07-05:18. It then logged
+  `ALL BACKGROUND WORK COMPLETE` and exited. All four chunks matched 10,000 of 10,000 states in every configuration
+  (coarse and fine adapters, plus the Balanced planner on Balanced states): 40,000 states, each in two or three
+  configurations. Upstream decided on 8,347-9,141 states per chunk and disagreed with itself on 79-247
+  multi-NodePool states, all resolved within the observed decision set. Every chunk ran on a parity test binary
+  built after the last pipeline commit (`pkg/` is unchanged since `2d8fce7`). Gate 1's 10,000-state run is
+  therefore complete, with no mismatch. `docs/research/parity.md`, RESULTS, PROGRESS, the runbook, REPRODUCE and
+  the RFC give the final result. `experiments/session-driver/session.log` is the driver's complete log.
+- **Correction: three, not four, W5 cells were stopped at the overrun cut.** The overrun entry says "the four
+  in-flight W5 cells are stopped". The runner had launched B2 seeds 101-104 at 23:24:56 UTC under a 60-minute
+  wall budget per invocation. When seed 101 finished at 00:28:24, 63.5 minutes in, the budget was spent, so no
+  fifth cell was launched. The cut at 00:29:08 therefore stopped three cells (seeds 102-104), and their
+  directories were removed. RESULTS now says three.
+- **Third check: the second round's fixes (Oct 29 04:39-05:19 UTC).** Five checkers read the lines `ddc71b6`
+  changed, and a sixth swept the documents for passages that state the same fact differently. An independent
+  checker re-derived each of their 25 flags, and all 25 were confirmed. They are fixed in the commit that adds this
+  entry:
+  - three, not four, W5 cells stopped;
+  - W3 peaks above n in most cells, not all (here and in RESULTS deviation 9);
+  - the counterfactual: `exp7-b2-n1000` would have been checked only when `realism-w6` ended;
+  - which numbers come straight from run files (the list is examples, not exhaustive);
+  - a W5 rerun shows only that cell's decisions are unchanged;
+  - the run-check count: 1,571 = 1,551 session runs + 20 measured H7-S runs (the 4 fillers also carry
+    `c78b5f9`);
+  - REPRODUCE's cut-group command no longer runs the timing group `exp7-b2-n1000` with the others;
+  - the runbook's B2/B3 timing comparisons (B3 never timed at 1,000 nodes; W1/W4 within the pipeline range);
+  - why the paired H7-B2 design needs a new matrix (`--only` selects whole groups);
+  - stale parity status in parity.md, the runbook, PROGRESS and the RFC (now final);
+  - the RFC's two remaining "results pending" lines;
+  - this log's own entries ("commit that follows", the flag tallies, the H7-B2 design summary, "faster than the
+    pipeline", the 15.6 h citation, `TestDeterminism`'s scope in the probe entry).
+
+  The flag counts fell from 38 to 33 to 25 over the three rounds. This round's flags were all in text the earlier
+  rounds had added or in status that went stale while the parity chunks ran, and none touched a verdict, effect
+  or test.

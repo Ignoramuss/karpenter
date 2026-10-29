@@ -1,19 +1,21 @@
 # Results: consolidation as entropy reduction (session profile)
 
-> **Status: final for the session matrix and the H7 timing pass** (Oct 29, 2026). The two Balanced 10,000-state
-> parity chunks run after the session; `docs/research/parity.md` reports each chunk as it finishes. Every verdict and
-> effect below comes from `paper/tables/summary.md` and the tables it points to, which `make figures` regenerates from
-> the raw runs.
+> **Status: final for the session matrix and the H7 timing pass** (Oct 29, 2026). The 10,000-state parity run,
+> finished after the session (Oct 29 05:18 UTC), matched on every state in every cell (`docs/research/parity.md`).
+> Every verdict and effect below comes from `paper/tables/summary.md` and the tables it points to, which `make
+> figures` regenerates from the raw runs.
 
 Every verdict, effect and run count here comes from `make figures` (`paper/tables/`, `paper/figures/out/`) run over
-`experiments/runs/` (two runs over the same data are byte-identical). A few descriptive numbers that no table holds
-come straight from the runs' own files: the W1/W4 mean CPU utilization at t = 0 (`timeseries.csv`), the W2, W3 and W5
-peak node counts (`summary.json`, `peak_nodes`) and the slowest single passes (`summary.json`, `wall_pass_max_ms`).
-The run history (session and H7-S times, VM epochs, cut projections) comes from `experiments/session-driver/`
-(`session.log`, `machine-log.txt`, `cut-decisions.txt`), and the decision-level parity counts from
-`experiments/parity/` (`docs/research/parity.md`). The preregistration (`experiments/PREREGISTRATION.md`, Gate 3,
-`c78b5f9`) defines each test, family and verdict rule; `experiments/RESEARCH_LOG.md` records every decision taken
-after it, with its reason and when it was made relative to the data. How to rebuild everything: `paper/REPRODUCE.md`.
+`experiments/runs/` (two runs over the same data are byte-identical). Some descriptive numbers that no table holds
+come straight from the runs' own files, for example the W1/W4 mean CPU utilization at t = 0 (`timeseries.csv`), peak
+node counts (`summary.json`, `peak_nodes`), the slowest single passes (`wall_pass_max_ms`), Exp 5's per-seed oracle
+hits and misses (`fidelity_hits`, `fidelity_misses`), eviction and command mixes (`evictions_by`, `commands_started`)
+and H4's executed-move mix (`decisions.jsonl.gz`). The run history (session and H7-S times, VM epochs, cut
+projections) comes from `experiments/session-driver/` (`session.log`, `machine-log.txt`, `cut-decisions.txt`), and the
+decision-level parity counts from `experiments/parity/` (`docs/research/parity.md`). The preregistration
+(`experiments/PREREGISTRATION.md`, Gate 3, `c78b5f9`) defines each test, family and verdict rule;
+`experiments/RESEARCH_LOG.md` records every decision taken after it, with its reason and when it was made relative to
+the data. How to rebuild everything: `paper/REPRODUCE.md`.
 
 ## What ran
 
@@ -32,20 +34,20 @@ after it, with its reason and when it was made relative to the data. How to rebu
 - **Session matrix:** `experiments/matrix/session.yaml`, 20 groups in the preregistered order, from Oct 27 20:52 to
   Oct 29 00:29 UTC. 1,551 of the 1,740 preregistered runs finished, every one valid: the first 16 groups complete
   (1,550 runs) and one W5 cell. The four cut-candidate groups (`realism-w5`, `realism-w6`, `exp7-b2-n1000`,
-  `exp1-baselines-n1000`: 190 cells, 189 of them unfinished, including four in-flight W5 B2 cells that were stopped
-  mid-run and discarded) were cut on time alone (`experiments/session-driver/cut-decisions.txt`). `realism-w5` passed
-  the preregistered start check on a projection that turned out to be wrong by more than 30x. It was then stopped
-  under a time-only overrun rule declared in the session, and that rule, not the preregistered one, cut the other
-  three with it (deviation 7 below). The session ran on four VMs in turn (epochs A-D,
+  `exp1-baselines-n1000`: 190 cells, 189 of them unfinished, including three in-flight W5 B2 cells, seeds 102-104,
+  that were stopped mid-run and discarded) were cut on time alone (`experiments/session-driver/cut-decisions.txt`).
+  `realism-w5` passed the preregistered start check on a projection that turned out to be wrong by more than 30x. It
+  was then stopped under a time-only overrun rule declared in the session, and that rule, not the preregistered one,
+  cut the other three with it (deviation 7 below). The session ran on four VMs in turn (epochs A-D,
   `experiments/session-driver/machine-log.txt`); the three replacements killed in-flight cells, which were relaunched
   from scratch.
 - **Supplementary H7 timing pass (H7-S):** `experiments/matrix/h7-timing.yaml`, Oct 29 00:29-02:18 UTC on VM D: 20
   measured cells (both arms of H7's ten seeds, interleaved at 4-way load) and 4 discarded fillers; no seed's arms were
   split across VMs and no attempt was retried.
 - **Parity:** 1,000 states per policy and catalog for Gate 1 (all matched), and a 10,000-state run in four chunks
-  (`experiments/parity/chunks/`). Both WhenEmptyOrUnderutilized chunks (kwok before the session, assorted after it)
-  matched 10,000 of 10,000 states in both adapter modes; the two Balanced chunks run after the session
-  (`docs/research/parity.md`).
+  (`experiments/parity/chunks/`). All four matched 10,000 of 10,000 states in every configuration: coarse and fine
+  adapters, plus the Balanced planner on Balanced states. The WhenEmptyOrUnderutilized/kwok chunk ran before the
+  session and the other three after it, ending Oct 29 05:18 UTC (`docs/research/parity.md`).
 
 ## Verdicts
 
@@ -413,14 +415,14 @@ methods. Whether this accounts for the 53 non-matching seeds was not tested. The
 
 ### Run checks
 
-`paper/tables/validity.md`, `cut_configurations.md`, `duplicate_consistency.md`, `run_checks.json`. All 1,551
-finished session runs are valid: no PDB or do-not-disrupt violation, error, timeout, abandoned or retried cell (no
-attempt failed or was set aside; cells killed by a VM replacement were wiped and relaunched, which is not a retry
-under the preregistration), run
-from another binary (all 1,571 runs checked, the timing pass's included, carry `c78b5f9`, unmodified) or
+`paper/tables/validity.md`, `cut_configurations.md`, `duplicate_consistency.md`, `run_checks.json`. All 1,551 finished
+session runs are valid: no PDB or do-not-disrupt violation, error, timeout, abandoned or retried cell (no attempt
+failed or was set aside; cells killed by a VM replacement were wiped and relaunched, which is not a retry under the
+preregistration), run from another binary (the check covers 1,571 runs, the 1,551 session runs and the 20 measured
+H7-S runs, and all carry `c78b5f9`, unmodified, as do the timing pass's 4 fillers, which no experiment uses) or
 nondeterminism (TestDeterminism passed at that commit). Every one of the 130 sets of identical configurations run in
-different groups (the cross-group determinism check) produced identical summaries, as did the 20 H7-S reruns. The
-19 cut configurations are exactly the four cut groups' (one with the single finished W5 run).
+different groups (the cross-group determinism check) produced identical summaries, as did the 20 H7-S reruns. The 19
+cut configurations are exactly the four cut groups' (one with the single finished W5 run).
 
 ## Deviations from the preregistration
 
@@ -475,9 +477,9 @@ the log gives no time, the item below gives the commit time.
 8. **Driver v4** lets the last recorded decision for a group win, so the overrun cut supersedes the earlier START.
 9. **Scale wording.** The preregistration says `scenario.nodes = n` sizes each workload as n mid-size nodes at 70%
    fill, and that W2, W3, W5 and W6 run fewer, larger nodes. The Gate 3 code (`scenario.go` in
-   `hack/consolidation-sim/sim`) fills W1 and W4's n starting nodes to a random 15-75% each, and W3 (124-339 in Exp 6)
-   and the one W5 cell (255) peak above n. The code was not changed. The text was a description error, found after the
-   session, and "What ran" states what ran.
+   `hack/consolidation-sim/sim`) fills W1 and W4's n starting nodes to a random 15-75% each, and W3 peaks above n in
+   most cells (124-339 in Exp 6, above 200 in 73 of 120), as does the one W5 cell (255). The code was not changed. The
+   text was a description error, found after the session, and "What ran" states what ran.
 
 ## Threats to validity
 
@@ -514,8 +516,11 @@ measured on a 4-vCPU VM with up to 4 concurrent cells. Added in the session:
   upstream topology counting. That code lists pods by label selector, which the harness's pod index does not serve, so
   each list goes through the fake client's deep copy and JSON round trip. The fix (serving those lists from the index)
   is a new binary, so its cells will not carry the Gate 3 `binary_revision` and `make figures` will mark them invalid
-  in the session tree. Before using it, check that every decision is unchanged with a byte-identical rerun of the
-  finished W5 cell, and log the new binary as a deviation with its own run tree.
+  in the session tree. Before using it, rerun the finished W5 cell (`realism-w5__arm-b2_seed-101__421f66a6`) and check
+  that its decompressed decision log, `timeseries.csv`, `podsets.jsonl` and simulated `summary.json` fields match the
+  session's (its timings and manifest will differ). That shows only this B2 cell's decisions are unchanged. Also check
+  that the new binary still passes `TestDeterminism`, which tests run-to-run determinism within one binary, and log
+  the new binary as a deviation with its own run tree.
 - The full profile (`experiments/matrix/full.yaml`: 20 seeds, 5,000-node cells) and Tier B on KWOK, on a machine that
   can reach `registry.k8s.io` and `cgr.dev` (`docs/research/runbook.md`).
 - Diagnose two things the session only measured: why the pipeline misses about 6% of plan-following placements in one
