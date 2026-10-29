@@ -1,0 +1,4 @@
+policy=Balanced catalog=kwok config=coarse states=10000 match=10000/10000 upstream_decided=8675 upstream_nondeterministic=247
+policy=Balanced catalog=kwok config=fine states=10000 match=10000/10000 upstream_decided=8675 upstream_nondeterministic=247
+policy=Balanced catalog=kwok config=fine-balanced-planner states=10000 match=10000/10000 upstream_decided=8675 upstream_nondeterministic=247
+test_exit_status=0
