@@ -1,0 +1,31 @@
+role,family,form,window_min,outcome,potential,column,scenario,nodes,n_runs,n_undefined,n_seeds,n_seeds_without_defined,median_rho,median_rho_lo,median_rho_hi,run_median_rho,n_positive,n_nonpositive,p_sign,p_floor,m,p_holm,significant,holm_reachable,supports_h2,outcome_h2
+primary,H2,raw,10,removals,P1,p1_load_entropy,W2,"200, 1000",400,0,10,0,0.612935,0.580702,0.630065,0.607918,10,0,0.000976562,0.000976562,6,0.00585938,True,True,True,supports
+primary,H2,raw,10,removals,P2,p2_util_entropy,W2,"200, 1000",400,0,10,0,-0.272576,-0.317571,-0.216804,-0.266993,0,10,1,0.000976562,6,1,False,True,False,does not support
+primary,H2,raw,10,removals,P3,p3_quadratic,W2,"200, 1000",400,0,10,0,-0.297916,-0.35536,-0.232915,-0.276587,0,10,1,0.000976562,6,1,False,True,False,does not support
+primary,H2,raw,10,removals,P1,p1_load_entropy,W3,200,140,0,10,0,0.484125,0.342012,0.623805,0.494098,9,1,0.0107422,0.000976562,6,0.0537109,False,True,False,does not support
+primary,H2,raw,10,removals,P2,p2_util_entropy,W3,200,140,0,10,0,0.177012,0.0376665,0.26215,0.158788,9,1,0.0107422,0.000976562,6,0.0537109,False,True,False,does not support
+primary,H2,raw,10,removals,P3,p3_quadratic,W3,200,140,0,10,0,0.117093,-0.0103311,0.211639,0.105186,7,3,0.171875,0.000976562,6,0.515625,False,True,False,does not support
+secondary,H2-cost,raw,10,cost_decrease,P1,p1_load_entropy,W2,"200, 1000",400,0,10,0,0.609908,0.56576,0.648139,0.604934,10,0,0.000976562,0.000976562,6,0.00585938,True,True,True,supports
+secondary,H2-cost,raw,10,cost_decrease,P2,p2_util_entropy,W2,"200, 1000",400,0,10,0,-0.2932,-0.340735,-0.243716,-0.28502,0,10,1,0.000976562,6,1,False,True,False,does not support
+secondary,H2-cost,raw,10,cost_decrease,P3,p3_quadratic,W2,"200, 1000",400,0,10,0,-0.306308,-0.345528,-0.251106,-0.29606,0,10,1,0.000976562,6,1,False,True,False,does not support
+secondary,H2-cost,raw,10,cost_decrease,P1,p1_load_entropy,W3,200,140,0,10,0,0.647794,0.585294,0.710294,0.638235,10,0,0.000976562,0.000976562,6,0.00585938,True,True,True,supports
+secondary,H2-cost,raw,10,cost_decrease,P2,p2_util_entropy,W3,200,140,0,10,0,0.267647,0.185294,0.379412,0.264706,10,0,0.000976562,0.000976562,6,0.00585938,True,True,True,supports
+secondary,H2-cost,raw,10,cost_decrease,P3,p3_quadratic,W3,200,140,0,10,0,0.2,0.119118,0.354412,0.204412,10,0,0.000976562,0.000976562,6,0.00585938,True,True,True,supports
+secondary,H2-norm,norm,10,removals,P1,p1_norm,W2,"200, 1000",400,0,10,0,0.228907,0.206946,0.314443,0.250794,10,0,0.000976562,0.000976562,6,0.00585938,True,True,True,supports
+secondary,H2-norm,norm,10,removals,P2,p2_norm,W2,"200, 1000",400,0,10,0,-0.384604,-0.441319,-0.30892,-0.375249,0,10,1,0.000976562,6,1,False,True,False,does not support
+secondary,H2-norm,norm,10,removals,P3,p3_norm,W2,"200, 1000",400,0,10,0,-0.373366,-0.434164,-0.289361,-0.364968,0,10,1,0.000976562,6,1,False,True,False,does not support
+secondary,H2-norm,norm,10,removals,P1,p1_norm,W3,200,140,0,10,0,0.340524,0.210741,0.501666,0.402365,10,0,0.000976562,0.000976562,6,0.00585938,True,True,True,supports
+secondary,H2-norm,norm,10,removals,P2,p2_norm,W3,200,140,0,10,0,0.096258,-0.0336559,0.151451,0.0547347,7,3,0.171875,0.000976562,6,0.6875,False,True,False,does not support
+secondary,H2-norm,norm,10,removals,P3,p3_norm,W3,200,140,0,10,0,0.038094,-0.0365483,0.117121,0.00960185,7,3,0.171875,0.000976562,6,0.6875,False,True,False,does not support
+secondary,H2-w5,raw,5,removals,P1,p1_load_entropy,W2,"200, 1000",400,0,10,0,0.629891,0.591793,0.657076,0.629305,10,0,0.000976562,0.000976562,6,0.00585938,True,True,True,supports
+secondary,H2-w5,raw,5,removals,P2,p2_util_entropy,W2,"200, 1000",400,0,10,0,-0.164635,-0.195752,-0.104716,-0.157285,0,10,1,0.000976562,6,1,False,True,False,does not support
+secondary,H2-w5,raw,5,removals,P3,p3_quadratic,W2,"200, 1000",400,0,10,0,-0.156757,-0.190617,-0.114131,-0.14971,0,10,1,0.000976562,6,1,False,True,False,does not support
+secondary,H2-w5,raw,5,removals,P1,p1_load_entropy,W3,200,140,0,10,0,0.505447,0.329652,0.637903,0.518673,10,0,0.000976562,0.000976562,6,0.00585938,True,True,True,supports
+secondary,H2-w5,raw,5,removals,P2,p2_util_entropy,W3,200,140,0,10,0,0.156141,0.037314,0.286212,0.154837,8,2,0.0546875,0.000976562,6,0.21875,False,True,False,does not support
+secondary,H2-w5,raw,5,removals,P3,p3_quadratic,W3,200,140,0,10,0,0.120134,-0.00327109,0.223168,0.114905,7,3,0.171875,0.000976562,6,0.515625,False,True,False,does not support
+secondary,H2-w20,raw,20,removals,P1,p1_load_entropy,W2,"200, 1000",400,0,10,0,0.393862,0.34975,0.452711,0.403926,10,0,0.000976562,0.000976562,6,0.00585938,True,True,True,supports
+secondary,H2-w20,raw,20,removals,P2,p2_util_entropy,W2,"200, 1000",400,0,10,0,-0.618152,-0.648755,-0.494891,-0.592974,0,10,1,0.000976562,6,1,False,True,False,does not support
+secondary,H2-w20,raw,20,removals,P3,p3_quadratic,W2,"200, 1000",400,0,10,0,-0.615073,-0.635057,-0.494891,-0.592999,0,10,1,0.000976562,6,1,False,True,False,does not support
+secondary,H2-w20,raw,20,removals,P1,p1_load_entropy,W3,200,140,0,10,0,0.30044,0.0810844,0.663785,0.34975,8,2,0.0546875,0.000976562,6,0.164062,False,True,False,does not support
+secondary,H2-w20,raw,20,removals,P2,p2_util_entropy,W3,200,140,0,10,0,0.18442,0.0357143,0.414431,0.190027,9,1,0.0107422,0.000976562,6,0.0537109,False,True,False,does not support
+secondary,H2-w20,raw,20,removals,P3,p3_quadratic,W3,200,140,0,10,0,0.140596,0.0584801,0.361075,0.142857,9,1,0.0107422,0.000976562,6,0.0537109,False,True,False,does not support

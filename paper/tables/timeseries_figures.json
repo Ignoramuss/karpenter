@@ -1,0 +1,1881 @@
+{
+  "exp2": {
+    "h2": {
+      "family": "H2",
+      "rule": "per potential: the sign test over seeds (per-seed median rho > 0; a seed without a defined rho counts as 0) rejects after Holm over potential x scenario with data, and the median of the per-seed medians is positive, in every scenario with data (holds) or in some (partial)",
+      "verdicts": {
+        "P1": {
+          "scenarios": [
+            "W2",
+            "W3"
+          ],
+          "supported_in": [
+            "W2"
+          ],
+          "verdict": "partial"
+        },
+        "P2": {
+          "scenarios": [
+            "W2",
+            "W3"
+          ],
+          "supported_in": [],
+          "verdict": "not supported"
+        },
+        "P3": {
+          "scenarios": [
+            "W2",
+            "W3"
+          ],
+          "supported_in": [],
+          "verdict": "not supported"
+        }
+      }
+    },
+    "hypothesis": "H2",
+    "leadlag": {
+      "W2": {
+        "P1": {
+          "lead_share": 0.43429054642066767,
+          "median_lag0": 0.7385678598535521,
+          "n_runs_max": 400,
+          "peak_lag_min": 0,
+          "peak_median": 0.7385678598535521,
+          "positive_mass_lag": 4.53044313902444,
+          "positive_mass_lead": 3.4779843503159205
+        },
+        "P2": {
+          "lead_share": 0.0,
+          "median_lag0": 0.3563172338036968,
+          "n_runs_max": 400,
+          "peak_lag_min": 0,
+          "peak_median": 0.3563172338036968,
+          "positive_mass_lag": 0.47850269825289865,
+          "positive_mass_lead": 0.0
+        },
+        "P3": {
+          "lead_share": 0.0,
+          "median_lag0": 0.3551437869189703,
+          "n_runs_max": 400,
+          "peak_lag_min": 0,
+          "peak_median": 0.3551437869189703,
+          "positive_mass_lag": 0.4171336953570301,
+          "positive_mass_lead": 0.0
+        }
+      },
+      "W3": {
+        "P1": {
+          "lead_share": 0.5135593128463681,
+          "median_lag0": 0.5236782984714701,
+          "n_runs_max": 140,
+          "peak_lag_min": 0,
+          "peak_median": 0.5236782984714701,
+          "positive_mass_lag": 5.310226581723019,
+          "positive_mass_lead": 5.606266881838547
+        },
+        "P2": {
+          "lead_share": 0.19017298861103357,
+          "median_lag0": 0.41619118457728554,
+          "n_runs_max": 140,
+          "peak_lag_min": 0,
+          "peak_median": 0.41619118457728554,
+          "positive_mass_lag": 1.8815170427012013,
+          "positive_mass_lead": 0.441839694281598
+        },
+        "P3": {
+          "lead_share": 0.11981230519997849,
+          "median_lag0": 0.39722600506925576,
+          "n_runs_max": 140,
+          "peak_lag_min": 0,
+          "peak_median": 0.39722600506925576,
+          "positive_mass_lag": 1.6643260124781312,
+          "positive_mass_lead": 0.22655024301901677
+        }
+      }
+    },
+    "method": {
+      "aggregate": "median of the per-seed medians with a 95% percentile bootstrap over seeds (10,000 resamples, seed 0)",
+      "analyses": [
+        {
+          "family": "H2",
+          "form": "raw",
+          "outcome": "removals",
+          "window_min": 10
+        },
+        {
+          "family": "H2-cost",
+          "form": "raw",
+          "outcome": "cost_decrease",
+          "window_min": 10
+        },
+        {
+          "family": "H2-norm",
+          "form": "norm",
+          "outcome": "removals",
+          "window_min": 10
+        },
+        {
+          "family": "H2-w5",
+          "form": "raw",
+          "outcome": "removals",
+          "window_min": 5
+        },
+        {
+          "family": "H2-w20",
+          "form": "raw",
+          "outcome": "removals",
+          "window_min": 20
+        }
+      ],
+      "deduplication": "each distinct (configuration without label, seed) counts once (manifest config without label, runID and maxWall), the first in registry group order",
+      "holm_families": "within each family, over potential x scenario with data",
+      "leadlag": {
+        "aggregate": "median over runs with a 95% percentile bootstrap CI (descriptive)",
+        "lags_min": [
+          -30,
+          30
+        ],
+        "min_pairs": 10,
+        "statistic": "Pearson of -dPhi(t) with dRemovals(t+k) over overlapping post-warmup minutes"
+      },
+      "min_windows_per_run": 4,
+      "outcomes": {
+        "cost_decrease": "cost_per_hour(t) - cost_per_hour(t+w)",
+        "removals": "nodes_removed_cum(t+w) - nodes_removed_cum(t)"
+      },
+      "per_run_statistic": "Spearman of -(Phi(t) - Phi(t-w)) with y(t), undefined if a series is constant or there are fewer windows than min_windows_per_run",
+      "potentials": {
+        "P1": "p1_load_entropy",
+        "P2": "p2_util_entropy",
+        "P3": "p3_quadratic"
+      },
+      "potentials_normalized": {
+        "P1": "p1_norm",
+        "P2": "p2_norm",
+        "P3": "p3_norm"
+      },
+      "sign_test": "exact one-sided binomial over seeds, H1: P(per-seed median > 0) > 1/2; non-positive medians count against; floor 0.5^n_seeds",
+      "unit": "the workload seed: per (potential, scenario, seed) the median rho over the seed's runs with a defined rho, 0 when none",
+      "warmup_min": 10.0,
+      "why_raw": "the potentials as defined (registry exp2.params.potentials); the normalized forms divide by ln(ready nodes) or the ready fleet price, which shrink whenever an empty node is removed, so they rise mechanically at removals"
+    },
+    "primary": [
+      {
+        "column": "p1_load_entropy",
+        "family": "H2",
+        "form": "raw",
+        "holm_reachable": true,
+        "m": 6,
+        "median_rho": 0.6129350573615717,
+        "median_rho_hi": 0.6300648148695942,
+        "median_rho_lo": 0.5807023851773052,
+        "n_nonpositive": 0,
+        "n_positive": 10,
+        "n_runs": 400,
+        "n_seeds": 10,
+        "n_seeds_without_defined": 0,
+        "n_undefined": 0,
+        "nodes": "200, 1000",
+        "outcome": "removals",
+        "outcome_h2": "supports",
+        "p_floor": 0.0009765625,
+        "p_holm": 0.005859375,
+        "p_sign": 0.0009765625,
+        "potential": "P1",
+        "run_median_rho": 0.6079182062214981,
+        "scenario": "W2",
+        "significant": true,
+        "supports_h2": true,
+        "window_min": 10
+      },
+      {
+        "column": "p2_util_entropy",
+        "family": "H2",
+        "form": "raw",
+        "holm_reachable": true,
+        "m": 6,
+        "median_rho": -0.2725763304781511,
+        "median_rho_hi": -0.21680440792858782,
+        "median_rho_lo": -0.31757060672069337,
+        "n_nonpositive": 10,
+        "n_positive": 0,
+        "n_runs": 400,
+        "n_seeds": 10,
+        "n_seeds_without_defined": 0,
+        "n_undefined": 0,
+        "nodes": "200, 1000",
+        "outcome": "removals",
+        "outcome_h2": "does not support",
+        "p_floor": 0.0009765625,
+        "p_holm": 1.0,
+        "p_sign": 1.0,
+        "potential": "P2",
+        "run_median_rho": -0.26699276614078515,
+        "scenario": "W2",
+        "significant": false,
+        "supports_h2": false,
+        "window_min": 10
+      },
+      {
+        "column": "p3_quadratic",
+        "family": "H2",
+        "form": "raw",
+        "holm_reachable": true,
+        "m": 6,
+        "median_rho": -0.297915719886406,
+        "median_rho_hi": -0.2329146050802626,
+        "median_rho_lo": -0.35535954740681885,
+        "n_nonpositive": 10,
+        "n_positive": 0,
+        "n_runs": 400,
+        "n_seeds": 10,
+        "n_seeds_without_defined": 0,
+        "n_undefined": 0,
+        "nodes": "200, 1000",
+        "outcome": "removals",
+        "outcome_h2": "does not support",
+        "p_floor": 0.0009765625,
+        "p_holm": 1.0,
+        "p_sign": 1.0,
+        "potential": "P3",
+        "run_median_rho": -0.27658715867234407,
+        "scenario": "W2",
+        "significant": false,
+        "supports_h2": false,
+        "window_min": 10
+      },
+      {
+        "column": "p1_load_entropy",
+        "family": "H2",
+        "form": "raw",
+        "holm_reachable": true,
+        "m": 6,
+        "median_rho": 0.4841248297769645,
+        "median_rho_hi": 0.6238045254879014,
+        "median_rho_lo": 0.3420124757126109,
+        "n_nonpositive": 1,
+        "n_positive": 9,
+        "n_runs": 140,
+        "n_seeds": 10,
+        "n_seeds_without_defined": 0,
+        "n_undefined": 0,
+        "nodes": "200",
+        "outcome": "removals",
+        "outcome_h2": "does not support",
+        "p_floor": 0.0009765625,
+        "p_holm": 0.0537109375,
+        "p_sign": 0.0107421875,
+        "potential": "P1",
+        "run_median_rho": 0.4940975210191897,
+        "scenario": "W3",
+        "significant": false,
+        "supports_h2": false,
+        "window_min": 10
+      },
+      {
+        "column": "p2_util_entropy",
+        "family": "H2",
+        "form": "raw",
+        "holm_reachable": true,
+        "m": 6,
+        "median_rho": 0.1770117573460134,
+        "median_rho_hi": 0.26214963296851235,
+        "median_rho_lo": 0.03766654412066583,
+        "n_nonpositive": 1,
+        "n_positive": 9,
+        "n_runs": 140,
+        "n_seeds": 10,
+        "n_seeds_without_defined": 0,
+        "n_undefined": 0,
+        "nodes": "200",
+        "outcome": "removals",
+        "outcome_h2": "does not support",
+        "p_floor": 0.0009765625,
+        "p_holm": 0.0537109375,
+        "p_sign": 0.0107421875,
+        "potential": "P2",
+        "run_median_rho": 0.15878772466915864,
+        "scenario": "W3",
+        "significant": false,
+        "supports_h2": false,
+        "window_min": 10
+      },
+      {
+        "column": "p3_quadratic",
+        "family": "H2",
+        "form": "raw",
+        "holm_reachable": true,
+        "m": 6,
+        "median_rho": 0.11709297703875311,
+        "median_rho_hi": 0.21163937535330118,
+        "median_rho_lo": -0.01033108881528435,
+        "n_nonpositive": 3,
+        "n_positive": 7,
+        "n_runs": 140,
+        "n_seeds": 10,
+        "n_seeds_without_defined": 0,
+        "n_undefined": 0,
+        "nodes": "200",
+        "outcome": "removals",
+        "outcome_h2": "does not support",
+        "p_floor": 0.0009765625,
+        "p_holm": 0.515625,
+        "p_sign": 0.171875,
+        "potential": "P3",
+        "run_median_rho": 0.10518594768443906,
+        "scenario": "W3",
+        "significant": false,
+        "supports_h2": false,
+        "window_min": 10
+      }
+    ],
+    "primary_family": "H2",
+    "secondary": {
+      "H2-cost": {
+        "P1": {
+          "scenarios": [
+            "W2",
+            "W3"
+          ],
+          "supported_in": [
+            "W2",
+            "W3"
+          ],
+          "verdict": "holds"
+        },
+        "P2": {
+          "scenarios": [
+            "W2",
+            "W3"
+          ],
+          "supported_in": [
+            "W3"
+          ],
+          "verdict": "partial"
+        },
+        "P3": {
+          "scenarios": [
+            "W2",
+            "W3"
+          ],
+          "supported_in": [
+            "W3"
+          ],
+          "verdict": "partial"
+        }
+      },
+      "H2-norm": {
+        "P1": {
+          "scenarios": [
+            "W2",
+            "W3"
+          ],
+          "supported_in": [
+            "W2",
+            "W3"
+          ],
+          "verdict": "holds"
+        },
+        "P2": {
+          "scenarios": [
+            "W2",
+            "W3"
+          ],
+          "supported_in": [],
+          "verdict": "not supported"
+        },
+        "P3": {
+          "scenarios": [
+            "W2",
+            "W3"
+          ],
+          "supported_in": [],
+          "verdict": "not supported"
+        }
+      },
+      "H2-w20": {
+        "P1": {
+          "scenarios": [
+            "W2",
+            "W3"
+          ],
+          "supported_in": [
+            "W2"
+          ],
+          "verdict": "partial"
+        },
+        "P2": {
+          "scenarios": [
+            "W2",
+            "W3"
+          ],
+          "supported_in": [],
+          "verdict": "not supported"
+        },
+        "P3": {
+          "scenarios": [
+            "W2",
+            "W3"
+          ],
+          "supported_in": [],
+          "verdict": "not supported"
+        }
+      },
+      "H2-w5": {
+        "P1": {
+          "scenarios": [
+            "W2",
+            "W3"
+          ],
+          "supported_in": [
+            "W2",
+            "W3"
+          ],
+          "verdict": "holds"
+        },
+        "P2": {
+          "scenarios": [
+            "W2",
+            "W3"
+          ],
+          "supported_in": [],
+          "verdict": "not supported"
+        },
+        "P3": {
+          "scenarios": [
+            "W2",
+            "W3"
+          ],
+          "supported_in": [],
+          "verdict": "not supported"
+        }
+      }
+    },
+    "selection": {
+      "duplicates": [
+        {
+          "run_id": "abl__arm-no-annealing_scenario-w2_seed-101__ce73d752",
+          "same_config_as": "exp3__arm-merge-shift-budget-lo_scenario-w2_seed-101__d998beb2"
+        },
+        {
+          "run_id": "abl__arm-no-annealing_scenario-w2_seed-102__507ef0ab",
+          "same_config_as": "exp3__arm-merge-shift-budget-lo_scenario-w2_seed-102__1e3f9837"
+        },
+        {
+          "run_id": "abl__arm-no-annealing_scenario-w2_seed-103__87621a28",
+          "same_config_as": "exp3__arm-merge-shift-budget-lo_scenario-w2_seed-103__be82e81d"
+        },
+        {
+          "run_id": "abl__arm-no-annealing_scenario-w2_seed-104__0e4eb11d",
+          "same_config_as": "exp3__arm-merge-shift-budget-lo_scenario-w2_seed-104__ab3a538e"
+        },
+        {
+          "run_id": "abl__arm-no-annealing_scenario-w2_seed-105__b730e285",
+          "same_config_as": "exp3__arm-merge-shift-budget-lo_scenario-w2_seed-105__bee836b0"
+        },
+        {
+          "run_id": "abl__arm-no-annealing_scenario-w2_seed-106__d1d5b03d",
+          "same_config_as": "exp3__arm-merge-shift-budget-lo_scenario-w2_seed-106__b2d45c53"
+        },
+        {
+          "run_id": "abl__arm-no-annealing_scenario-w2_seed-107__12b8f10c",
+          "same_config_as": "exp3__arm-merge-shift-budget-lo_scenario-w2_seed-107__b9e85dd6"
+        },
+        {
+          "run_id": "abl__arm-no-annealing_scenario-w2_seed-108__81e95554",
+          "same_config_as": "exp3__arm-merge-shift-budget-lo_scenario-w2_seed-108__89e67058"
+        },
+        {
+          "run_id": "abl__arm-no-annealing_scenario-w2_seed-109__24ee2c22",
+          "same_config_as": "exp3__arm-merge-shift-budget-lo_scenario-w2_seed-109__7b00a361"
+        },
+        {
+          "run_id": "abl__arm-no-annealing_scenario-w2_seed-110__fc490e4c",
+          "same_config_as": "exp3__arm-merge-shift-budget-lo_scenario-w2_seed-110__655c46f1"
+        },
+        {
+          "run_id": "abl__arm-no-eviction-budget_scenario-w2_seed-101__1e8e7333",
+          "same_config_as": "exp1-n200__arm-random-anneal-plan_scenario-w2_seed-101__b277a29d"
+        },
+        {
+          "run_id": "abl__arm-no-eviction-budget_scenario-w2_seed-102__49459e0d",
+          "same_config_as": "exp1-n200__arm-random-anneal-plan_scenario-w2_seed-102__6493344c"
+        },
+        {
+          "run_id": "abl__arm-no-eviction-budget_scenario-w2_seed-103__5f7526c9",
+          "same_config_as": "exp1-n200__arm-random-anneal-plan_scenario-w2_seed-103__fd9aed63"
+        },
+        {
+          "run_id": "abl__arm-no-eviction-budget_scenario-w2_seed-104__ca28d540",
+          "same_config_as": "exp1-n200__arm-random-anneal-plan_scenario-w2_seed-104__9702c583"
+        },
+        {
+          "run_id": "abl__arm-no-eviction-budget_scenario-w2_seed-105__6ab9cb7a",
+          "same_config_as": "exp1-n200__arm-random-anneal-plan_scenario-w2_seed-105__8bbbd757"
+        },
+        {
+          "run_id": "abl__arm-no-eviction-budget_scenario-w2_seed-106__4945e162",
+          "same_config_as": "exp1-n200__arm-random-anneal-plan_scenario-w2_seed-106__352e8f77"
+        },
+        {
+          "run_id": "abl__arm-no-eviction-budget_scenario-w2_seed-107__fedc93a7",
+          "same_config_as": "exp1-n200__arm-random-anneal-plan_scenario-w2_seed-107__fbbe970b"
+        },
+        {
+          "run_id": "abl__arm-no-eviction-budget_scenario-w2_seed-108__1a868021",
+          "same_config_as": "exp1-n200__arm-random-anneal-plan_scenario-w2_seed-108__edd7958c"
+        },
+        {
+          "run_id": "abl__arm-no-eviction-budget_scenario-w2_seed-109__99985e24",
+          "same_config_as": "exp1-n200__arm-random-anneal-plan_scenario-w2_seed-109__68a0ddbc"
+        },
+        {
+          "run_id": "abl__arm-no-eviction-budget_scenario-w2_seed-110__caf6248c",
+          "same_config_as": "exp1-n200__arm-random-anneal-plan_scenario-w2_seed-110__8e56bcd0"
+        },
+        {
+          "run_id": "exp5__arm-b2_placement-least-allocated_scaledown-spread_seed-101__abf02b40",
+          "same_config_as": "exp1-baselines-n200__arm-b2_scenario-w2_seed-101__5e78096b"
+        },
+        {
+          "run_id": "exp5__arm-b2_placement-least-allocated_scaledown-spread_seed-102__adaedba9",
+          "same_config_as": "exp1-baselines-n200__arm-b2_scenario-w2_seed-102__753f8f96"
+        },
+        {
+          "run_id": "exp5__arm-b2_placement-least-allocated_scaledown-spread_seed-103__6d00fc38",
+          "same_config_as": "exp1-baselines-n200__arm-b2_scenario-w2_seed-103__97f1fa91"
+        },
+        {
+          "run_id": "exp5__arm-b2_placement-least-allocated_scaledown-spread_seed-104__4719640d",
+          "same_config_as": "exp1-baselines-n200__arm-b2_scenario-w2_seed-104__2bedb657"
+        },
+        {
+          "run_id": "exp5__arm-b2_placement-least-allocated_scaledown-spread_seed-105__7857ab87",
+          "same_config_as": "exp1-baselines-n200__arm-b2_scenario-w2_seed-105__b42c47d6"
+        },
+        {
+          "run_id": "exp5__arm-b2_placement-least-allocated_scaledown-spread_seed-106__591316f4",
+          "same_config_as": "exp1-baselines-n200__arm-b2_scenario-w2_seed-106__79f0cacd"
+        },
+        {
+          "run_id": "exp5__arm-b2_placement-least-allocated_scaledown-spread_seed-107__1a4c4393",
+          "same_config_as": "exp1-baselines-n200__arm-b2_scenario-w2_seed-107__59bd0685"
+        },
+        {
+          "run_id": "exp5__arm-b2_placement-least-allocated_scaledown-spread_seed-108__a7ec7ca8",
+          "same_config_as": "exp1-baselines-n200__arm-b2_scenario-w2_seed-108__57a61252"
+        },
+        {
+          "run_id": "exp5__arm-b2_placement-least-allocated_scaledown-spread_seed-109__445724be",
+          "same_config_as": "exp1-baselines-n200__arm-b2_scenario-w2_seed-109__34f37ec1"
+        },
+        {
+          "run_id": "exp5__arm-b2_placement-least-allocated_scaledown-spread_seed-110__568cf4de",
+          "same_config_as": "exp1-baselines-n200__arm-b2_scenario-w2_seed-110__77e5cf99"
+        },
+        {
+          "run_id": "exp5__arm-random-entropy-greedy_placement-least-allocated_scaledown-spread_seed-101__053f80a1",
+          "same_config_as": "exp1-n200__arm-random-entropy-greedy_scenario-w2_seed-101__16b2a276"
+        },
+        {
+          "run_id": "exp5__arm-random-entropy-greedy_placement-least-allocated_scaledown-spread_seed-102__bd3a5fc7",
+          "same_config_as": "exp1-n200__arm-random-entropy-greedy_scenario-w2_seed-102__a5fb03c4"
+        },
+        {
+          "run_id": "exp5__arm-random-entropy-greedy_placement-least-allocated_scaledown-spread_seed-103__6418b138",
+          "same_config_as": "exp1-n200__arm-random-entropy-greedy_scenario-w2_seed-103__e33dbda9"
+        },
+        {
+          "run_id": "exp5__arm-random-entropy-greedy_placement-least-allocated_scaledown-spread_seed-104__9c5bd0b7",
+          "same_config_as": "exp1-n200__arm-random-entropy-greedy_scenario-w2_seed-104__89c29db9"
+        },
+        {
+          "run_id": "exp5__arm-random-entropy-greedy_placement-least-allocated_scaledown-spread_seed-105__2aaf93fe",
+          "same_config_as": "exp1-n200__arm-random-entropy-greedy_scenario-w2_seed-105__cb6c9800"
+        },
+        {
+          "run_id": "exp5__arm-random-entropy-greedy_placement-least-allocated_scaledown-spread_seed-106__8b85d06f",
+          "same_config_as": "exp1-n200__arm-random-entropy-greedy_scenario-w2_seed-106__9fccf067"
+        },
+        {
+          "run_id": "exp5__arm-random-entropy-greedy_placement-least-allocated_scaledown-spread_seed-107__26f4cc72",
+          "same_config_as": "exp1-n200__arm-random-entropy-greedy_scenario-w2_seed-107__7d795ff2"
+        },
+        {
+          "run_id": "exp5__arm-random-entropy-greedy_placement-least-allocated_scaledown-spread_seed-108__3b2c3ccf",
+          "same_config_as": "exp1-n200__arm-random-entropy-greedy_scenario-w2_seed-108__ffe02aef"
+        },
+        {
+          "run_id": "exp5__arm-random-entropy-greedy_placement-least-allocated_scaledown-spread_seed-109__f2fb5fb8",
+          "same_config_as": "exp1-n200__arm-random-entropy-greedy_scenario-w2_seed-109__ef7a7842"
+        },
+        {
+          "run_id": "exp5__arm-random-entropy-greedy_placement-least-allocated_scaledown-spread_seed-110__7a96321c",
+          "same_config_as": "exp1-n200__arm-random-entropy-greedy_scenario-w2_seed-110__1ed55225"
+        },
+        {
+          "run_id": "exp6-baselines__arm-b2_scenario-w2_seed-101__5e78096b",
+          "same_config_as": "exp1-baselines-n200__arm-b2_scenario-w2_seed-101__5e78096b"
+        },
+        {
+          "run_id": "exp6-baselines__arm-b2_scenario-w2_seed-102__753f8f96",
+          "same_config_as": "exp1-baselines-n200__arm-b2_scenario-w2_seed-102__753f8f96"
+        },
+        {
+          "run_id": "exp6-baselines__arm-b2_scenario-w2_seed-103__97f1fa91",
+          "same_config_as": "exp1-baselines-n200__arm-b2_scenario-w2_seed-103__97f1fa91"
+        },
+        {
+          "run_id": "exp6-baselines__arm-b2_scenario-w2_seed-104__2bedb657",
+          "same_config_as": "exp1-baselines-n200__arm-b2_scenario-w2_seed-104__2bedb657"
+        },
+        {
+          "run_id": "exp6-baselines__arm-b2_scenario-w2_seed-105__b42c47d6",
+          "same_config_as": "exp1-baselines-n200__arm-b2_scenario-w2_seed-105__b42c47d6"
+        },
+        {
+          "run_id": "exp6-baselines__arm-b2_scenario-w2_seed-106__79f0cacd",
+          "same_config_as": "exp1-baselines-n200__arm-b2_scenario-w2_seed-106__79f0cacd"
+        },
+        {
+          "run_id": "exp6-baselines__arm-b2_scenario-w2_seed-107__59bd0685",
+          "same_config_as": "exp1-baselines-n200__arm-b2_scenario-w2_seed-107__59bd0685"
+        },
+        {
+          "run_id": "exp6-baselines__arm-b2_scenario-w2_seed-108__57a61252",
+          "same_config_as": "exp1-baselines-n200__arm-b2_scenario-w2_seed-108__57a61252"
+        },
+        {
+          "run_id": "exp6-baselines__arm-b2_scenario-w2_seed-109__34f37ec1",
+          "same_config_as": "exp1-baselines-n200__arm-b2_scenario-w2_seed-109__34f37ec1"
+        },
+        {
+          "run_id": "exp6-baselines__arm-b2_scenario-w2_seed-110__77e5cf99",
+          "same_config_as": "exp1-baselines-n200__arm-b2_scenario-w2_seed-110__77e5cf99"
+        },
+        {
+          "run_id": "exp6-baselines__arm-b3_scenario-w2_seed-101__62b40a71",
+          "same_config_as": "exp1-baselines-n200__arm-b3_scenario-w2_seed-101__62b40a71"
+        },
+        {
+          "run_id": "exp6-baselines__arm-b3_scenario-w2_seed-102__fc9eecc2",
+          "same_config_as": "exp1-baselines-n200__arm-b3_scenario-w2_seed-102__fc9eecc2"
+        },
+        {
+          "run_id": "exp6-baselines__arm-b3_scenario-w2_seed-103__29b6ee9f",
+          "same_config_as": "exp1-baselines-n200__arm-b3_scenario-w2_seed-103__29b6ee9f"
+        },
+        {
+          "run_id": "exp6-baselines__arm-b3_scenario-w2_seed-104__68e71f74",
+          "same_config_as": "exp1-baselines-n200__arm-b3_scenario-w2_seed-104__68e71f74"
+        },
+        {
+          "run_id": "exp6-baselines__arm-b3_scenario-w2_seed-105__3de69770",
+          "same_config_as": "exp1-baselines-n200__arm-b3_scenario-w2_seed-105__3de69770"
+        },
+        {
+          "run_id": "exp6-baselines__arm-b3_scenario-w2_seed-106__3c3aa452",
+          "same_config_as": "exp1-baselines-n200__arm-b3_scenario-w2_seed-106__3c3aa452"
+        },
+        {
+          "run_id": "exp6-baselines__arm-b3_scenario-w2_seed-107__085b8504",
+          "same_config_as": "exp1-baselines-n200__arm-b3_scenario-w2_seed-107__085b8504"
+        },
+        {
+          "run_id": "exp6-baselines__arm-b3_scenario-w2_seed-108__c8546dcc",
+          "same_config_as": "exp1-baselines-n200__arm-b3_scenario-w2_seed-108__c8546dcc"
+        },
+        {
+          "run_id": "exp6-baselines__arm-b3_scenario-w2_seed-109__036353db",
+          "same_config_as": "exp1-baselines-n200__arm-b3_scenario-w2_seed-109__036353db"
+        },
+        {
+          "run_id": "exp6-baselines__arm-b3_scenario-w2_seed-110__39910f1e",
+          "same_config_as": "exp1-baselines-n200__arm-b3_scenario-w2_seed-110__39910f1e"
+        },
+        {
+          "run_id": "exp6__arm-random-entropy-greedy-lambda-0.1_scenario-w2_seed-101__de708680",
+          "same_config_as": "exp1-n200__arm-random-entropy-greedy_scenario-w2_seed-101__16b2a276"
+        },
+        {
+          "run_id": "exp6__arm-random-entropy-greedy-lambda-0.1_scenario-w2_seed-102__4031bdf8",
+          "same_config_as": "exp1-n200__arm-random-entropy-greedy_scenario-w2_seed-102__a5fb03c4"
+        },
+        {
+          "run_id": "exp6__arm-random-entropy-greedy-lambda-0.1_scenario-w2_seed-103__71646f8e",
+          "same_config_as": "exp1-n200__arm-random-entropy-greedy_scenario-w2_seed-103__e33dbda9"
+        },
+        {
+          "run_id": "exp6__arm-random-entropy-greedy-lambda-0.1_scenario-w2_seed-104__fd317649",
+          "same_config_as": "exp1-n200__arm-random-entropy-greedy_scenario-w2_seed-104__89c29db9"
+        },
+        {
+          "run_id": "exp6__arm-random-entropy-greedy-lambda-0.1_scenario-w2_seed-105__8d971217",
+          "same_config_as": "exp1-n200__arm-random-entropy-greedy_scenario-w2_seed-105__cb6c9800"
+        },
+        {
+          "run_id": "exp6__arm-random-entropy-greedy-lambda-0.1_scenario-w2_seed-106__63f659a3",
+          "same_config_as": "exp1-n200__arm-random-entropy-greedy_scenario-w2_seed-106__9fccf067"
+        },
+        {
+          "run_id": "exp6__arm-random-entropy-greedy-lambda-0.1_scenario-w2_seed-107__ac8371fe",
+          "same_config_as": "exp1-n200__arm-random-entropy-greedy_scenario-w2_seed-107__7d795ff2"
+        },
+        {
+          "run_id": "exp6__arm-random-entropy-greedy-lambda-0.1_scenario-w2_seed-108__2c36fcbd",
+          "same_config_as": "exp1-n200__arm-random-entropy-greedy_scenario-w2_seed-108__ffe02aef"
+        },
+        {
+          "run_id": "exp6__arm-random-entropy-greedy-lambda-0.1_scenario-w2_seed-109__d78ce0cc",
+          "same_config_as": "exp1-n200__arm-random-entropy-greedy_scenario-w2_seed-109__ef7a7842"
+        },
+        {
+          "run_id": "exp6__arm-random-entropy-greedy-lambda-0.1_scenario-w2_seed-110__7c30c16a",
+          "same_config_as": "exp1-n200__arm-random-entropy-greedy_scenario-w2_seed-110__1ed55225"
+        }
+      ],
+      "excluded_labels": [
+        "B0"
+      ],
+      "groups": [
+        "exp1-n200",
+        "exp1-baselines-n200",
+        "exp1-n1000",
+        "exp6",
+        "exp6-baselines",
+        "exp6-b5",
+        "exp5",
+        "exp5-steered",
+        "exp3",
+        "abl",
+        "realism-w6",
+        "exp1-baselines-n1000"
+      ],
+      "groups_after_map": [
+        "exp1-n200",
+        "exp1-baselines-n200",
+        "exp1-n1000",
+        "exp6",
+        "exp6-baselines",
+        "exp6-b5",
+        "exp5",
+        "exp5-steered",
+        "exp3",
+        "abl",
+        "realism-w6",
+        "exp1-baselines-n1000"
+      ],
+      "missing_timeseries": [],
+      "n_candidates": 650,
+      "n_duplicate_config": 70,
+      "n_excluded_label": 40,
+      "n_in_cut_configurations": 0,
+      "n_invalid": 0,
+      "n_missing_timeseries": 0,
+      "n_runs": 610,
+      "n_used": 540,
+      "n_valid": 610,
+      "scenarios_considered": [
+        "W2",
+        "W3",
+        "W6"
+      ],
+      "used_by_label": [
+        {
+          "label": "B2",
+          "n": 60,
+          "scenario": "W2"
+        },
+        {
+          "label": "B3",
+          "n": 10,
+          "scenario": "W2"
+        },
+        {
+          "label": "B5",
+          "n": 10,
+          "scenario": "W2"
+        },
+        {
+          "label": "full",
+          "n": 10,
+          "scenario": "W2"
+        },
+        {
+          "label": "heuristic/anneal-plan",
+          "n": 20,
+          "scenario": "W2"
+        },
+        {
+          "label": "heuristic/entropy-greedy",
+          "n": 20,
+          "scenario": "W2"
+        },
+        {
+          "label": "heuristic/savings-only",
+          "n": 20,
+          "scenario": "W2"
+        },
+        {
+          "label": "merge+shift/budget-hi",
+          "n": 10,
+          "scenario": "W2"
+        },
+        {
+          "label": "merge+shift/budget-lo",
+          "n": 10,
+          "scenario": "W2"
+        },
+        {
+          "label": "merge-only/budget-hi",
+          "n": 10,
+          "scenario": "W2"
+        },
+        {
+          "label": "merge-only/budget-lo",
+          "n": 10,
+          "scenario": "W2"
+        },
+        {
+          "label": "no-potential",
+          "n": 10,
+          "scenario": "W2"
+        },
+        {
+          "label": "no-randomness",
+          "n": 10,
+          "scenario": "W2"
+        },
+        {
+          "label": "random/anneal-plan",
+          "n": 20,
+          "scenario": "W2"
+        },
+        {
+          "label": "random/entropy-greedy",
+          "n": 70,
+          "scenario": "W2"
+        },
+        {
+          "label": "random/entropy-greedy/lambda=0.05",
+          "n": 10,
+          "scenario": "W2"
+        },
+        {
+          "label": "random/entropy-greedy/lambda=0.2",
+          "n": 10,
+          "scenario": "W2"
+        },
+        {
+          "label": "random/entropy-greedy/lambda=0.5",
+          "n": 10,
+          "scenario": "W2"
+        },
+        {
+          "label": "random/entropy-greedy/lambda=1",
+          "n": 10,
+          "scenario": "W2"
+        },
+        {
+          "label": "random/entropy-greedy/lambda=2",
+          "n": 10,
+          "scenario": "W2"
+        },
+        {
+          "label": "random/entropy-greedy/lambda=5",
+          "n": 10,
+          "scenario": "W2"
+        },
+        {
+          "label": "random/entropy-greedy/steered",
+          "n": 20,
+          "scenario": "W2"
+        },
+        {
+          "label": "random/savings-only",
+          "n": 20,
+          "scenario": "W2"
+        },
+        {
+          "label": "B2",
+          "n": 10,
+          "scenario": "W3"
+        },
+        {
+          "label": "B3",
+          "n": 10,
+          "scenario": "W3"
+        },
+        {
+          "label": "B5",
+          "n": 10,
+          "scenario": "W3"
+        },
+        {
+          "label": "merge+shift/budget-hi",
+          "n": 10,
+          "scenario": "W3"
+        },
+        {
+          "label": "merge+shift/budget-lo",
+          "n": 10,
+          "scenario": "W3"
+        },
+        {
+          "label": "merge-only/budget-hi",
+          "n": 10,
+          "scenario": "W3"
+        },
+        {
+          "label": "merge-only/budget-lo",
+          "n": 10,
+          "scenario": "W3"
+        },
+        {
+          "label": "random/entropy-greedy/lambda=0.05",
+          "n": 10,
+          "scenario": "W3"
+        },
+        {
+          "label": "random/entropy-greedy/lambda=0.1",
+          "n": 10,
+          "scenario": "W3"
+        },
+        {
+          "label": "random/entropy-greedy/lambda=0.2",
+          "n": 10,
+          "scenario": "W3"
+        },
+        {
+          "label": "random/entropy-greedy/lambda=0.5",
+          "n": 10,
+          "scenario": "W3"
+        },
+        {
+          "label": "random/entropy-greedy/lambda=1",
+          "n": 10,
+          "scenario": "W3"
+        },
+        {
+          "label": "random/entropy-greedy/lambda=2",
+          "n": 10,
+          "scenario": "W3"
+        },
+        {
+          "label": "random/entropy-greedy/lambda=5",
+          "n": 10,
+          "scenario": "W3"
+        }
+      ],
+      "used_by_scenario_nodes": [
+        {
+          "n": 340,
+          "nodes": 200,
+          "scenario": "W2"
+        },
+        {
+          "n": 60,
+          "nodes": 1000,
+          "scenario": "W2"
+        },
+        {
+          "n": 140,
+          "nodes": 200,
+          "scenario": "W3"
+        }
+      ],
+      "validity": [
+        {
+          "group": "abl",
+          "n_abandoned": 0,
+          "n_error": 0,
+          "n_in_cut_configurations": 0,
+          "n_invalid": 0,
+          "n_nondeterminism": 0,
+          "n_retried": 0,
+          "n_runs": 50,
+          "n_set_aside": 0,
+          "n_succeeded_on_retry": 0,
+          "n_timed_out": 0,
+          "n_valid": 50,
+          "n_violation": 0,
+          "n_wrong_binary": 0,
+          "reasons": "",
+          "scenario": "W2"
+        },
+        {
+          "group": "exp1-baselines-n200",
+          "n_abandoned": 0,
+          "n_error": 0,
+          "n_in_cut_configurations": 0,
+          "n_invalid": 0,
+          "n_nondeterminism": 0,
+          "n_retried": 0,
+          "n_runs": 20,
+          "n_set_aside": 0,
+          "n_succeeded_on_retry": 0,
+          "n_timed_out": 0,
+          "n_valid": 20,
+          "n_violation": 0,
+          "n_wrong_binary": 0,
+          "reasons": "",
+          "scenario": "W2"
+        },
+        {
+          "group": "exp1-n1000",
+          "n_abandoned": 0,
+          "n_error": 0,
+          "n_in_cut_configurations": 0,
+          "n_invalid": 0,
+          "n_nondeterminism": 0,
+          "n_retried": 0,
+          "n_runs": 60,
+          "n_set_aside": 0,
+          "n_succeeded_on_retry": 0,
+          "n_timed_out": 0,
+          "n_valid": 60,
+          "n_violation": 0,
+          "n_wrong_binary": 0,
+          "reasons": "",
+          "scenario": "W2"
+        },
+        {
+          "group": "exp1-n200",
+          "n_abandoned": 0,
+          "n_error": 0,
+          "n_in_cut_configurations": 0,
+          "n_invalid": 0,
+          "n_nondeterminism": 0,
+          "n_retried": 0,
+          "n_runs": 60,
+          "n_set_aside": 0,
+          "n_succeeded_on_retry": 0,
+          "n_timed_out": 0,
+          "n_valid": 60,
+          "n_violation": 0,
+          "n_wrong_binary": 0,
+          "reasons": "",
+          "scenario": "W2"
+        },
+        {
+          "group": "exp3",
+          "n_abandoned": 0,
+          "n_error": 0,
+          "n_in_cut_configurations": 0,
+          "n_invalid": 0,
+          "n_nondeterminism": 0,
+          "n_retried": 0,
+          "n_runs": 40,
+          "n_set_aside": 0,
+          "n_succeeded_on_retry": 0,
+          "n_timed_out": 0,
+          "n_valid": 40,
+          "n_violation": 0,
+          "n_wrong_binary": 0,
+          "reasons": "",
+          "scenario": "W2"
+        },
+        {
+          "group": "exp3",
+          "n_abandoned": 0,
+          "n_error": 0,
+          "n_in_cut_configurations": 0,
+          "n_invalid": 0,
+          "n_nondeterminism": 0,
+          "n_retried": 0,
+          "n_runs": 40,
+          "n_set_aside": 0,
+          "n_succeeded_on_retry": 0,
+          "n_timed_out": 0,
+          "n_valid": 40,
+          "n_violation": 0,
+          "n_wrong_binary": 0,
+          "reasons": "",
+          "scenario": "W3"
+        },
+        {
+          "group": "exp5",
+          "n_abandoned": 0,
+          "n_error": 0,
+          "n_in_cut_configurations": 0,
+          "n_invalid": 0,
+          "n_nondeterminism": 0,
+          "n_retried": 0,
+          "n_runs": 120,
+          "n_set_aside": 0,
+          "n_succeeded_on_retry": 0,
+          "n_timed_out": 0,
+          "n_valid": 120,
+          "n_violation": 0,
+          "n_wrong_binary": 0,
+          "reasons": "",
+          "scenario": "W2"
+        },
+        {
+          "group": "exp5-steered",
+          "n_abandoned": 0,
+          "n_error": 0,
+          "n_in_cut_configurations": 0,
+          "n_invalid": 0,
+          "n_nondeterminism": 0,
+          "n_retried": 0,
+          "n_runs": 20,
+          "n_set_aside": 0,
+          "n_succeeded_on_retry": 0,
+          "n_timed_out": 0,
+          "n_valid": 20,
+          "n_violation": 0,
+          "n_wrong_binary": 0,
+          "reasons": "",
+          "scenario": "W2"
+        },
+        {
+          "group": "exp6",
+          "n_abandoned": 0,
+          "n_error": 0,
+          "n_in_cut_configurations": 0,
+          "n_invalid": 0,
+          "n_nondeterminism": 0,
+          "n_retried": 0,
+          "n_runs": 70,
+          "n_set_aside": 0,
+          "n_succeeded_on_retry": 0,
+          "n_timed_out": 0,
+          "n_valid": 70,
+          "n_violation": 0,
+          "n_wrong_binary": 0,
+          "reasons": "",
+          "scenario": "W2"
+        },
+        {
+          "group": "exp6",
+          "n_abandoned": 0,
+          "n_error": 0,
+          "n_in_cut_configurations": 0,
+          "n_invalid": 0,
+          "n_nondeterminism": 0,
+          "n_retried": 0,
+          "n_runs": 70,
+          "n_set_aside": 0,
+          "n_succeeded_on_retry": 0,
+          "n_timed_out": 0,
+          "n_valid": 70,
+          "n_violation": 0,
+          "n_wrong_binary": 0,
+          "reasons": "",
+          "scenario": "W3"
+        },
+        {
+          "group": "exp6-b5",
+          "n_abandoned": 0,
+          "n_error": 0,
+          "n_in_cut_configurations": 0,
+          "n_invalid": 0,
+          "n_nondeterminism": 0,
+          "n_retried": 0,
+          "n_runs": 10,
+          "n_set_aside": 0,
+          "n_succeeded_on_retry": 0,
+          "n_timed_out": 0,
+          "n_valid": 10,
+          "n_violation": 0,
+          "n_wrong_binary": 0,
+          "reasons": "",
+          "scenario": "W2"
+        },
+        {
+          "group": "exp6-b5",
+          "n_abandoned": 0,
+          "n_error": 0,
+          "n_in_cut_configurations": 0,
+          "n_invalid": 0,
+          "n_nondeterminism": 0,
+          "n_retried": 0,
+          "n_runs": 10,
+          "n_set_aside": 0,
+          "n_succeeded_on_retry": 0,
+          "n_timed_out": 0,
+          "n_valid": 10,
+          "n_violation": 0,
+          "n_wrong_binary": 0,
+          "reasons": "",
+          "scenario": "W3"
+        },
+        {
+          "group": "exp6-baselines",
+          "n_abandoned": 0,
+          "n_error": 0,
+          "n_in_cut_configurations": 0,
+          "n_invalid": 0,
+          "n_nondeterminism": 0,
+          "n_retried": 0,
+          "n_runs": 20,
+          "n_set_aside": 0,
+          "n_succeeded_on_retry": 0,
+          "n_timed_out": 0,
+          "n_valid": 20,
+          "n_violation": 0,
+          "n_wrong_binary": 0,
+          "reasons": "",
+          "scenario": "W2"
+        },
+        {
+          "group": "exp6-baselines",
+          "n_abandoned": 0,
+          "n_error": 0,
+          "n_in_cut_configurations": 0,
+          "n_invalid": 0,
+          "n_nondeterminism": 0,
+          "n_retried": 0,
+          "n_runs": 20,
+          "n_set_aside": 0,
+          "n_succeeded_on_retry": 0,
+          "n_timed_out": 0,
+          "n_valid": 20,
+          "n_violation": 0,
+          "n_wrong_binary": 0,
+          "reasons": "",
+          "scenario": "W3"
+        }
+      ]
+    }
+  },
+  "fig1_utilization_histograms": {
+    "arms": [
+      "B2",
+      "random/entropy-greedy",
+      "random/anneal-plan"
+    ],
+    "band": "[0.2, 0.8] (band_share_cpu)",
+    "cells": {
+      "W1": {
+        "B2": {
+          "band_share_cpu_at_warmup_end": {
+            "hi": 0.8900124999999999,
+            "lo": 0.8724999999999999,
+            "mean": 0.8815
+          },
+          "band_share_cpu_late": {
+            "hi": 0.10469593500000002,
+            "lo": 0.07813949999999999,
+            "mean": 0.09100110000000002
+          },
+          "low_share_at_warmup_end": {
+            "hi": 0.1275,
+            "lo": 0.1099875,
+            "mean": 0.11850000000000001
+          },
+          "low_share_late": {
+            "hi": 0.0,
+            "lo": 0.0,
+            "mean": 0.0
+          },
+          "n_runs": 10,
+          "n_used": 10,
+          "n_valid": 10,
+          "packed_share_at_warmup_end": {
+            "hi": 0.0,
+            "lo": 0.0,
+            "mean": 0.0
+          },
+          "packed_share_late": {
+            "hi": 0.9218602783795251,
+            "lo": 0.895303954224441,
+            "mean": 0.908998764426223
+          }
+        },
+        "random/anneal-plan": {
+          "band_share_cpu_at_warmup_end": {
+            "hi": 0.8900124999999999,
+            "lo": 0.8724999999999999,
+            "mean": 0.8815
+          },
+          "band_share_cpu_late": {
+            "hi": 0.11789648763513512,
+            "lo": 0.07070682885135135,
+            "mean": 0.09416136486486486
+          },
+          "low_share_at_warmup_end": {
+            "hi": 0.1275,
+            "lo": 0.1099875,
+            "mean": 0.11850000000000001
+          },
+          "low_share_late": {
+            "hi": 0.00293322041999408,
+            "lo": 0.0003878878878878879,
+            "mean": 0.0015618745843625301
+          },
+          "n_runs": 10,
+          "n_used": 10,
+          "n_valid": 10,
+          "packed_share_at_warmup_end": {
+            "hi": 0.0,
+            "lo": 0.0,
+            "mean": 0.0
+          },
+          "packed_share_late": {
+            "hi": 0.9276534418925674,
+            "lo": 0.8808498916529868,
+            "mean": 0.9042767659774181
+          }
+        },
+        "random/entropy-greedy": {
+          "band_share_cpu_at_warmup_end": {
+            "hi": 0.8900124999999999,
+            "lo": 0.8724999999999999,
+            "mean": 0.8815
+          },
+          "band_share_cpu_late": {
+            "hi": 0.13458107506756756,
+            "lo": 0.08335049459459462,
+            "mean": 0.10846889729729732
+          },
+          "low_share_at_warmup_end": {
+            "hi": 0.1275,
+            "lo": 0.1099875,
+            "mean": 0.11850000000000001
+          },
+          "low_share_late": {
+            "hi": 0.002059205153962039,
+            "lo": 0.0003051438535309503,
+            "mean": 0.001134250450811535
+          },
+          "n_runs": 10,
+          "n_used": 10,
+          "n_valid": 10,
+          "packed_share_at_warmup_end": {
+            "hi": 0.0,
+            "lo": 0.0,
+            "mean": 0.0
+          },
+          "packed_share_late": {
+            "hi": 0.915367450864167,
+            "lo": 0.8642429103543361,
+            "mean": 0.8903968476822957
+          }
+        }
+      },
+      "W2": {
+        "B2": {
+          "band_share_cpu_at_warmup_end": {
+            "hi": 0.2043801,
+            "lo": 0.15004632250000002,
+            "mean": 0.1784065
+          },
+          "band_share_cpu_late": {
+            "hi": 0.18627967148648647,
+            "lo": 0.07872667790540544,
+            "mean": 0.13076014324324328
+          },
+          "low_share_at_warmup_end": {
+            "hi": 0.029552787006275383,
+            "lo": 0.008989898989898989,
+            "mean": 0.018350112419879862
+          },
+          "low_share_late": {
+            "hi": 0.007160812552116898,
+            "lo": 0.0002457002457002457,
+            "mean": 0.0031624278580800317
+          },
+          "n_runs": 10,
+          "n_used": 10,
+          "n_valid": 10,
+          "packed_share_at_warmup_end": {
+            "hi": 0.828157977288412,
+            "lo": 0.7784595558878024,
+            "mean": 0.8032435443767236
+          },
+          "packed_share_late": {
+            "hi": 0.9185466175966747,
+            "lo": 0.8102068051518853,
+            "mean": 0.8660774015533741
+          }
+        },
+        "random/anneal-plan": {
+          "band_share_cpu_at_warmup_end": {
+            "hi": 0.2043801,
+            "lo": 0.15004632250000002,
+            "mean": 0.1784065
+          },
+          "band_share_cpu_late": {
+            "hi": 0.24070398972972976,
+            "lo": 0.18583847445945947,
+            "mean": 0.2123025972972973
+          },
+          "low_share_at_warmup_end": {
+            "hi": 0.029552787006275383,
+            "lo": 0.008989898989898989,
+            "mean": 0.018350112419879862
+          },
+          "low_share_late": {
+            "hi": 0.008017001964370385,
+            "lo": 0.0010695658064079116,
+            "mean": 0.0042301700196437034
+          },
+          "n_runs": 10,
+          "n_used": 10,
+          "n_valid": 10,
+          "packed_share_at_warmup_end": {
+            "hi": 0.828157977288412,
+            "lo": 0.7784595558878024,
+            "mean": 0.8032435443767236
+          },
+          "packed_share_late": {
+            "hi": 0.8101242927000518,
+            "lo": 0.7558166540488103,
+            "mean": 0.7834672233834303
+          }
+        },
+        "random/entropy-greedy": {
+          "band_share_cpu_at_warmup_end": {
+            "hi": 0.2043801,
+            "lo": 0.15004632250000002,
+            "mean": 0.1784065
+          },
+          "band_share_cpu_late": {
+            "hi": 0.2572801594594595,
+            "lo": 0.1668042902027027,
+            "mean": 0.2116487567567568
+          },
+          "low_share_at_warmup_end": {
+            "hi": 0.029552787006275383,
+            "lo": 0.008989898989898989,
+            "mean": 0.018350112419879862
+          },
+          "low_share_late": {
+            "hi": 0.011249703651019441,
+            "lo": 0.0012762762762762764,
+            "mean": 0.00555950687529635
+          },
+          "n_runs": 10,
+          "n_used": 10,
+          "n_valid": 10,
+          "packed_share_at_warmup_end": {
+            "hi": 0.828157977288412,
+            "lo": 0.7784595558878024,
+            "mean": 0.8032435443767236
+          },
+          "packed_share_late": {
+            "hi": 0.8265445918054276,
+            "lo": 0.7384683412957409,
+            "mean": 0.7827917435347777
+          }
+        }
+      }
+    },
+    "late_from_fraction": 0.8,
+    "low_bins": "[0, 0.2)",
+    "packed_bins": "[0.8, 1.0]",
+    "scenarios": [
+      "W1",
+      "W2"
+    ],
+    "warmup_min": 10.0
+  },
+  "fig2_potential_nodes_cost": {
+    "arms": {
+      "B2": {
+        "cost_per_hour_late": {
+          "hi": 28.502535516216216,
+          "lo": 26.44198954391893,
+          "mean": 27.37808375675676
+        },
+        "n_runs": 10,
+        "n_used": 10,
+        "n_valid": 10,
+        "nodes_late": {
+          "hi": 21.313513513513517,
+          "lo": 18.940540540540542,
+          "mean": 19.99189189189189
+        },
+        "p2_norm_late": {
+          "hi": 0.06940774047297296,
+          "lo": 0.05756972709459459,
+          "mean": 0.06333722972972973
+        }
+      },
+      "B3": {
+        "cost_per_hour_late": {
+          "hi": 27.384225999999998,
+          "lo": 25.532126567567573,
+          "mean": 26.414430432432436
+        },
+        "n_runs": 10,
+        "n_used": 10,
+        "n_valid": 10,
+        "nodes_late": {
+          "hi": 19.648716216216215,
+          "lo": 17.524324324324322,
+          "mean": 18.45135135135135
+        },
+        "p2_norm_late": {
+          "hi": 0.08796698378378376,
+          "lo": 0.06594493168918918,
+          "mean": 0.07684299189189187
+        }
+      },
+      "heuristic/entropy-greedy": {
+        "cost_per_hour_late": {
+          "hi": 27.49031606216215,
+          "lo": 25.78121748648648,
+          "mean": 26.614456486486482
+        },
+        "n_runs": 10,
+        "n_used": 10,
+        "n_valid": 10,
+        "nodes_late": {
+          "hi": 19.005405405405405,
+          "lo": 17.2027027027027,
+          "mean": 18.102702702702704
+        },
+        "p2_norm_late": {
+          "hi": 0.055324279391891884,
+          "lo": 0.042827828175675674,
+          "mean": 0.04884123783783783
+        }
+      },
+      "random/anneal-plan": {
+        "cost_per_hour_late": {
+          "hi": 28.504225974999997,
+          "lo": 26.457033683108108,
+          "mean": 27.39853062162162
+        },
+        "n_runs": 10,
+        "n_used": 10,
+        "n_valid": 10,
+        "nodes_late": {
+          "hi": 20.92972972972973,
+          "lo": 18.6675,
+          "mean": 19.745945945945948
+        },
+        "p2_norm_late": {
+          "hi": 0.07147907499999999,
+          "lo": 0.05494029885135135,
+          "mean": 0.062373383783783785
+        }
+      },
+      "random/entropy-greedy": {
+        "cost_per_hour_late": {
+          "hi": 28.72695165945945,
+          "lo": 26.830837250000002,
+          "mean": 27.75411637837837
+        },
+        "n_runs": 10,
+        "n_used": 10,
+        "n_valid": 10,
+        "nodes_late": {
+          "hi": 19.483783783783785,
+          "lo": 18.075675675675676,
+          "mean": 18.78648648648649
+        },
+        "p2_norm_late": {
+          "hi": 0.12794434195945945,
+          "lo": 0.0750254823648649,
+          "mean": 0.1006637945945946
+        }
+      }
+    },
+    "late_from_fraction": 0.8,
+    "nodes": 200,
+    "scenario": "W2"
+  },
+  "fig2_potential_nodes_cost_w1": {
+    "arms": {
+      "B2": {
+        "cost_per_hour_late": {
+          "hi": 44.944172550000005,
+          "lo": 42.48674627500001,
+          "mean": 43.77585700000001
+        },
+        "n_runs": 10,
+        "n_used": 10,
+        "n_valid": 10,
+        "nodes_late": {
+          "hi": 102.7,
+          "lo": 93.3,
+          "mean": 97.8
+        },
+        "p2_norm_late": {
+          "hi": 0.11957527250000002,
+          "lo": 0.1043857625,
+          "mean": 0.11174029999999999
+        }
+      },
+      "B3": {
+        "cost_per_hour_late": {
+          "hi": 46.88244604999999,
+          "lo": 44.155001899999995,
+          "mean": 45.544509
+        },
+        "n_runs": 10,
+        "n_used": 10,
+        "n_valid": 10,
+        "nodes_late": {
+          "hi": 110.9,
+          "lo": 104.4,
+          "mean": 107.8
+        },
+        "p2_norm_late": {
+          "hi": 0.17067941250000007,
+          "lo": 0.15453989999999995,
+          "mean": 0.16283779999999998
+        }
+      },
+      "heuristic/entropy-greedy": {
+        "cost_per_hour_late": {
+          "hi": 45.54873924864865,
+          "lo": 43.31420159256757,
+          "mean": 44.49034251351351
+        },
+        "n_runs": 10,
+        "n_used": 10,
+        "n_valid": 10,
+        "nodes_late": {
+          "hi": 105.61891891891892,
+          "lo": 97.74317567567567,
+          "mean": 101.75945945945946
+        },
+        "p2_norm_late": {
+          "hi": 0.11925425304054052,
+          "lo": 0.10534121621621621,
+          "mean": 0.11197983513513513
+        }
+      },
+      "random/anneal-plan": {
+        "cost_per_hour_late": {
+          "hi": 43.30384469729729,
+          "lo": 41.511271947297296,
+          "mean": 42.39835308108108
+        },
+        "n_runs": 10,
+        "n_used": 10,
+        "n_valid": 10,
+        "nodes_late": {
+          "hi": 51.51358108108109,
+          "lo": 43.20263513513513,
+          "mean": 47.402702702702705
+        },
+        "p2_norm_late": {
+          "hi": 0.061966118243243246,
+          "lo": 0.05472536662162161,
+          "mean": 0.0582321108108108
+        }
+      },
+      "random/entropy-greedy": {
+        "cost_per_hour_late": {
+          "hi": 44.64476726554054,
+          "lo": 42.84998176891893,
+          "mean": 43.72637859459461
+        },
+        "n_runs": 10,
+        "n_used": 10,
+        "n_valid": 10,
+        "nodes_late": {
+          "hi": 71.3595945945946,
+          "lo": 62.205337837837824,
+          "mean": 66.22432432432433
+        },
+        "p2_norm_late": {
+          "hi": 0.08023387412162164,
+          "lo": 0.07190333135135137,
+          "mean": 0.07612704054054056
+        }
+      }
+    },
+    "late_from_fraction": 0.8,
+    "nodes": 200,
+    "scenario": "W1"
+  },
+  "figure_runs_validity": [
+    {
+      "group": "exp1-baselines-n200",
+      "label": "B2",
+      "n_abandoned": 0,
+      "n_error": 0,
+      "n_in_cut_configurations": 0,
+      "n_invalid": 0,
+      "n_nondeterminism": 0,
+      "n_retried": 0,
+      "n_runs": 10,
+      "n_set_aside": 0,
+      "n_succeeded_on_retry": 0,
+      "n_timed_out": 0,
+      "n_valid": 10,
+      "n_violation": 0,
+      "n_wrong_binary": 0,
+      "reasons": "",
+      "scenario": "W1"
+    },
+    {
+      "group": "exp1-baselines-n200",
+      "label": "B3",
+      "n_abandoned": 0,
+      "n_error": 0,
+      "n_in_cut_configurations": 0,
+      "n_invalid": 0,
+      "n_nondeterminism": 0,
+      "n_retried": 0,
+      "n_runs": 10,
+      "n_set_aside": 0,
+      "n_succeeded_on_retry": 0,
+      "n_timed_out": 0,
+      "n_valid": 10,
+      "n_violation": 0,
+      "n_wrong_binary": 0,
+      "reasons": "",
+      "scenario": "W1"
+    },
+    {
+      "group": "exp1-baselines-n200",
+      "label": "B2",
+      "n_abandoned": 0,
+      "n_error": 0,
+      "n_in_cut_configurations": 0,
+      "n_invalid": 0,
+      "n_nondeterminism": 0,
+      "n_retried": 0,
+      "n_runs": 10,
+      "n_set_aside": 0,
+      "n_succeeded_on_retry": 0,
+      "n_timed_out": 0,
+      "n_valid": 10,
+      "n_violation": 0,
+      "n_wrong_binary": 0,
+      "reasons": "",
+      "scenario": "W2"
+    },
+    {
+      "group": "exp1-baselines-n200",
+      "label": "B3",
+      "n_abandoned": 0,
+      "n_error": 0,
+      "n_in_cut_configurations": 0,
+      "n_invalid": 0,
+      "n_nondeterminism": 0,
+      "n_retried": 0,
+      "n_runs": 10,
+      "n_set_aside": 0,
+      "n_succeeded_on_retry": 0,
+      "n_timed_out": 0,
+      "n_valid": 10,
+      "n_violation": 0,
+      "n_wrong_binary": 0,
+      "reasons": "",
+      "scenario": "W2"
+    },
+    {
+      "group": "exp1-n200",
+      "label": "heuristic/entropy-greedy",
+      "n_abandoned": 0,
+      "n_error": 0,
+      "n_in_cut_configurations": 0,
+      "n_invalid": 0,
+      "n_nondeterminism": 0,
+      "n_retried": 0,
+      "n_runs": 10,
+      "n_set_aside": 0,
+      "n_succeeded_on_retry": 0,
+      "n_timed_out": 0,
+      "n_valid": 10,
+      "n_violation": 0,
+      "n_wrong_binary": 0,
+      "reasons": "",
+      "scenario": "W1"
+    },
+    {
+      "group": "exp1-n200",
+      "label": "random/anneal-plan",
+      "n_abandoned": 0,
+      "n_error": 0,
+      "n_in_cut_configurations": 0,
+      "n_invalid": 0,
+      "n_nondeterminism": 0,
+      "n_retried": 0,
+      "n_runs": 10,
+      "n_set_aside": 0,
+      "n_succeeded_on_retry": 0,
+      "n_timed_out": 0,
+      "n_valid": 10,
+      "n_violation": 0,
+      "n_wrong_binary": 0,
+      "reasons": "",
+      "scenario": "W1"
+    },
+    {
+      "group": "exp1-n200",
+      "label": "random/entropy-greedy",
+      "n_abandoned": 0,
+      "n_error": 0,
+      "n_in_cut_configurations": 0,
+      "n_invalid": 0,
+      "n_nondeterminism": 0,
+      "n_retried": 0,
+      "n_runs": 10,
+      "n_set_aside": 0,
+      "n_succeeded_on_retry": 0,
+      "n_timed_out": 0,
+      "n_valid": 10,
+      "n_violation": 0,
+      "n_wrong_binary": 0,
+      "reasons": "",
+      "scenario": "W1"
+    },
+    {
+      "group": "exp1-n200",
+      "label": "heuristic/entropy-greedy",
+      "n_abandoned": 0,
+      "n_error": 0,
+      "n_in_cut_configurations": 0,
+      "n_invalid": 0,
+      "n_nondeterminism": 0,
+      "n_retried": 0,
+      "n_runs": 10,
+      "n_set_aside": 0,
+      "n_succeeded_on_retry": 0,
+      "n_timed_out": 0,
+      "n_valid": 10,
+      "n_violation": 0,
+      "n_wrong_binary": 0,
+      "reasons": "",
+      "scenario": "W2"
+    },
+    {
+      "group": "exp1-n200",
+      "label": "random/anneal-plan",
+      "n_abandoned": 0,
+      "n_error": 0,
+      "n_in_cut_configurations": 0,
+      "n_invalid": 0,
+      "n_nondeterminism": 0,
+      "n_retried": 0,
+      "n_runs": 10,
+      "n_set_aside": 0,
+      "n_succeeded_on_retry": 0,
+      "n_timed_out": 0,
+      "n_valid": 10,
+      "n_violation": 0,
+      "n_wrong_binary": 0,
+      "reasons": "",
+      "scenario": "W2"
+    },
+    {
+      "group": "exp1-n200",
+      "label": "random/entropy-greedy",
+      "n_abandoned": 0,
+      "n_error": 0,
+      "n_in_cut_configurations": 0,
+      "n_invalid": 0,
+      "n_nondeterminism": 0,
+      "n_retried": 0,
+      "n_runs": 10,
+      "n_set_aside": 0,
+      "n_succeeded_on_retry": 0,
+      "n_timed_out": 0,
+      "n_valid": 10,
+      "n_violation": 0,
+      "n_wrong_binary": 0,
+      "reasons": "",
+      "scenario": "W2"
+    }
+  ]
+}

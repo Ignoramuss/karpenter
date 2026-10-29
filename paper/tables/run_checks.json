@@ -1,0 +1,43 @@
+{
+  "binary_check": {
+    "checked": true,
+    "files": {
+      "experiments/session-binary.txt": {
+        "found": true,
+        "sha": "c78b5f95063c1995b10fa6d66571a16d0a32b243"
+      }
+    },
+    "n_session_runs": 1571,
+    "n_wrong_binary": 0
+  },
+  "duplicates": {
+    "all_match": true,
+    "differing_sets": [],
+    "n_differ": 0,
+    "n_sets": 130
+  },
+  "min_seeds": 10,
+  "n_configurations": 156,
+  "n_cut_configurations": 19,
+  "n_pending_retry": 0,
+  "n_runs": 1551,
+  "supplementary_runs": {
+    "h7s": 20
+  },
+  "validity_totals": {
+    "n_abandoned": 0,
+    "n_error": 0,
+    "n_in_cut_configurations": 1,
+    "n_invalid": 0,
+    "n_nondeterminism": 0,
+    "n_pending_retry": 0,
+    "n_retried": 0,
+    "n_runs": 1551,
+    "n_set_aside": 0,
+    "n_succeeded_on_retry": 0,
+    "n_timed_out": 0,
+    "n_valid": 1551,
+    "n_violation": 0,
+    "n_wrong_binary": 0
+  }
+}

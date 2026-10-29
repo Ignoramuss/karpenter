@@ -1,0 +1,9 @@
+clause,scenario,nodes,configuration,test_metric,test_outcome,test_p_holm,test_holm_reachable,bound_metric,n_pairs,pct_diff,pct_diff_lo,pct_diff_hi,bound,limit,bound_ok,state
+plan,W1,200,anneal-plan/t0=1/cooling=0.98,steady_cost_per_hour,lower,0.0195312,True,evictions,10,37.6876,29.2626,47.5715,upper 95% bound <,10,False,fails
+online,W1,200,anneal-online/t0=0.3,evictions,lower,0.015625,True,steady_cost_per_hour,10,68.386,61.5105,74.7833,lower 95% bound >,-1,True,fails
+online,W1,200,anneal-online/t0=1,evictions,lower,0.015625,True,steady_cost_per_hour,10,67.9981,62.012,73.849,lower 95% bound >,-1,True,fails
+online,W1,200,anneal-online/t0=3,evictions,lower,0.015625,True,steady_cost_per_hour,10,68.8894,62.9951,74.5048,lower 95% bound >,-1,True,fails
+plan,W4,200,anneal-plan/t0=1/cooling=0.98,steady_cost_per_hour,no significant difference,0.386719,True,evictions,10,20.8554,12.6585,30.3428,upper 95% bound <,10,False,fails
+online,W4,200,anneal-online/t0=0.3,evictions,no significant difference,0.316406,True,steady_cost_per_hour,10,12.034,8.90726,15.4803,lower 95% bound >,-1,True,fails
+online,W4,200,anneal-online/t0=1,evictions,no significant difference,0.386719,True,steady_cost_per_hour,10,12.9632,10.3698,15.503,lower 95% bound >,-1,True,fails
+online,W4,200,anneal-online/t0=3,evictions,higher,0.0195312,True,steady_cost_per_hour,10,10.9948,7.54474,15.0364,lower 95% bound >,-1,True,holds
