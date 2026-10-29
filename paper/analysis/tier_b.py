@@ -39,10 +39,13 @@ W, T = 5.0, 30.0  # warmup and window, minutes (TIERB.md; the window from the ca
 END_SPAN = 5.0  # cost_end averages the samples in the window's last 5 minutes
 CONFIGS = ("B2", "B3", "B4", "heuristic/entropy-greedy", "heuristic/anneal-plan", "random/anneal-plan",
            "random/entropy-greedy")
-METRICS = ("cost_end", "cost_window", "nodes_end", "evictions", "settle_min", "compute")
+# cost_end_rel (cost_end over the cost at the drop) was added before any evaluation-seed Tier B run, when the smoke
+# cells showed Tier B arms of one seed starting from slightly different fleets (RESEARCH_LOG, "Tier B smokes").
+METRICS = ("cost_end", "cost_end_rel", "cost_window", "nodes_end", "evictions", "settle_min", "compute")
 # Materiality floors for a reversal (TIERB.md, "Analysis"): relative for cost, evictions and compute, absolute
 # minutes for settle time. nodes_end has none in the protocol, so it gets tau-b only.
-FLOORS: Mapping[str, tuple[str, float]] = {"cost_end": ("rel", 0.01), "cost_window": ("rel", 0.01),
+FLOORS: Mapping[str, tuple[str, float]] = {"cost_end": ("rel", 0.01), "cost_end_rel": ("rel", 0.01),
+                                           "cost_window": ("rel", 0.01),
                                            "evictions": ("rel", 0.10), "compute": ("rel", 0.10),
                                            "settle_min": ("abs", 2.0)}
 PAIRS = (("random/entropy-greedy", "heuristic/entropy-greedy"), ("B4", "B2"))
@@ -60,8 +63,10 @@ def window_metrics(ts: pd.DataFrame) -> dict[str, float]:
         return nan
     tail = win[win.t_min >= end - END_SPAN - 1e-6]
     changes = win.t_min[win.nodes.diff().fillna(0) != 0]
+    cost_end, at_drop = float(tail.cost_per_hour.mean()), float(win.cost_per_hour.iloc[0])
     return {
-        "cost_end": float(tail.cost_per_hour.mean()),
+        "cost_end": cost_end,
+        "cost_end_rel": cost_end / at_drop if at_drop > 0 else math.nan,
         "cost_window": float(np.trapezoid(win.cost_per_hour, win.t_min) / 60.0),
         "nodes_end": float(win.nodes.iloc[-1]),
         "evictions": float(win.evictions_cum.iloc[-1] - win.evictions_cum.iloc[0]),

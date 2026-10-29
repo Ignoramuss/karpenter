@@ -732,3 +732,27 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   Before the evaluation cells, three smoke cells on pilot seed 1 check the fixes:
   - B2 at n = 50 and heuristic/entropy-greedy at n = 50, covering both gates and the method check;
   - random/anneal-plan at n = 200, checking provisioning within the warmup with the 47 s delay.
+- **Tier B smokes (Oct 29, 09:47-11:10 UTC; pilot seed 1; before any evaluation-seed Tier B run).** The first
+  three smoke cells, with a 47 s registration delay throughout, were valid on every check, and both gates showed
+  the right methods. But one seed's arms started from different fleets: B2 had 14 nodes ($19.20/hr) and
+  heuristic/entropy-greedy 12 ($18.32/hr). Pods stayed pending while nodes registered, and Karpenter's 10 s
+  re-plans added 1-4 NodeClaims depending on timing. The simulator re-plans the same way, but deterministically,
+  so all its arms of a seed start alike.
+
+  The fix is a registration delay of 0 s during the warmup and 47 s from the drop, both set per cell. Four more
+  smoke cells:
+
+  | Cell | Nodes at the drop | $/hr at the drop | Tier A |
+  | --- | --- | --- | --- |
+  | B2, n = 50 | 11 | 17.53 | 12 nodes, $17.10/hr |
+  | heuristic/entropy-greedy, n = 50 | 12 | 17.10 | 12 nodes, $17.10/hr |
+  | random/entropy-greedy, n = 50 | 11 | 17.53 | 12 nodes, $17.10/hr |
+  | B3, n = 200 | 45 | 71.08 | 44 nodes, $68.03/hr |
+
+  All four were valid, with nothing pending and no eviction before the drop. What variation remains comes from
+  kube-scheduler binding pods in its own order rather than Karpenter's plan, so one follow-up NodeClaim varies.
+  That is real-cluster behavior and does not depend on the arm, since consolidation is off during warmup: it adds
+  noise, not bias. A secondary metric, `cost_end_rel` (`cost_end` over $/hr at the drop), is added before any
+  evaluation-seed run so that the analysis can separate the starting fleet from consolidation. Every run records
+  its starting fleet. The smoke outputs are in `experiments/tierb/smoke-*`, with the first design's in
+  `smoke-warmup47s-*`.

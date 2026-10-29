@@ -55,9 +55,12 @@ simulations per cycle and 500 attempts per generator, lambda 0.1, t0 1.
   moment, so Karpenter's first pass also sees the whole workload. Otherwise the ReplicaSets' creation rate splits
   provisioning into timing-dependent batches.
 - **Node latency.** The simulator draws launch from 2-5 s and registration from 30-60 s, a mean of 48.5 s from
-  create to registered. Tier B's KWOKNodeClass sets `nodeRegistrationDelay: 47s`: KWOK marks a NodeClaim launched at
-  once and creates its Node after the delay, which leaves KWOK's own second or so. Replacements wait for their new
-  nodes, so this matters most to arms that replace often.
+  create to registered. After the drop, Tier B's KWOKNodeClass sets `nodeRegistrationDelay: 47s`: KWOK marks a
+  NodeClaim launched at once and creates its Node after the delay, which leaves KWOK's own second or so.
+  Replacements wait for their new nodes, so this matters most to arms that replace often. During the warmup the
+  delay is 0 s. With 47 s there, pods stayed pending through several of Karpenter's 10 s provisioning passes, and
+  the number of extra NodeClaims those passes added depended on timing. In the smoke cells, one seed's arms then
+  started from 12 to 14 nodes. With 0 s they started from 11 or 12, and 12 is Tier A's fleet for that seed.
 - **Randomness.** A pipeline without a seed of its own uses the run seed in both tiers. The simulator fills it in;
   the Tier B driver writes it into the cell's pipeline config.
 - **Scheduling.** Default kube-scheduler scoring (the simulator's `least-allocated` placement). Scale-down is by
@@ -74,6 +77,7 @@ Each is computed from one-minute samples over [W, W + T], the same way in both t
 | Metric | Definition | Tier B source |
 | --- | --- | --- |
 | `cost_end` | mean $/hr over the samples in the last 5 minutes | nodes' instance types x catalog prices |
+| `cost_end_rel` | `cost_end` over $/hr at the drop, to separate the starting fleet from consolidation | the same samples |
 | `cost_window` | integrated cost over [W, W + T], in $ | the same samples |
 | `nodes_end` | node count at W + T | node list |
 | `evictions` | pods evicted after the drop: `evictions_cum` at W + T minus at W | pods carrying `DisruptionTarget` with reason `EvictionByEvictionAPI` |

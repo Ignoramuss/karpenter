@@ -55,6 +55,7 @@ def _tier_b(root: Path, label: str, seed: int, n: int, cost: float, ev: int, cpu
 def test_window_metrics() -> None:
     m = tier_b.window_metrics(pd.read_csv(pd.io.common.StringIO(_series(14.0, 6, 30, 12))))
     assert m["cost_end"] == 14.0 and m["nodes_end"] == 6 and m["evictions"] == 30 and m["settle_min"] == 7.0
+    assert math.isclose(m["cost_end_rel"], 14.0 / 20.0)
     # integral over [5, 35]: $20/hr until minute 11, a ramp to $14 over minute 11-12, then $14/hr to 35
     want = (20 * 6 + (20 + 14) / 2 * 1 + 14 * 23) / 60
     assert math.isclose(m["cost_window"], want), (m["cost_window"], want)
