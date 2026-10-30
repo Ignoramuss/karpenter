@@ -64,3 +64,9 @@
 2026-10-30T06:43:06Z DONE tierb-kwok__arm-b2_nodes-200_seed-103 rc=0 valid=True in 37.2 min
 2026-10-30T06:43:06Z START tierb-kwok__arm-b3_nodes-200_seed-103 (attempt 1)
 2026-10-30T07:08:28Z START tierb-kwok__arm-b3_nodes-200_seed-103 (attempt 1)
+2026-10-30T07:45:51Z DONE tierb-kwok__arm-b3_nodes-200_seed-103 rc=0 valid=True in 37.4 min
+2026-10-30T07:45:52Z START tierb-kwok__arm-heuristic-anneal-plan_nodes-200_seed-103 (attempt 1)
+2026-10-30T08:23:14Z DONE tierb-kwok__arm-heuristic-anneal-plan_nodes-200_seed-103 rc=0 valid=True in 37.4 min
+2026-10-30T08:23:14Z START tierb-kwok__arm-heuristic-entropy-greedy_nodes-200_seed-103 (attempt 1)
+2026-10-30T09:00:32Z DONE tierb-kwok__arm-heuristic-entropy-greedy_nodes-200_seed-103 rc=0 valid=True in 37.3 min
+2026-10-30T09:00:32Z START tierb-kwok__arm-heuristic-anneal-plan_nodes-50_seed-103 (attempt 1)

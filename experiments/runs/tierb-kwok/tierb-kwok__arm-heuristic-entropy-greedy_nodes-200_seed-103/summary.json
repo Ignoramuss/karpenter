@@ -1,0 +1,43 @@
+{
+  "cost_at_drop": 74.4282,
+  "decision_evaluation_seconds": {
+    "": 12.792965930000001,
+    "empty": 4.455794444,
+    "pipeline": 533.2285941899995
+  },
+  "decision_evaluations": {
+    "": 564,
+    "empty": 188,
+    "pipeline": 188
+  },
+  "decisions_by_consolidation": {
+    "pipeline": 23
+  },
+  "drop_at": "2026-10-30T08:30:19.912286129Z",
+  "evictions": 593,
+  "evictions_before_drop": 0,
+  "finished_at": "2026-10-30T09:00:19.892060483Z",
+  "gate": true,
+  "karpenter_avg_cpu_cores": 0.07920319242064405,
+  "karpenter_cpu_core_seconds": 142.56414441992246,
+  "karpenter_max_cpu_cores": 0.3899660048695125,
+  "karpenter_max_heap_mb": 113.71990203857422,
+  "karpenter_max_memory_mb": 264.125,
+  "karpenter_p95_cpu_cores": 0.18462227982893942,
+  "karpenter_p95_memory_mb": 224.84160156250002,
+  "karpenter_pod": "karpenter-76b9f48fc6-zndjq",
+  "karpenter_restarted": false,
+  "label": "heuristic/entropy-greedy",
+  "method_ok": true,
+  "metrics_sample_count": 360,
+  "nodes_at_drop": 47,
+  "pending_at_drop": 0,
+  "policy": "WhenEmptyOrUnderutilized",
+  "run_id": "tierb-kwok__arm-heuristic-entropy-greedy_nodes-200_seed-103",
+  "scenario_nodes": 200,
+  "seed": 103,
+  "started_at": "2026-10-30T08:25:19.881622945Z",
+  "valid": true,
+  "warmup": "5m",
+  "window": "30m"
+}
