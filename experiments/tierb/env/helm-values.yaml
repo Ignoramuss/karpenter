@@ -1,0 +1,22 @@
+# Tier B controller settings (experiments/TIERB.md): the session catalog's 15 types, info logging for every arm.
+logLevel: info
+serviceMonitor:
+  enabled: false
+controller:
+  resources:
+    requests: {cpu: 1, memory: 1Gi}
+    limits: {cpu: 2, memory: 2Gi}
+  env:
+    - {name: ENABLE_PROFILING, value: "true"}
+    - {name: INSTANCE_TYPES_FILE_PATH, value: /etc/tierb/instance_types.json}
+  extraVolumeMounts:
+    - {name: tierb-instance-types, mountPath: /etc/tierb, readOnly: true}
+extraVolumes:
+  - name: tierb-instance-types
+    configMap: {name: tierb-instance-types}
+settings:
+  featureGates:
+    nodeRepair: true
+    capacityBuffer: true
+    staticCapacity: true
+    predictionEnabled: false

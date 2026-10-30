@@ -2,8 +2,9 @@
 
 Everything here runs from the repository root on the branch that carries `docs/research/PLAN.md`. The session
 profile (Tier A at 50, 200 and 1,000 nodes, 10 seeds) ran inside the cloud session; this runbook covers what it did
-not: the full profile, Tier B on KWOK, and an optional Tier C pass on EKS. Session results and their caveats are in
-`experiments/RESULTS.md`; the preregistered analysis is in `experiments/PREREGISTRATION.md`.
+not: the full profile, Tier B on KWOK (run after the session, section 4), and an optional Tier C pass on EKS.
+Session results and their caveats are in `experiments/RESULTS.md`; the preregistered analysis is in
+`experiments/PREREGISTRATION.md`.
 
 ## 0. Prerequisites
 
@@ -17,8 +18,9 @@ not: the full profile, Tier B on KWOK, and an optional Tier C pass on EKS. Sessi
   /opt/research-venv/bin/pip install -r paper/requirements.txt
   ```
 
-- For Tier B: Docker, `kind` (`go install sigs.k8s.io/kind@v0.30.0`), `kubectl`, `helm`, and network access to
-  `registry.k8s.io` (KWOK images) and `cgr.dev` (the `ko` base image). Both were blocked in the session.
+- For Tier B: Docker, Go, `kubectl`, and network access to `registry.k8s.io` (KWOK), Docker Hub (the kind node
+  image), `cgr.dev` (the `ko` base image), GitHub (KWOK's manifests) and `get.helm.sh`. Both registries were
+  blocked in the session itself and opened afterwards. `experiments/tierb/env/setup.sh` installs kind, ko and helm.
 - Build one simulator binary per commit and use it for a whole matrix, so every cell's manifest carries one SHA.
   To extend the session's runs (reused cells, the cut groups), build the Gate 3 commit in a separate clone. Do not
   use a `git worktree`: its `.git` is a file, so Go writes no VCS stamp and `binary_revision` reads "unknown".
@@ -146,43 +148,88 @@ PARITY_STATES=10000 PARITY_SEED=2 PARITY_OUT=$PWD/experiments/parity/parity-1000
 `docs/research/parity.md` explains the comparison, including how multi-NodePool states, where upstream is itself
 nondeterministic, are judged.
 
-## 4. Tier B: KWOK on kind (50, 200 and 500 nodes)
+## 4. Tier B: KWOK on kind
 
-1. Cluster and controller (the kind config mounts a kube-scheduler configuration with a `most-allocated` profile
-   next to the default one):
+Tier B replays the simulator's WB workload on a kind cluster whose nodes are KWOK's fake nodes, so the API server,
+kube-scheduler, the ReplicaSet controller and Karpenter are real. The protocol is `experiments/TIERB.md`. The run's
+history and every change to it are in `experiments/RESEARCH_LOG.md`, from "Tier B unblocked".
 
-   ```bash
-   make setup-kind
-   make install-kwok
-   make apply-with-kind
-   ```
-
-2. The pipeline specs are in `test/suites/performance/pipeline_test.go`. Each enables the gate and sets an inline
-   pipeline config through the controller's environment (`FEATURE_GATES=ConsolidationPipeline=true`,
-   `CONSOLIDATION_PIPELINE_CONFIG=<yaml or json>`), runs a diurnal scale-out and 65% scale-down, and writes a
-   performance report:
+1. **Environment.** From the repository root, with Docker running and Go on PATH:
 
    ```bash
-   FOCUS="Consolidation Pipeline" TEST_SUITE=performance make e2etests
+   TIERB_HOME=/tmp/tierb experiments/tierb/env/setup.sh
    ```
 
-   For the plan's Phase 5 validation, set the configs in `pipelineConfigs` to the top three session configurations
-   plus B4 (the upstream adapters), and run B2 and B3 with the gate off (the existing Balanced specs), 5 seeds each.
-   For 500 nodes, raise the replica counts in the specs proportionally and give kind at least 16 GB.
+   The script deletes and recreates the kind cluster `test-cluster` (`KIND_CLUSTER_NAME` overrides it). It installs
+   kind v0.30.0, ko v0.18.0 and helm v3.19.0 into `$TIERB_HOME/bin`. From a clean clone at the image commit
+   (`IMAGE_SHA`, default `eff89a1`) it builds the simulator, the controller image (with `ko`) and the chart. The
+   Tier B spec (`test/suites/performance/tierb_test.go`) is compiled from the checkout. The cluster runs
+   `kindest/node:v1.34.0` with KWOK v0.8.0. The controller's chart values are `experiments/tierb/env/helm-values.yaml`:
+   - info logging, because debug logging would inflate the controller CPU being measured;
+   - no ServiceMonitor, since no Prometheus operator is installed;
+   - a 1-CPU request and a 2-CPU limit;
+   - the session catalog's 15 types, from `experiments/tierb/env/instance_types.json`, mounted as
+     `INSTANCE_TYPES_FILE_PATH`. `instance_types.py` in the same directory regenerates that file and checks its
+     prices against `experiments/catalog.json`.
 
-3. Decision logs: the controller logs one `consolidation decision` line per decision event at debug level. Extract
-   them into the simulator's schema with:
+   Two steps are workarounds for the cloud VM, and harmless elsewhere:
+   - the kind config's containerd patch (`restrict_oom_score_adj`), for a host that withholds `CAP_SYS_RESOURCE`;
+   - loading the KWOK image from the host, for a node that cannot reach the host's proxy.
+
+   The VM also needed `dockerd` started by hand (`setsid nohup dockerd &`).
+   The script ends by writing `$TIERB_HOME/env.sh`, the driver's environment.
+
+2. **Tier A side.** `experiments/matrix/tierb.yaml` holds the same seven configurations on WB:
+   - `tierb-cal`: pilot seeds 1-5 with a 45-minute window. It was used once, to fix the window T = 30 minutes.
+   - `tierb-a`: seeds 101-110.
+
+   Use the simulator `setup.sh` built, so both tiers share one commit:
 
    ```bash
-   kubectl logs -n kube-system deploy/karpenter --since=24h \
-     | jq -c 'select(.message == "consolidation decision")
-         | {schema_version, run_id, cycle, t, stage, strategy, move_id, kind, sources, destinations, pods,
-            delta_potential, disruption, savings_per_hour, accepted, reason, budget_remaining, detail}' > decisions.jsonl
+   $TIERB_HOME/bin/csim matrix --matrix experiments/matrix/tierb.yaml --workers 4
    ```
 
-4. Rank agreement: compare each metric's configuration order between Tier A and Tier B with Kendall's tau, and
-   report any reversal as a finding. Also record controller CPU and memory, API server request rate, eviction rate
-   and validation aborts, which the simulator cannot measure.
+3. **Run.** The driver runs the 70 cells (7 configurations x n = 50 and 200 x seeds 101-105), one at a time, in the
+   order in `experiments/tierb/plan.json`. Each cell takes 36-37 minutes. TIERB.md gives the validity checks, the
+   reruns and the stopping rule.
+
+   ```bash
+   # optional: one short check on a pilot seed, written outside the run tree
+   experiments/tierb/env/run-driver.sh smoke --label B2 --nodes 50
+   setsid nohup experiments/tierb/env/run-driver.sh run >> /tmp/tierb/driver.log 2>&1 < /dev/null &
+   ```
+
+   - Re-invoke `run` after any interruption: finished cells are skipped and an interrupted one starts over.
+   - Progress is in `experiments/tierb/run.log`.
+   - Each cell writes `cell.json`, `manifest.json`, `summary.json`, `timeseries.csv` and `test.log.gz` under
+     `experiments/runs/tierb-kwok/<run_id>/`.
+   - To commit cells as they finish, list `experiments/runs/tierb-kwok/` in `.git/info/exclude` and run
+     `experiments/tierb/commit_tierb.sh`. It adds only cells whose manifest says `done`, so a cell still running
+     is never committed.
+   - Keep the machine otherwise idle: Tier B measures the controller's CPU.
+
+4. **Analysis.** `make figures` includes `paper/analysis/tier_b.py`. It uses only complete (seed, n) blocks. Per
+   size and metric, it reports Kendall's tau-b between the two tiers' configuration orders, the material
+   reversals, and the two named pairs. Its outputs are `paper/tables/tierb_*` and `paper/tables/tier_b.json`.
+   It skips itself when there are no Tier B runs.
+
+5. **Larger runs.** The plan's full profile adds n = 500. Set `SIZES` and `SEEDS` in
+   `experiments/tierb/run_tierb.py`, and add the matching sizes and seeds to `tierb-a`. 500 nodes was not tried
+   here. Expect to need more CPU and memory for kind (at least 16 GB). Check that a smoke cell's pods are all
+   running at the drop before a long run.
+
+`test/suites/performance/pipeline_test.go` holds older stress specs from the session. They run a pipeline
+configuration through a diurnal scale-out and a 65% scale-down, and are not part of the rank check. To run them on
+a cluster set up as above: `FOCUS="Consolidation Pipeline" TEST_SUITE=performance make e2etests`. With debug
+logging, the controller writes one `consolidation decision` line per decision event. This turns them into the
+simulator's decision-log schema:
+
+```bash
+kubectl logs -n kube-system deploy/karpenter --since=24h \
+  | jq -c 'select(.message == "consolidation decision")
+      | {schema_version, run_id, cycle, t, stage, strategy, move_id, kind, sources, destinations, pods,
+         delta_potential, disruption, savings_per_hour, accepted, reason, budget_remaining, detail}' > decisions.jsonl
+```
 
 ## 5. Tier C: one EKS sandbox pass (optional)
 
