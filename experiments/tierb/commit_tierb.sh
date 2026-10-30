@@ -5,11 +5,17 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 n=0
 for d in experiments/runs/tierb-kwok/*/; do
+  case "$d" in
+    # A set-aside attempt (.failed-N, .interrupted-<ts>, .infra-<ts>) is never running again, whatever its manifest
+    # says: the driver renames a directory only when it is done with it.
+    *.failed-*/ | *.interrupted-*/ | *.infra-*/) git add -f "$d"; continue ;;
+  esac
   m="$d/manifest.json"
   [ -f "$m" ] && grep -q '"status": "done"' "$m" || continue
   git add -f "$d"
   n=$((n + 1))
 done
+git add experiments/tierb/machine-log.txt
 git add experiments/tierb/run.log experiments/tierb/plan.json 2>/dev/null || true
 if git diff --cached --quiet; then
   echo "nothing new to commit"

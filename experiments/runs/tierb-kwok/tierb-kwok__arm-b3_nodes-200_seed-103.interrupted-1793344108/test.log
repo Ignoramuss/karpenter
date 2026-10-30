@@ -1,0 +1,88 @@
+=== RUN   TestIntegration
+Running Suite: Performance - /home/user/karpenter/test/suites/performance
+=========================================================================
+Random Seed: [1m1793342586[0m
+
+Will run [1m1[0m of [1m19[0m specs
+[38;5;243m------------------------------[0m
+[0m[1m[BeforeSuite] [0m
+[38;5;243m/home/user/karpenter/test/suites/performance/suite_test.go:40[0m
+  [1mSTEP:[0m cleaning up test objects left over from previous runs [38;5;243m@ 10/30/26 06:43:07.522[0m
+[38;5;10m[BeforeSuite] PASSED [1.626 seconds][0m
+[38;5;243m------------------------------[0m
+[38;5;14mS[0m[38;5;14mS[0m[38;5;14mS[0m[38;5;14mS[0m[38;5;14mS[0m[38;5;14mS[0m
+[38;5;243m------------------------------[0m
+[0mTier B [0m[1mshould replay a WB cell[0m [38;5;204m[NoWatch][0m
+[38;5;243m/home/user/karpenter/test/suites/performance/tierb_test.go:129[0m
+  [1mSTEP:[0m overriding environment variables for karpenter deployment [38;5;243m@ 10/30/26 06:43:08.734[0m
+  [1mSTEP:[0m rolling out the new karpenter deployment [38;5;243m@ 10/30/26 06:43:08.752[0m
+  [1mSTEP:[0m restarting the deployment [38;5;243m@ 10/30/26 06:43:08.752[0m
+  [1mSTEP:[0m waiting for the newly generated deployment to rollout [38;5;243m@ 10/30/26 06:43:08.763[0m
+  [1mSTEP:[0m waiting for a new karpenter pod to hold the lease [38;5;243m@ 10/30/26 06:43:22.782[0m
+[controller-runtime] log.SetLogger(...) was never called; logs will not be displayed.
+Detected at:
+	>  goroutine 137 [running]:
+	>  runtime/debug.Stack()
+	>  	/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.10.linux-amd64/src/runtime/debug/stack.go:26 +0x5e
+	>  sigs.k8s.io/controller-runtime/pkg/log.eventuallyFulfillRoot()
+	>  	/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/log/log.go:60 +0xcd
+	>  sigs.k8s.io/controller-runtime/pkg/log.(*delegatingLogSink).Enabled(0x24d3e2d33880, 0x4)
+	>  	/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/log/deleg.go:111 +0x32
+	>  github.com/go-logr/logr.Logger.Info({{0x2a35760?, 0x24d3e2d33880?}, 0x24d3e46ef888?}, {0x28a4f6e, 0xb}, {0x24d3e7102120, 0x6, 0x6})
+	>  	/root/go/pkg/mod/github.com/go-logr/logr@v1.4.3/logr.go:276 +0x6e
+	>  k8s.io/client-go/tools/cache.handleAnyWatch({0x2a28f20, 0x24d3e29d1980}, {0x0?, 0x24d3e2deb978?, 0x44697e0?}, {0x2a12778, 0x24d3e2d80500}, {0x7fe394d2cc00, 0x24d3e2c1fcc0}, {0x2a69c20, ...}, ...)
+	>  	/root/go/pkg/mod/k8s.io/client-go@v0.36.1/tools/cache/reflector.go:1093 +0x151c
+	>  k8s.io/client-go/tools/cache.handleWatch({0x2a28f20?, 0x24d3e29d1980?}, {0x0?, 0x4?, 0x44697e0?}, {0x2a12778?, 0x24d3e2d80500?}, {0x7fe394d2cc00?, 0x24d3e2c1fcc0?}, {0x2a69c20, ...}, ...)
+	>  	/root/go/pkg/mod/k8s.io/client-go@v0.36.1/tools/cache/reflector.go:958 +0xea
+	>  k8s.io/client-go/tools/cache.(*Reflector).watch(0x24d3e2878700, {0x2a28f20, 0x24d3e29d1980}, {0x2a12778, 0x24d3e2d80500}, 0x24d3e304a850)
+	>  	/root/go/pkg/mod/k8s.io/client-go@v0.36.1/tools/cache/reflector.go:620 +0x70f
+	>  k8s.io/client-go/tools/cache.(*Reflector).watchWithResync(0x24d3e2878700, {0x2a28f20, 0x24d3e29d1980}, {0x2a12778, 0x24d3e2d80500})
+	>  	/root/go/pkg/mod/k8s.io/client-go@v0.36.1/tools/cache/reflector.go:553 +0x186
+	>  k8s.io/client-go/tools/cache.(*Reflector).ListAndWatchWithContext(0x24d3e2878700, {0x2a28f20, 0x24d3e29d1980})
+	>  	/root/go/pkg/mod/k8s.io/client-go@v0.36.1/tools/cache/reflector.go:508 +0x472
+	>  k8s.io/client-go/tools/cache.(*Reflector).RunWithContext.func1({0x2a28f20, 0x24d3e29d1980})
+	>  	/root/go/pkg/mod/k8s.io/client-go@v0.36.1/tools/cache/reflector.go:429 +0x2f
+	>  k8s.io/apimachinery/pkg/util/wait.loopConditionUntilContext.func1({0x2a28f20?, 0x24d3e29d1980?}, 0x4eefc5?)
+	>  	/root/go/pkg/mod/k8s.io/apimachinery@v0.36.1/pkg/util/wait/loop.go:53 +0x62
+	>  k8s.io/apimachinery/pkg/util/wait.loopConditionUntilContext({0x2a28f20, 0x24d3e29d1980}, {0x2a20180, 0x24d3e2f05dc0}, 0x1, 0x1, 0x24d3e2debf48)
+	>  	/root/go/pkg/mod/k8s.io/apimachinery@v0.36.1/pkg/util/wait/loop.go:54 +0x115
+	>  k8s.io/apimachinery/pkg/util/wait.DelayFunc.Until(...)
+	>  	/root/go/pkg/mod/k8s.io/apimachinery@v0.36.1/pkg/util/wait/delay.go:39
+	>  k8s.io/client-go/tools/cache.(*Reflector).RunWithContext(0x24d3e2878700, {0x2a28f20, 0x24d3e29d1980})
+	>  	/root/go/pkg/mod/k8s.io/client-go@v0.36.1/tools/cache/reflector.go:428 +0x289
+	>  k8s.io/client-go/tools/cache.(*controller).RunWithContext.(*Group).StartWithContext.func3()
+	>  	/root/go/pkg/mod/k8s.io/apimachinery@v0.36.1/pkg/util/wait/wait.go:63 +0x1f
+	>  k8s.io/apimachinery/pkg/util/wait.(*Group).Start.func1()
+	>  	/root/go/pkg/mod/k8s.io/apimachinery@v0.36.1/pkg/util/wait/wait.go:72 +0x4c
+	>  created by k8s.io/apimachinery/pkg/util/wait.(*Group).Start in goroutine 97
+	>  	/root/go/pkg/mod/k8s.io/apimachinery@v0.36.1/pkg/util/wait/wait.go:70 +0x73
+  KarpenterMetricsPoller: starting, scraping pod kube-system/karpenter-85cb5df9c6-vhndc via API server proxy
+  KarpenterMetricsPoller: [sample 1] first sample - memory=204.22 MB, heap=56.26 MB, process_cpu_seconds_total=65.1900 (CPU rate available after next sample)
+  KarpenterMetricsPoller: [sample 2] memory=226.24 MB, heap=78.52 MB, cpu=0.3739 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 3] memory=203.54 MB, heap=64.83 MB, cpu=0.1638 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 4] memory=185.41 MB, heap=53.51 MB, cpu=0.2223 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 5] memory=193.54 MB, heap=78.13 MB, cpu=0.2160 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 10] memory=192.41 MB, heap=53.48 MB, cpu=0.1860 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 15] memory=186.74 MB, heap=47.33 MB, cpu=0.1100 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 20] memory=189.91 MB, heap=42.71 MB, cpu=0.0720 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 25] memory=174.11 MB, heap=38.93 MB, cpu=0.0640 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 30] memory=189.21 MB, heap=41.85 MB, cpu=0.2220 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 35] memory=187.52 MB, heap=61.22 MB, cpu=0.1500 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 40] memory=168.79 MB, heap=39.53 MB, cpu=0.0660 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 45] memory=174.70 MB, heap=52.42 MB, cpu=0.1040 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 50] memory=176.02 MB, heap=40.99 MB, cpu=0.1680 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 55] memory=174.24 MB, heap=46.01 MB, cpu=0.1260 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 60] memory=173.30 MB, heap=43.49 MB, cpu=0.0520 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 65] memory=158.92 MB, heap=33.18 MB, cpu=0.1300 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 70] memory=168.81 MB, heap=32.80 MB, cpu=0.1340 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 75] memory=175.75 MB, heap=44.73 MB, cpu=0.0560 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 80] memory=166.10 MB, heap=37.41 MB, cpu=0.1520 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 85] memory=163.49 MB, heap=44.17 MB, cpu=0.0720 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 90] memory=169.31 MB, heap=41.20 MB, cpu=0.0900 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 95] memory=180.01 MB, heap=47.17 MB, cpu=0.1500 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 100] memory=166.46 MB, heap=36.01 MB, cpu=0.0580 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 105] memory=167.79 MB, heap=31.91 MB, cpu=0.2480 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 110] memory=162.14 MB, heap=36.48 MB, cpu=0.0540 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 115] memory=163.27 MB, heap=42.08 MB, cpu=0.1000 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 120] memory=178.09 MB, heap=48.67 MB, cpu=0.1640 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 125] memory=165.65 MB, heap=36.96 MB, cpu=0.0560 cores (elapsed=5.0s)
