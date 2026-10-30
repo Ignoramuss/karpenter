@@ -756,3 +756,11 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   evaluation-seed run so that the analysis can separate the starting fleet from consolidation. Every run records
   its starting fleet. The smoke outputs are in `experiments/tierb/smoke-*`, with the first design's in
   `smoke-warmup47s-*`.
+- **Tier B evaluation run (from Oct 29, 11:11 UTC).** The driver started the 70 evaluation cells (seeds 101-105,
+  both sizes, seven configurations) at 11:11 UTC, in the order in `experiments/tierb/plan.json`. Cells take 36-37
+  minutes. Finished cells are committed as they land.
+- **Interim structural check (Oct 30, 05:30 UTC; 30 of 70 cells done).** The analysis module was run once on the
+  finished cells, into scratch space, to confirm that it reads real Tier B output. It found four complete blocks
+  (seeds 101 and 102, both sizes) and no missing metric in any finished cell. The running cell, which has no
+  summary yet, was counted as invalid, as expected. Only block counts and missing values were printed: no ranking,
+  mean or agreement statistic was looked at, and nothing in the protocol or the analysis changed.
