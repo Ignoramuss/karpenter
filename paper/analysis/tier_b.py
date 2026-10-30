@@ -15,6 +15,9 @@ have a valid Tier B run, and the same blocks in Tier A. Writes, under ``out_root
 - ``tables/tierb_agreement.md``: per size and metric, tau-b, the number of material reversals and the blocks used.
 - ``tables/tierb_reversals.md``: every material reversal.
 - ``tables/tierb_pairs.md``: the two named pairs, per size and metric, as percent differences in both tiers.
+- ``tables/tierb_compute_one_vm.md``: the compute agreement again, on the complete blocks whose seven Tier B runs
+  share one VM (boot ID). Controller CPU depends on the machine, and the VM changed once during the run; this
+  check was decided before any ranking was looked at (RESEARCH_LOG, "Container restart during Tier B").
 - ``tables/tier_b.json``: the headline.
 
 Run on its own with ``/opt/research-venv/bin/python -m paper.analysis.tier_b [--runs DIR] [--out DIR]``.
@@ -130,7 +133,8 @@ def tier_b_runs(runs_root: Path) -> pd.DataFrame:
         metrics = window_metrics(pd.read_csv(ts)) if ts.is_file() else dict.fromkeys(METRICS[:-1], math.nan)
         evals = (s or {}).get("decision_evaluation_seconds") or {}
         rows.append({
-            "run_id": d.name, "attempt": d.name.partition(".")[2] or "final", "label": cell.get("label"),
+            "run_id": d.name, "attempt": d.name.partition(".")[2] or "final", "boot_id": (m or {}).get("boot_id"),
+            "label": cell.get("label"),
             "seed": cell.get("seed"), "n": cell.get("nodes"), "valid": not reasons and "." not in d.name,
             "reasons": "; ".join(reasons), "nodes_at_drop": (s or {}).get("nodes_at_drop"),
             "cost_at_drop": (s or {}).get("cost_at_drop"), **metrics,
@@ -138,8 +142,8 @@ def tier_b_runs(runs_root: Path) -> pd.DataFrame:
             "evaluation_s": float(sum(evals.get(t, 0.0) for t in EVALUATED_TYPES)) if s else math.nan,
             "max_memory_mb": (s or {}).get("karpenter_max_memory_mb", math.nan),
         })
-    cols = ["run_id", "attempt", "label", "seed", "n", "valid", "reasons", "nodes_at_drop", "cost_at_drop", *METRICS,
-            "evaluation_s", "max_memory_mb"]
+    cols = ["run_id", "attempt", "boot_id", "label", "seed", "n", "valid", "reasons", "nodes_at_drop", "cost_at_drop",
+            *METRICS, "evaluation_s", "max_memory_mb"]
     return pd.DataFrame(rows, columns=cols)
 
 
@@ -150,6 +154,13 @@ def complete_blocks(b: pd.DataFrame) -> list[tuple[int, int]]:
     return sorted((int(seed), int(n)) for (seed, n), labels in have.items() if set(CONFIGS) <= labels)
 
 
+def one_vm_blocks(b: pd.DataFrame, blocks: Sequence[tuple[int, int]]) -> list[tuple[int, int]]:
+    """The blocks whose valid Tier B runs all share one boot ID."""
+    ok = b[b.valid]
+    boots = ok.groupby(["seed", "n"]).boot_id.nunique(dropna=False)
+    return [blk for blk in blocks if boots.get(blk, 0) == 1]
+
+
 def _material(metric: str, x: float, y: float) -> bool:
     kind, floor = FLOORS[metric]
     if kind == "abs":
@@ -158,12 +169,12 @@ def _material(metric: str, x: float, y: float) -> bool:
     return mid > 0 and abs(x - y) / mid > floor
 
 
-def agreement(means: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+def agreement(means: pd.DataFrame, metrics: Sequence[str] = METRICS) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Per size and metric: tau-b over the configurations, and the material reversals."""
     rows, revs = [], []
     for n, g in means.groupby("n"):
         g = g.set_index("label").reindex(list(CONFIGS))
-        for metric in METRICS:
+        for metric in metrics:
             a, b = g[f"{metric}_a"], g[f"{metric}_b"]
             ok = a.notna() & b.notna()
             tau, p = (stats.kendalltau(a[ok], b[ok]) if ok.sum() >= 3 else (math.nan, math.nan))
@@ -180,7 +191,8 @@ def agreement(means: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
                                          "tier_a_1": a[li], "tier_a_2": a[lj], "tier_b_1": b[li], "tier_b_2": b[lj]})
             rows.append({"n": n, "metric": metric, "configs": int(ok.sum()), "tau_b": tau, "p_value": p,
                          "material_reversals": n_rev if metric in FLOORS else None})
-    return pd.DataFrame(rows), pd.DataFrame(revs, columns=["n", "metric", "config_1", "config_2", "tier_a_1",
+    return pd.DataFrame(rows, columns=["n", "metric", "configs", "tau_b", "p_value", "material_reversals"]), \
+        pd.DataFrame(revs, columns=["n", "metric", "config_1", "config_2", "tier_a_1",
                                                            "tier_a_2", "tier_b_1", "tier_b_2"])
 
 
@@ -208,30 +220,38 @@ def main(runs_root: Path, out_root: Path) -> None:
         return
     a = tier_a_runs(Path(runs_root))
     blocks = complete_blocks(b)
-    keep = pd.MultiIndex.from_tuples(blocks, names=["seed", "n"]) if blocks else None
+    one_vm = one_vm_blocks(b, blocks)
     common.write_table(b.sort_values(["n", "seed", "label", "run_id"]), Path(out_root), "tierb_runs")
 
-    def block_means(df: pd.DataFrame, cols: Sequence[str]) -> pd.DataFrame:
-        if keep is None:
+    def block_means(df: pd.DataFrame, cols: Sequence[str], use: Sequence[tuple[int, int]]) -> pd.DataFrame:
+        if not use:
             return pd.DataFrame(columns=["n", "label", *cols])
-        sel = df[df.set_index(["seed", "n"]).index.isin(keep)]
+        sel = df[df.set_index(["seed", "n"]).index.isin(pd.MultiIndex.from_tuples(use, names=["seed", "n"]))]
         return sel.groupby(["n", "label"], as_index=False)[list(cols)].mean()
 
-    ma = block_means(a[a.valid], METRICS).rename(columns={m: f"{m}_a" for m in METRICS})
-    mb = block_means(b[b.valid], [*METRICS, "evaluation_s", "max_memory_mb", "nodes_at_drop", "cost_at_drop"]).rename(
-        columns={m: f"{m}_b" for m in METRICS})
-    means = ma.merge(mb, on=["n", "label"], how="outer")
-    means["label"] = pd.Categorical(means["label"], categories=list(CONFIGS), ordered=True)
-    means = means.sort_values(["n", "label"]).reset_index(drop=True)
-    means["label"] = means["label"].astype(str)
+    def both_tiers(use: Sequence[tuple[int, int]], metrics: Sequence[str], extra: Sequence[str]) -> pd.DataFrame:
+        ma = block_means(a[a.valid], metrics, use).rename(columns={m: f"{m}_a" for m in metrics})
+        mb = block_means(b[b.valid], [*metrics, *extra], use).rename(columns={m: f"{m}_b" for m in metrics})
+        out = ma.merge(mb, on=["n", "label"], how="outer")
+        out["label"] = pd.Categorical(out["label"], categories=list(CONFIGS), ordered=True)
+        out = out.sort_values(["n", "label"]).reset_index(drop=True)
+        out["label"] = out["label"].astype(str)
+        return out
+
+    means = both_tiers(blocks, METRICS, ["evaluation_s", "max_memory_mb", "nodes_at_drop", "cost_at_drop"])
     agree, revs = agreement(means)
     pairs = pair_table(means)
+    compute_one_vm, _ = agreement(both_tiers(one_vm, ["compute"], []), ["compute"])
+    compute_one_vm["blocks"] = [sum(1 for _, bn in one_vm if bn == n) for n in compute_one_vm.n]
     common.write_table(means, Path(out_root), "tierb_means")
     common.write_table(agree, Path(out_root), "tierb_agreement")
     common.write_table(revs, Path(out_root), "tierb_reversals")
     common.write_table(pairs, Path(out_root), "tierb_pairs")
+    common.write_table(compute_one_vm, Path(out_root), "tierb_compute_one_vm")
     common.write_json({
         "blocks": [{"seed": s, "n": n} for s, n in blocks],
+        "mixed_vm_blocks": [{"seed": s, "n": n} for s, n in blocks if (s, n) not in one_vm],
+        "compute_one_vm": compute_one_vm,
         "runs": {"total": int(len(b)), "valid": int(b.valid.sum()), "set_aside": int((b.attempt != "final").sum())},
         "agreement": agree, "material_reversals": int(len(revs)), "pairs": pairs,
     }, Path(out_root), "tier_b")

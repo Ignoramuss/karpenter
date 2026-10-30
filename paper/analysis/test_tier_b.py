@@ -39,11 +39,11 @@ def _tier_a(root: Path, label: str, seed: int, n: int, cost: float, ev: int, cpu
 
 
 def _tier_b(root: Path, label: str, seed: int, n: int, cost: float, ev: int, cpu: float, valid: bool = True,
-            suffix: str = "") -> None:
+            suffix: str = "", boot: str = "vm-1") -> None:
     d = root / "tierb-kwok" / f"tierb-kwok__arm-{label.replace('/', '-')}_nodes-{n}_seed-{seed}{suffix}"
     d.mkdir(parents=True)
     (d / "cell.json").write_text(json.dumps({"label": label, "seed": seed, "nodes": n}))
-    (d / "manifest.json").write_text(json.dumps({"test_exit_status": 0}))
+    (d / "manifest.json").write_text(json.dumps({"test_exit_status": 0, "boot_id": boot}))
     (d / "summary.json").write_text(json.dumps({
         "valid": valid, "pending_at_drop": 0 if valid else 3, "evictions_before_drop": 0, "karpenter_restarted": False,
         "method_ok": True, "metrics_sample_count": 60, "nodes_at_drop": 10, "cost_at_drop": 20.0,
@@ -95,6 +95,28 @@ def test_agreement_reversal_and_blocks() -> None:
         row = pairs.query("pair == 'B4 vs B2' and metric == 'cost_end'").iloc[0]
         # Tier A: B4 $12/hr vs B2 $10/hr; Tier B: B4 $11/hr vs B2 $10/hr
         assert math.isclose(row.tier_a_pct, 20.0) and math.isclose(row.tier_b_pct, 10.0) and row.same_sign
+
+
+def test_compute_on_one_vm() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        for i, label in enumerate(tier_b.CONFIGS):
+            for seed in (101, 102):
+                _tier_a(root, label, seed, 50, cost=10.0 + i, ev=10, cpu=1.0 + i)
+                # seed 102 moves to a second VM halfway, and its compute order there is reversed
+                boot = "vm-2" if seed == 102 and i >= 3 else "vm-1"
+                cpu = 2.0 + i if seed == 101 else 100.0 - 10 * i
+                _tier_b(root, label, seed, 50, cost=10.0 + i, ev=10, cpu=cpu, boot=boot)
+        # a set-aside attempt on yet another VM does not make a block mixed
+        _tier_b(root, "B2", 101, 50, cost=99.0, ev=1, cpu=1.0, suffix=".interrupted-1", boot="vm-0")
+        out = root / "out"
+        tier_b.main(root, out)
+        doc = json.loads((out / "tables" / "tier_b.json").read_text())
+        assert doc["mixed_vm_blocks"] == [{"seed": 102, "n": 50}], doc["mixed_vm_blocks"]
+        one = pd.read_csv(out / "tables" / "tierb_compute_one_vm.csv").set_index("n")
+        assert one.at[50, "blocks"] == 1 and math.isclose(one.at[50, "tau_b"], 1.0), one
+        runs = pd.read_csv(out / "tables" / "tierb_runs.csv")
+        assert set(runs.boot_id) == {"vm-0", "vm-1", "vm-2"}
 
 
 def test_nothing_without_tier_b() -> None:
