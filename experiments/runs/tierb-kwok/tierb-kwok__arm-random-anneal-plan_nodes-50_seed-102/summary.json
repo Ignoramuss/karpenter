@@ -1,0 +1,44 @@
+{
+  "cost_at_drop": 16.787399999999998,
+  "decision_evaluation_seconds": {
+    "": 4.177540524999998,
+    "empty": 76.50104988100003,
+    "pipeline": 240.75665303300002
+  },
+  "decision_evaluations": {
+    "": 554,
+    "empty": 188,
+    "pipeline": 183
+  },
+  "decisions_by_consolidation": {
+    "empty": 5,
+    "pipeline": 3
+  },
+  "drop_at": "2026-10-30T01:56:00.110505148Z",
+  "evictions": 186,
+  "evictions_before_drop": 0,
+  "finished_at": "2026-10-30T02:26:00.105703213Z",
+  "gate": true,
+  "karpenter_avg_cpu_cores": 0.031609980000262605,
+  "karpenter_cpu_core_seconds": 56.89781221134016,
+  "karpenter_max_cpu_cores": 0.43593990359177825,
+  "karpenter_max_heap_mb": 30.919342041015625,
+  "karpenter_max_memory_mb": 125.5703125,
+  "karpenter_p95_cpu_cores": 0.06420181214471628,
+  "karpenter_p95_memory_mb": 116.83984375,
+  "karpenter_pod": "karpenter-5579b746-sp8b8",
+  "karpenter_restarted": false,
+  "label": "random/anneal-plan",
+  "method_ok": true,
+  "metrics_sample_count": 360,
+  "nodes_at_drop": 11,
+  "pending_at_drop": 0,
+  "policy": "WhenEmptyOrUnderutilized",
+  "run_id": "tierb-kwok__arm-random-anneal-plan_nodes-50_seed-102",
+  "scenario_nodes": 50,
+  "seed": 102,
+  "started_at": "2026-10-30T01:51:00.101631404Z",
+  "valid": true,
+  "warmup": "5m",
+  "window": "30m"
+}
