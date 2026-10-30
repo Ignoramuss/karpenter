@@ -1,0 +1,5 @@
+# Tier B machine log: one line per VM boot the Tier B driver ran on, written when the driver starts on a new boot
+# (experiments/tierb/env/run-driver.sh): the time, the kernel boot ID (each cell's manifest records it as boot_id),
+# the boot time, and the CPU as lscpu names it. The first boot's CPU was not recorded; the line is reconstructed from
+# the cells' manifests. The CPU strings are lscpu's generic model names and do not identify the microarchitecture.
+2026-10-29T11:11:28Z boot_id=51dc11d6-d0f9-49f8-abe6-261d5e7514ab btime=unknown cpu=unknown nproc=4 (reconstructed: cells 1-32 and the interrupted first attempt of cell 33)

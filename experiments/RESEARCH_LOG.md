@@ -764,3 +764,20 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   (seeds 101 and 102, both sizes) and no missing metric in any finished cell. The running cell, which has no
   summary yet, was counted as invalid, as expected. Only block counts and missing values were printed: no ranking,
   mean or agreement statistic was looked at, and nothing in the protocol or the analysis changed.
+- **Container restart during Tier B (Oct 30, about 07:01 UTC; 32 of 70 cells done).** The container restarted
+  during cell 33 (B3, n = 200, seed 103; started 06:43). Docker and the driver stopped. Cells 1-32 had all finished
+  and were valid; the 32nd finished at 06:43 and is committed. After the restart:
+  - `dockerd` was started by hand, and the kind node came back on its own, with the interrupted cell's NodePool,
+    NodeClaims and 825 pods still in place. They were deleted by hand, and the cluster was left with only its
+    control-plane node before the driver resumed. The suite's own pre-suite cleanup does the same deletion but
+    does not wait for leftover nodes to go, and a leftover node would take the next cell's pods.
+  - The driver resumes per protocol: it sets cell 33's first attempt aside as interrupted and reruns it, without
+    counting an attempt. The downtime counts toward the 36-hour stopping rule.
+  - **The VM changed.** The new boot's CPU is "Intel(R) Xeon(R) Processor @ 2.10GHz". The first Tier B boot's
+    (`51dc11d6`) was not recorded. From now on `experiments/tierb/env/run-driver.sh` writes one line per boot to
+    `experiments/tierb/machine-log.txt`, and every cell's manifest already carries its `boot_id`.
+  - **A sensitivity check, decided now, before any ranking or mean is looked at.** Controller CPU depends on the
+    machine, and the block (seed 103, n = 200) now mixes two VMs: four cells on the first, three on the second.
+    The analysis will add each run's `boot_id` and report the compute agreement twice: on all complete blocks, and
+    on the blocks whose seven cells ran on one VM. The other metrics do not depend on machine speed in the
+    simulator. In Tier B, they could depend on it only through timing, and they are reported on all blocks.
