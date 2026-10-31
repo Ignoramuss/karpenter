@@ -45,6 +45,10 @@ echo "== cluster"
 kind delete cluster --name "$KIND_CLUSTER_NAME" >/dev/null 2>&1 || true
 # The config mounts a repository path relative to the working directory, so this runs from the repository root.
 kind create cluster --name "$KIND_CLUSTER_NAME" --image "$KIND_NODE_IMAGE" --config "$ENV_DIR/kind-cluster.yaml"
+# kind's add-ons must be running before the taint: its local-path provisioner does not tolerate CriticalAddonsOnly,
+# and a pending add-on pod fails the suite's clean-cluster check before every spec.
+kubectl -n local-path-storage rollout status deploy/local-path-provisioner --timeout=300s
+kubectl -n kube-system rollout status deploy/coredns --timeout=300s
 kubectl taint nodes "$KIND_CLUSTER_NAME-control-plane" CriticalAddonsOnly:NoSchedule
 
 echo "== KWOK"
