@@ -1,0 +1,424 @@
+{
+  "agreement": [
+    {
+      "configs": 7,
+      "material_reversals": 5.0,
+      "metric": "cost_end",
+      "n": 50,
+      "p_value": 0.5434238636256694,
+      "tau_b": 0.19518001458970663
+    },
+    {
+      "configs": 7,
+      "material_reversals": 4.0,
+      "metric": "cost_end_rel",
+      "n": 50,
+      "p_value": 0.5434238636256694,
+      "tau_b": 0.19518001458970663
+    },
+    {
+      "configs": 7,
+      "material_reversals": 5.0,
+      "metric": "cost_window",
+      "n": 50,
+      "p_value": 0.3620501922003584,
+      "tau_b": 0.29277002188455997
+    },
+    {
+      "configs": 7,
+      "material_reversals": null,
+      "metric": "nodes_end",
+      "n": 50,
+      "p_value": 0.039361078359763574,
+      "tau_b": 0.6851601597031489
+    },
+    {
+      "configs": 7,
+      "material_reversals": 0.0,
+      "metric": "evictions",
+      "n": 50,
+      "p_value": 0.12873504895794796,
+      "tau_b": 0.48795003647426666
+    },
+    {
+      "configs": 7,
+      "material_reversals": 1.0,
+      "metric": "settle_min",
+      "n": 50,
+      "p_value": 0.12873504895794796,
+      "tau_b": 0.48795003647426666
+    },
+    {
+      "configs": 7,
+      "material_reversals": 0.0,
+      "metric": "compute",
+      "n": 50,
+      "p_value": 0.3813492063492063,
+      "tau_b": 0.33333333333333337
+    },
+    {
+      "configs": 7,
+      "material_reversals": 3.0,
+      "metric": "cost_end",
+      "n": 200,
+      "p_value": 0.3813492063492063,
+      "tau_b": 0.33333333333333337
+    },
+    {
+      "configs": 7,
+      "material_reversals": 3.0,
+      "metric": "cost_end_rel",
+      "n": 200,
+      "p_value": 0.3813492063492063,
+      "tau_b": 0.33333333333333337
+    },
+    {
+      "configs": 7,
+      "material_reversals": 0.0,
+      "metric": "cost_window",
+      "n": 200,
+      "p_value": 0.06904761904761905,
+      "tau_b": 0.6190476190476191
+    },
+    {
+      "configs": 7,
+      "material_reversals": null,
+      "metric": "nodes_end",
+      "n": 200,
+      "p_value": 0.634448388730479,
+      "tau_b": 0.15811388300841897
+    },
+    {
+      "configs": 7,
+      "material_reversals": 0.0,
+      "metric": "evictions",
+      "n": 200,
+      "p_value": 0.010714285714285714,
+      "tau_b": 0.8095238095238096
+    },
+    {
+      "configs": 7,
+      "material_reversals": 0.0,
+      "metric": "settle_min",
+      "n": 200,
+      "p_value": 0.12873504895794796,
+      "tau_b": 0.48795003647426666
+    },
+    {
+      "configs": 7,
+      "material_reversals": 0.0,
+      "metric": "compute",
+      "n": 200,
+      "p_value": 0.1361111111111111,
+      "tau_b": 0.5238095238095238
+    }
+  ],
+  "blocks": [
+    {
+      "n": 50,
+      "seed": 101
+    },
+    {
+      "n": 200,
+      "seed": 101
+    },
+    {
+      "n": 50,
+      "seed": 102
+    },
+    {
+      "n": 200,
+      "seed": 102
+    },
+    {
+      "n": 50,
+      "seed": 103
+    },
+    {
+      "n": 200,
+      "seed": 103
+    },
+    {
+      "n": 50,
+      "seed": 104
+    },
+    {
+      "n": 200,
+      "seed": 104
+    },
+    {
+      "n": 50,
+      "seed": 105
+    },
+    {
+      "n": 200,
+      "seed": 105
+    }
+  ],
+  "compute_one_vm": [
+    {
+      "blocks": 5,
+      "configs": 7,
+      "material_reversals": 0,
+      "metric": "compute",
+      "n": 50,
+      "p_value": 0.3813492063492063,
+      "tau_b": 0.33333333333333337
+    },
+    {
+      "blocks": 3,
+      "configs": 7,
+      "material_reversals": 0,
+      "metric": "compute",
+      "n": 200,
+      "p_value": 0.03015873015873016,
+      "tau_b": 0.7142857142857143
+    }
+  ],
+  "exploratory": {
+    "reversals_resolved_in_both_tiers": 0,
+    "reversals_resolved_in_tier_b": 1
+  },
+  "material_reversals": 21,
+  "mixed_vm_blocks": [
+    {
+      "n": 200,
+      "seed": 103
+    },
+    {
+      "n": 200,
+      "seed": 105
+    }
+  ],
+  "pairs": [
+    {
+      "metric": "cost_end",
+      "n": 50,
+      "pair": "random/entropy-greedy vs heuristic/entropy-greedy",
+      "same_sign": true,
+      "tier_a_pct": 9.61096900771623,
+      "tier_b_pct": 0.8679498920360018
+    },
+    {
+      "metric": "cost_end_rel",
+      "n": 50,
+      "pair": "random/entropy-greedy vs heuristic/entropy-greedy",
+      "same_sign": true,
+      "tier_a_pct": 9.273257207899622,
+      "tier_b_pct": 3.082787187845226
+    },
+    {
+      "metric": "cost_window",
+      "n": 50,
+      "pair": "random/entropy-greedy vs heuristic/entropy-greedy",
+      "same_sign": true,
+      "tier_a_pct": 17.569693695302234,
+      "tier_b_pct": 18.72549248544999
+    },
+    {
+      "metric": "nodes_end",
+      "n": 50,
+      "pair": "random/entropy-greedy vs heuristic/entropy-greedy",
+      "same_sign": true,
+      "tier_a_pct": 28.000000000000004,
+      "tier_b_pct": 23.076923076923084
+    },
+    {
+      "metric": "evictions",
+      "n": 50,
+      "pair": "random/entropy-greedy vs heuristic/entropy-greedy",
+      "same_sign": true,
+      "tier_a_pct": 38.61066235864297,
+      "tier_b_pct": 48.38235294117648
+    },
+    {
+      "metric": "settle_min",
+      "n": 50,
+      "pair": "random/entropy-greedy vs heuristic/entropy-greedy",
+      "same_sign": true,
+      "tier_a_pct": 61.53846153846154,
+      "tier_b_pct": 132.6530612244898
+    },
+    {
+      "metric": "compute",
+      "n": 50,
+      "pair": "random/entropy-greedy vs heuristic/entropy-greedy",
+      "same_sign": true,
+      "tier_a_pct": 46.59384364101713,
+      "tier_b_pct": 9.36749704901072
+    },
+    {
+      "metric": "cost_end",
+      "n": 50,
+      "pair": "B4 vs B2",
+      "same_sign": false,
+      "tier_a_pct": 0.0,
+      "tier_b_pct": 1.705973487359036
+    },
+    {
+      "metric": "cost_end_rel",
+      "n": 50,
+      "pair": "B4 vs B2",
+      "same_sign": false,
+      "tier_a_pct": 0.0,
+      "tier_b_pct": -0.05051404850650032
+    },
+    {
+      "metric": "cost_window",
+      "n": 50,
+      "pair": "B4 vs B2",
+      "same_sign": false,
+      "tier_a_pct": 0.0,
+      "tier_b_pct": -7.5937371498935535
+    },
+    {
+      "metric": "nodes_end",
+      "n": 50,
+      "pair": "B4 vs B2",
+      "same_sign": false,
+      "tier_a_pct": 0.0,
+      "tier_b_pct": -6.896551724137923
+    },
+    {
+      "metric": "evictions",
+      "n": 50,
+      "pair": "B4 vs B2",
+      "same_sign": false,
+      "tier_a_pct": 0.0,
+      "tier_b_pct": -27.568667344862664
+    },
+    {
+      "metric": "settle_min",
+      "n": 50,
+      "pair": "B4 vs B2",
+      "same_sign": false,
+      "tier_a_pct": 0.0,
+      "tier_b_pct": -40.0
+    },
+    {
+      "metric": "compute",
+      "n": 50,
+      "pair": "B4 vs B2",
+      "same_sign": true,
+      "tier_a_pct": 3.797425885425909,
+      "tier_b_pct": 2.3663815291015577
+    },
+    {
+      "metric": "cost_end",
+      "n": 200,
+      "pair": "random/entropy-greedy vs heuristic/entropy-greedy",
+      "same_sign": true,
+      "tier_a_pct": 19.347465471575354,
+      "tier_b_pct": 10.649801858337526
+    },
+    {
+      "metric": "cost_end_rel",
+      "n": 200,
+      "pair": "random/entropy-greedy vs heuristic/entropy-greedy",
+      "same_sign": true,
+      "tier_a_pct": 19.230701297013788,
+      "tier_b_pct": 10.126608949482453
+    },
+    {
+      "metric": "cost_window",
+      "n": 200,
+      "pair": "random/entropy-greedy vs heuristic/entropy-greedy",
+      "same_sign": true,
+      "tier_a_pct": 28.226626936342146,
+      "tier_b_pct": 23.26733561745673
+    },
+    {
+      "metric": "nodes_end",
+      "n": 200,
+      "pair": "random/entropy-greedy vs heuristic/entropy-greedy",
+      "same_sign": true,
+      "tier_a_pct": 21.34831460674158,
+      "tier_b_pct": 13.043478260869579
+    },
+    {
+      "metric": "evictions",
+      "n": 200,
+      "pair": "random/entropy-greedy vs heuristic/entropy-greedy",
+      "same_sign": true,
+      "tier_a_pct": 3.480641376613236,
+      "tier_b_pct": 23.48254931714717
+    },
+    {
+      "metric": "settle_min",
+      "n": 200,
+      "pair": "random/entropy-greedy vs heuristic/entropy-greedy",
+      "same_sign": true,
+      "tier_a_pct": 10.084033613445364,
+      "tier_b_pct": 55.55555555555556
+    },
+    {
+      "metric": "compute",
+      "n": 200,
+      "pair": "random/entropy-greedy vs heuristic/entropy-greedy",
+      "same_sign": true,
+      "tier_a_pct": 101.07302182077058,
+      "tier_b_pct": 51.549335814492615
+    },
+    {
+      "metric": "cost_end",
+      "n": 200,
+      "pair": "B4 vs B2",
+      "same_sign": false,
+      "tier_a_pct": -0.19084759975551702,
+      "tier_b_pct": 0.27433648631758345
+    },
+    {
+      "metric": "cost_end_rel",
+      "n": 200,
+      "pair": "B4 vs B2",
+      "same_sign": true,
+      "tier_a_pct": -0.19031712814413515,
+      "tier_b_pct": -0.041080977747343095
+    },
+    {
+      "metric": "cost_window",
+      "n": 200,
+      "pair": "B4 vs B2",
+      "same_sign": false,
+      "tier_a_pct": -0.16556888346199727,
+      "tier_b_pct": 1.3708849506480103
+    },
+    {
+      "metric": "nodes_end",
+      "n": 200,
+      "pair": "B4 vs B2",
+      "same_sign": false,
+      "tier_a_pct": 3.296703296703307,
+      "tier_b_pct": -1.0752688172043112
+    },
+    {
+      "metric": "evictions",
+      "n": 200,
+      "pair": "B4 vs B2",
+      "same_sign": true,
+      "tier_a_pct": 2.4793388429752206,
+      "tier_b_pct": 5.506607929515428
+    },
+    {
+      "metric": "settle_min",
+      "n": 200,
+      "pair": "B4 vs B2",
+      "same_sign": true,
+      "tier_a_pct": -0.7575757575757569,
+      "tier_b_pct": -1.3513513513513598
+    },
+    {
+      "metric": "compute",
+      "n": 200,
+      "pair": "B4 vs B2",
+      "same_sign": true,
+      "tier_a_pct": 3.3411830799047415,
+      "tier_b_pct": 3.4111383398762296
+    }
+  ],
+  "runs": {
+    "set_aside": 2,
+    "total": 72,
+    "valid": 70
+  }
+}

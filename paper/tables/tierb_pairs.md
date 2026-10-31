@@ -1,0 +1,30 @@
+| n | pair | metric | tier_a_pct | tier_b_pct | same_sign |
+| ---: | --- | --- | ---: | ---: | --- |
+| 50 | random/entropy-greedy vs heuristic/entropy-greedy | cost_end | 9.611 | 0.8679 | true |
+| 50 | random/entropy-greedy vs heuristic/entropy-greedy | cost_end_rel | 9.273 | 3.083 | true |
+| 50 | random/entropy-greedy vs heuristic/entropy-greedy | cost_window | 17.57 | 18.73 | true |
+| 50 | random/entropy-greedy vs heuristic/entropy-greedy | nodes_end | 28 | 23.08 | true |
+| 50 | random/entropy-greedy vs heuristic/entropy-greedy | evictions | 38.61 | 48.38 | true |
+| 50 | random/entropy-greedy vs heuristic/entropy-greedy | settle_min | 61.54 | 132.7 | true |
+| 50 | random/entropy-greedy vs heuristic/entropy-greedy | compute | 46.59 | 9.367 | true |
+| 50 | B4 vs B2 | cost_end | 0 | 1.706 | false |
+| 50 | B4 vs B2 | cost_end_rel | 0 | -0.05051 | false |
+| 50 | B4 vs B2 | cost_window | 0 | -7.594 | false |
+| 50 | B4 vs B2 | nodes_end | 0 | -6.897 | false |
+| 50 | B4 vs B2 | evictions | 0 | -27.57 | false |
+| 50 | B4 vs B2 | settle_min | 0 | -40 | false |
+| 50 | B4 vs B2 | compute | 3.797 | 2.366 | true |
+| 200 | random/entropy-greedy vs heuristic/entropy-greedy | cost_end | 19.35 | 10.65 | true |
+| 200 | random/entropy-greedy vs heuristic/entropy-greedy | cost_end_rel | 19.23 | 10.13 | true |
+| 200 | random/entropy-greedy vs heuristic/entropy-greedy | cost_window | 28.23 | 23.27 | true |
+| 200 | random/entropy-greedy vs heuristic/entropy-greedy | nodes_end | 21.35 | 13.04 | true |
+| 200 | random/entropy-greedy vs heuristic/entropy-greedy | evictions | 3.481 | 23.48 | true |
+| 200 | random/entropy-greedy vs heuristic/entropy-greedy | settle_min | 10.08 | 55.56 | true |
+| 200 | random/entropy-greedy vs heuristic/entropy-greedy | compute | 101.1 | 51.55 | true |
+| 200 | B4 vs B2 | cost_end | -0.1908 | 0.2743 | false |
+| 200 | B4 vs B2 | cost_end_rel | -0.1903 | -0.04108 | true |
+| 200 | B4 vs B2 | cost_window | -0.1656 | 1.371 | false |
+| 200 | B4 vs B2 | nodes_end | 3.297 | -1.075 | false |
+| 200 | B4 vs B2 | evictions | 2.479 | 5.507 | true |
+| 200 | B4 vs B2 | settle_min | -0.7576 | -1.351 | true |
+| 200 | B4 vs B2 | compute | 3.341 | 3.411 | true |

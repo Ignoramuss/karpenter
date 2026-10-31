@@ -1,0 +1,3 @@
+n,metric,configs,tau_b,p_value,material_reversals,blocks
+50,compute,7,0.333333,0.381349,0,5
+200,compute,7,0.714286,0.0301587,0,3
