@@ -18,20 +18,21 @@ differential test checks that on 10,000 generated cluster states.
 Every 10 seconds the disruption controller runs its methods in order: emptiness, static drift, drift, multi-node
 consolidation, single-node consolidation (plus node repair when that gate is on). The first method that returns
 commands wins, and its commands go to the orchestration queue, which taints the nodes, launches any replacements,
-waits for them to be ready, drains the nodes and deletes them.
+waits for them to be initialized and deletes the NodeClaims; the node termination controller then drains each node
+through the Eviction API and terminates it.
 
 Both consolidation methods start from the same **candidates**: nodes that have been consolidatable for
 `consolidateAfter`, carry no `karpenter.sh/do-not-disrupt` pod, whose pods' PodDisruptionBudgets allow eviction,
-and whose NodePool's disruption budget has room. Candidates are sorted by how cheap they are to disrupt (their
-pods' eviction cost relative to the savings from removing them).
+and whose NodePool's disruption budget has room. Candidates are sorted by savings ratio: the node's price over the
+eviction cost of its pods, highest first.
 
 - **Multi-node consolidation** binary-searches over how many of the cheapest-to-disrupt candidates can go at once:
   take the first k, simulate scheduling their pods onto the remaining nodes plus at most one new node, and accept
   if the result is valid and cheaper; grow or shrink k accordingly. The search window is up to 101 nodes and the
   whole search stops after 1 minute of wall-clock time.
 - **Single-node consolidation** walks the candidates one at a time (interleaving NodePools), simulates each one's
-  removal or replacement, and stops at the first acceptable command. It has a 3-minute limit and remembers where
-  it stopped so the next pass resumes there.
+  removal or replacement, and stops at the first acceptable command. It has a 3-minute limit and records which
+  NodePools it did not reach so the next pass starts with them.
 - **Acceptance** depends on the NodePool's `consolidationPolicy`. `WhenEmptyOrUnderutilized` accepts any command
   that reduces cost (subject to the price filters and the spot-to-spot rules). `Balanced` scores a command by its
   savings fraction over its disruption fraction and accepts it at or above 1/k with k = 2.

@@ -21,7 +21,9 @@ evictions; and upstream's Balanced policy was the strongest savings-versus-disru
 findings stand: a plain load-entropy signal does predict node removals (10 of 10 seeds on the diurnal workload);
 about three in four pods the pipeline evicts land somewhere other than planned under default kube-scheduler
 scoring, and steering them is the strongest lever; and scheduling constraints, not the search, set the floor:
-one constrained workload needed 5.7 times the nodes of its unconstrained twin at peak. The pipeline's lasting value
+one constrained workload needed 3.4 times the nodes of its unconstrained twin at peak demand and 2.7 times after
+the scale-down, cost 7% more, evicted 42% more pods, and left its plans surviving placement less than half as
+often. The pipeline's lasting value
 is as an instrument: parity-checked stage boundaries, equal-compute comparison, a complete decision log, and one
 code path from simulator to cluster.
 
@@ -83,15 +85,18 @@ the first that returns commands: emptiness (delete nodes with no reschedulable p
 (replace nodes whose NodeClaim no longer matches its NodePool or NodeClass), multi-node consolidation, single-node
 consolidation, and, behind a gate, node repair. A command is one or more nodes to delete plus, optionally, one
 replacement to launch. Commands go to an orchestration queue, which taints the nodes with `karpenter.sh/disrupted`,
-launches the replacement, waits for it to be ready, drains the nodes through the Eviction API (respecting
-PodDisruptionBudgets and termination grace periods), and deletes them.
+launches the replacement, waits for it to be initialized, and then deletes the NodeClaims. The node termination
+controller takes over from there: it drains each node through the Eviction API, respecting PodDisruptionBudgets
+and termination grace periods, and terminates the instance.
 
 **Candidates.** Both consolidation methods begin with the same candidates: nodes whose NodePool allows consolidation
-(`consolidationPolicy` is not `WhenEmpty`), that have been consolidatable for at least `consolidateAfter`, that
-carry no pod annotated `karpenter.sh/do-not-disrupt`, whose pods' PodDisruptionBudgets allow at least one
-eviction, and whose NodePool's disruption budget (`budgets`, by `nodes` count or percentage, optionally by reason
-and schedule) has room. Candidates are sorted by savings ratio, so the nodes whose removal saves the most per unit
-of eviction cost come first.
+(`consolidationPolicy` is not `WhenEmpty`), that have been consolidatable for at least `consolidateAfter` (measured
+from the last pod event on the node), that are not nominated for a pending pod, that carry no pod annotated
+`karpenter.sh/do-not-disrupt`, none of whose pods is covered by a PodDisruptionBudget that currently allows no
+disruption (or by more than one PDB), and whose NodePool's disruption budget (`budgets`, by `nodes` count or
+percentage, optionally by reason and schedule) has room. Candidates are sorted by savings ratio, the node's price
+over the eviction cost of its pods, highest first, so the nodes whose removal saves the most per unit of eviction
+cost come first.
 
 **Multi-node consolidation** asks how many of the first candidates can go at once. It binary-searches over a prefix
 length k: take the k cheapest-to-disrupt candidates, run Karpenter's scheduling simulation to see whether their pods
@@ -100,12 +105,14 @@ The window is at most 101 nodes and the search stops after one minute of wall-cl
 
 **Single-node consolidation** walks the candidates one at a time, interleaving NodePools, simulating each node's
 removal or replacement by a cheaper instance, and stops at the first acceptable command. It is bounded by three
-minutes on Karpenter's injected clock and remembers where it stopped so the next pass resumes there.
+minutes on Karpenter's injected clock, and it records which NodePools it did not reach so that the next pass
+starts with them.
 
 **Acceptance** is the NodePool's `consolidationPolicy`. `WhenEmptyOrUnderutilized` accepts any command that lowers
-cost, after price filters (a replacement must be cheaper than what it replaces) and the spot-to-spot rule (a spot node
-is replaced by another spot node only when at least 15 cheaper instance types are available, so that the
-replacement is not itself the next interruption). `Balanced` (the newer policy)
+cost, after price filters (a replacement must be cheaper than what it replaces; a replacement is never more than one
+node) and, behind its own off-by-default gate, the spot-to-spot rule (a spot node is replaced by another spot node
+only when at least 15 cheaper instance types are available, so that the replacement is not itself the next
+interruption). `Balanced` (the newer policy)
 scores a command as its savings fraction over its disruption fraction, each normalized by the NodePool's totals,
 and accepts it at or above 1/k with k = 2: a move must save at least half as large a share of the NodePool's cost as
 the share of its disruption it spends.
@@ -200,14 +207,16 @@ Each constraint below raises the minimum number of nodes a workload needs, or li
 What each does follows from its definition; the measured example at the end is one run.
 
 - **Pod topology spread with hostname topology.** With `maxSkew: m` over the `kubernetes.io/hostname` key, the
-  number of a Deployment's pods on any node may exceed the smallest count on any node the pod could schedule to by
-  at most m. Any node that holds none of the Deployment's pods sets that minimum to zero, so *no node may hold more
-  than m of them*. During a scale-up every new node is such a node, so a 150-replica Deployment with `maxSkew: 2`
-  spreads over at least 75 nodes, however small its pods. During consolidation the constraint ratchets: as long as
-  any node in the fleet holds none of the Deployment's pods, no node may take a third, so its pods can only move to
-  nodes holding fewer than m of them, and packing stalls at m per node. The floor lifts only once every remaining
-  node holds at least one of its pods, which for a small Deployment on a large fleet never happens. The potential
-  cannot see any of this: it reports a fleet of 75 sparse nodes as having room to pack.
+  number of a Deployment's pods on any node may exceed the smallest count over the nodes the pod could schedule to
+  by at most m. In kube-scheduler that minimum is the true one, so once every node holds at least one of the pods
+  a node may take m more. In Karpenter's own scheduling simulation the minimum for the hostname key is always
+  taken as zero, because Karpenter can always create a new node, so *no node may hold more than m of those pods in
+  any plan Karpenter accepts*. A 150-replica Deployment with `maxSkew: 2` therefore needs at least 75 nodes in
+  Karpenter's eyes, however small its pods, and consolidation can never pack it below that: its pods can only move
+  to nodes holding fewer than m of them. Karpenter's consolidation is stricter than placement here, by design, and
+  the floor it respects is a hard one. The potential cannot see any of this: it reports a fleet of 75 sparse nodes
+  as having room to pack, and the pipeline's fast feasibility check does not look at topology spread at all, so a
+  shift that violates it is caught only by the scheduler after the pods have been evicted.
 - **Pod topology spread with zone topology.** With the zone key, the domains are zones, so the constraint bounds
   the imbalance across zones rather than across nodes. It forces replacements into the right zone and forbids a
   merge whose destinations are all in one zone, but it does not by itself set a floor on node count.
@@ -215,10 +224,11 @@ What each does follows from its definition; the measured example at the end is o
   nodes, and no move may place two on one node. This is the hardest floor there is; it is also the usual way to
   ask for it, so it is common.
 - **PodDisruptionBudgets.** A PDB limits the *rate* of evictions, not the final packing: with `maxUnavailable: 1`
-  a Deployment's pods can still all be moved, one at a time, one per pass. Its effect on consolidation is time and
-  compute: a merge of a node holding pods from several such Deployments must wait for each PDB to allow it, and a
-  node whose PDB allows no eviction is not a candidate at all. With `minAvailable` equal to the replica count, a PDB
-  freezes its pods in place for good.
+  a Deployment's pods can still all be moved, one at a time. Its effect on consolidation is time and wasted work: a
+  drain of a node holding pods from several such Deployments takes one replica of each per round and the Eviction
+  API refuses the rest until a replacement is healthy, and a node holding any pod whose PDB currently allows no
+  disruption, or any pod covered by two PDBs, is not a candidate at all. With `minAvailable` equal to the replica
+  count, a PDB freezes its pods in place for good.
 - **`karpenter.sh/do-not-disrupt`.** A pod with the annotation pins its node: the node is not a candidate while the
   pod runs. One such pod on each of k nodes removes k nodes from consolidation outright.
 - **Node selectors and required node affinity.** These partition the pods: a pod that requires a GPU node, a zone or
@@ -231,29 +241,42 @@ What each does follows from its definition; the measured example at the end is o
 
 The simulator models the hostname forms of spread and anti-affinity, PDBs and `do-not-disrupt` (zone spread is
 implemented but excluded because Karpenter's own domain counting iterates a map, which would make runs
-non-reproducible). One workload, W5, adds them to the diurnal workload: half of its Deployments carry a PDB with
-`maxUnavailable: 1`, 30% a hostname spread with `maxSkew: 2`, 10% of the rest required hostname anti-affinity, and
-5% `do-not-disrupt`. It was cut from the experiment matrix for time (section 5.6), but one run of upstream
-consolidation on it finished, and it can be set beside the unconstrained diurnal run of the same seed (seed 101,
-200 nodes; the two have the same number of Deployments, the same shapes and 1,787 versus 1,790 pods at peak):
+non-reproducible). One workload, W5, adds them to the diurnal workload: each Deployment independently gets a PDB
+with `maxUnavailable: 1` with probability one half, a hostname spread with `maxSkew: 2` with probability 0.3,
+required hostname anti-affinity with probability 0.1 when it has no spread, and `do-not-disrupt` with probability
+0.05. It was cut from the experiment matrix for time (section 5.6), but one run of upstream consolidation on it
+finished, and it can be set beside the unconstrained diurnal run of the same seed (seed 101, 200 nodes; the two
+have the same number of Deployments, the same shapes and 1,787 versus 1,790 pods at peak; in the constrained one,
+21 of the 50 Deployments carry a spread, 1 anti-affinity, 19 a PDB and 5 `do-not-disrupt`):
 
 | Seed 101, 200 nodes, upstream `WhenEmptyOrUnderutilized` | Unconstrained (W2) | Constrained (W5) |
 | --- | --- | --- |
-| Nodes at peak | 45 | 255 |
-| Fleet cost at peak | $70.8/hr | $92.9/hr |
+| Nodes right after provisioning (t = 1 min) | 45 | 255 |
+| Fleet cost right after provisioning | $70.8/hr | $92.9/hr |
+| Nodes at peak demand, consolidated (t = 60 min) | 43 | 145 |
+| Fleet cost at peak demand, consolidated | $66.6/hr | $71.3/hr |
 | Nodes at the end (3 hours) | 20 | 54 |
 | Fleet cost at the end | $27.0/hr | $29.1/hr |
 | Cost integrated after warm-up | $132.0 | $143.6 |
 | Pods evicted | 1,290 | 1,831 |
+| Evictions refused by a PDB | 0 | 8,359 |
+| Share of evicted pods landing on the planned node | 0.40 | 0.17 |
 
-The constrained workload needed 5.7 times the nodes at peak, almost all of them small: its largest spread
-Deployment alone has 150 replicas, hence at least 75 nodes. After the scale-down it still needed 2.7 times the
-nodes and cost 7.6% more per hour, with 42% more evictions to get there. The pods were the same. This is one seed
-and one arm, so it is an illustration rather than an estimate, but it shows the size of the effect: on this
-workload the constraints moved the floor by far more than any consolidation strategy moved the fleet toward it
-(section 6). It also shows what the potential misses. Phi reported the constrained fleet as sparse and improvable
+Provisioning spread the constrained workload over 5.7 times the nodes; consolidation then removed 110 of them in
+twenty-five minutes, which is consolidation working as intended. What it could not remove is the floor: at peak
+demand the constrained fleet settled at 3.4 times the nodes, almost all of them small (its largest spread
+Deployment alone has 150 replicas, hence at least 75 nodes in Karpenter's simulation), and after the scale-down at
+2.7 times. Because Karpenter right-sized those many small nodes, the *cost* penalty was modest, 7% per hour at
+peak demand and 7.6% at the end, while the disruption penalty was not: 42% more evictions, 8,359 refused ones, and
+plans that survived placement less than half as often. The pods were the same. This is one seed and one arm, so it
+is an illustration rather than an estimate, but it sets the scale: the 7% that these constraints cost is larger
+than most of the effects any consolidation strategy produced on the unconstrained workloads (section 6), and the
+threefold node count is where a cluster's operational cost (DaemonSets, per-node agents, IP addresses, API server
+load) lives. It also shows what the potential misses. Phi reported the constrained fleet as sparse and improvable
 throughout, because it does not know that a node holding two pods of a spread Deployment is as full, for that
-Deployment, as it is allowed to be.
+Deployment, as it is allowed to be. (The simulator's own placement model and Karpenter's simulation also disagree
+on the hostname minimum, the former using the true one and the latter zero, which is a reasoned source of the low
+plan fidelity in this run.)
 
 (The simulator paid a separate price for this workload: its disruption passes took 4.5 seconds on average against
 0.1 seconds for the unconstrained twin, because Karpenter's topology code lists pods by label selector and the
@@ -344,9 +367,10 @@ seeds by rules committed before the pilot was inspected (`experiments/PILOT.md`)
 `hack/consolidation-sim` runs Karpenter's real code where it can and models the rest. The disruption controller,
 the consolidation methods, the pipeline, the scheduling simulation, cluster state and the orchestration queue are
 Karpenter's own packages running in-process against an in-memory fake API server. A virtual clock advances by
-events: pod arrivals and departures, a controller pass every 10 seconds, node launch (2 to 5 s) and registration
-(30 to 60 s), pod startup (2 to 10 s) and shutdown (1 to 5 s), each drawn from its range. Instance types and
-on-demand prices are the KWOK catalog's `c7i`, `m7i` and `r7i` families up to 32 vCPU. One NodePool with
+events: pod arrivals and departures, a disruption pass every 10 seconds (emptiness, then consolidation or the
+pipeline; nothing drifts in the simulator, so the drift methods are omitted), node launch (2 to 5 s) and
+registration (30 to 60 s), pod startup (2 to 10 s) and shutdown (1 to 5 s), each drawn from its range. Instance
+types and on-demand prices are the KWOK catalog's `c7i`, `m7i` and `r7i` families up to 32 vCPU. One NodePool with
 `consolidateAfter: 30s` and a 10% node budget. Runs last three simulated hours with a ten-minute warm-up before
 consolidation starts, and record a per-minute time series and every stage decision.
 
@@ -679,8 +703,8 @@ Two reasons stand out. First, the potential is blind to time. A shift lowers Phi
 source is finally emptied, and `consolidateAfter`, validation churn and ReplicaSet scale-downs intervene; the
 experiments show that the deferred saving often never arrives. Second, the potential is blind to constraints. It
 scores a node as improvable by its utilization alone, while hostname spread and anti-affinity can make a sparse
-node as full as it is allowed to be. On the constrained workload, the floor moved by a factor of three while the
-strategies move fleets by a few percent.
+node as full as it is allowed to be. On the constrained workload the node floor moved by a factor of three and the
+cost floor by 7%, while the strategies move fleets by a few percent.
 
 ### 8.3 Where the leverage is
 
