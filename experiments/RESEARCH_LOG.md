@@ -877,9 +877,11 @@ Every decision taken without asking, every fallback, and every blocked host, in 
     (`f5ee205e…`). The smoke was valid, with 12 nodes at the drop, nothing pending and the right methods.
 - **Second claim-check round (Oct 31, 08:05-08:31 UTC).** Three checkers, each followed by a verifier, checked the
   rewritten text. The verifiers confirmed 15 problems, all fixed:
-  - **The suite's cleanup.** It does delete leftover nodes and wait for them (`CleanupObjects` includes
-    `corev1.Node`). The first-restart entry above and the runbook had said otherwise. The manual deletion after
-    each restart was a precaution, and the driver's preflight still does not check for leftovers.
+  - **The suite's cleanup.** It does delete leftover nodes and wait for them. `CleanupBeforeSuite` passes
+    `CleanableObjects`, which includes `corev1.Node`, to `CleanupObjects`, which deletes every object carrying the
+    test discovery label and waits until none remains. The first-restart entry above and the runbook had said
+    otherwise. The manual deletion after each restart was a precaution, and the driver's preflight still does not
+    check for leftovers.
   - **The protocol revisions.** RESULTS had listed only some of what they changed. It now lists the first
     revision's changes to the warmup hold, provisioning, registration delay and seeding.
   - **What the single-VM check covers.** It covers compute's tau-b, not the controller-CPU means.
@@ -892,4 +894,10 @@ Every decision taken without asking, every fallback, and every blocked host, in 
     branch, when helm is installed, the B2/B4 qualifier at n = 200, and why `harness_dirty` is true for the first
     cell.
   - **This log:** the first claim check's commit time.
+- **Third claim-check round (Oct 31, 08:34-08:45 UTC).** One checker and one verifier went over the second round's
+  edits. The verifier confirmed three problems, all fixed:
+  - REPRODUCE's B2/B4 claim now names its seeds: they decide identically on the Tier B seeds, but differ in
+    `tierb-a` seeds 107 and 108 at n = 50.
+  - RESULTS' "conclusions hold" lead-in now matches the parity bullet ("not contradicted").
+  - The identifier in the second round's entry above was corrected (`CleanableObjects`).
 

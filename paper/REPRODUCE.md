@@ -188,7 +188,9 @@ reruns it once. To rerun a valid cell, move its directory aside and pass `--only
 stopping rule in `docs/research/runbook.md`, section 4.
 
 A Tier B rerun does not reproduce its cell byte for byte, because timing on a real API server and kube-scheduler
-varies between runs. B2 and B4 decide identically in the simulator at n = 50, and in 3 of 5 seeds at n = 200. Their
-Tier B difference at n = 50 gives a sense of the size of that variation (`experiments/RESULTS.md`, "Tier B"). The
-Tier A side is deterministic, as above. `make figures` builds the Tier B tables (`paper/analysis/tier_b.py`).
+varies between runs. On the Tier B seeds (101-105), B2 and B4 decide identically in the simulator in all five at
+n = 50 and in three at n = 200. That is not true of every seed: in `tierb-a` they differ at n = 50 in seeds 107 and
+108. Their Tier B difference at n = 50 gives a sense of the size of that variation (`experiments/RESULTS.md`,
+"Tier B"). The Tier A side is deterministic, as above. `make figures` builds the Tier B tables
+(`paper/analysis/tier_b.py`).
 

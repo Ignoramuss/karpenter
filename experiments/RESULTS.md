@@ -502,9 +502,9 @@ At 5 seeds, Tier A does not establish the order among the five either. Its paire
 `cost_end`, `cost_end_rel` and `cost_window`.
 
 Tier B also has run-to-run variation the simulator lacks:
-- **B4 and B2 decide alike in the simulator at n = 50.** Their Tier A `cost_end` difference is zero in every seed at
-  n = 50 (`tierb_paired`). At n = 200 it is zero in three of the five seeds (Tier A runs). In Tier B, B4's `cost_end`
-  differs from B2's by 10.4% in seed 102 at n = 50 (`tierb_runs`).
+- **B4 and B2 decide alike in the simulator on these seeds at n = 50.** Their Tier A `cost_end` difference is zero in
+  every Tier B seed at n = 50 (`tierb_paired`). At n = 200 it is zero in three of the five (Tier A runs). In Tier B,
+  B4's `cost_end` differs from B2's by 10.4% in seed 102 at n = 50 (`tierb_runs`).
 - **The starting fleets differ.** Consolidation is held off until the drop. Even so, the configurations' cost at
   the drop varies within one seed by up to 10% at n = 50 and 4.5% at n = 200 (`tierb_runs`, `cost_at_drop`). The
   smoke cells' logs point to kube-scheduler binding pods in its own order rather than Karpenter's plan, which changes
@@ -600,7 +600,8 @@ cells, all but random/anneal-plan at n = 50. Its fleets stopped changing sooner 
 random/anneal-plan at both sizes (`tierb_means`).
 
 **What it shows.** The check covers one workload (WB) at two sizes, on a real API server, kube-scheduler and
-controller. There, the simulator's coarse conclusions hold:
+controller. There, the simulator's coarse conclusions on generation and evictions hold, and its parity conclusion is
+not contradicted:
 - **Random vs heuristic generation.** At n = 200, random generation ends dearer, integrates more cost and uses more
   compute than heuristic generation with the same planner, and Tier B resolves all three for both planners. At
   n = 50 the means point the same way, but neither tier resolves the `cost_end` difference.
