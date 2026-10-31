@@ -81,13 +81,13 @@ all but what happens after it: where kube-scheduler puts the evicted pods.
 ## 2. Karpenter's disruption and consolidation today
 
 Karpenter's disruption controller runs every 10 seconds. It evaluates a fixed list of *methods* in order and acts on
-the first that returns commands: emptiness (delete nodes with no reschedulable pods), static drift and drift
-(replace nodes whose NodeClaim no longer matches its NodePool or NodeClass), multi-node consolidation, single-node
-consolidation, and, behind a gate, node repair. A command is one or more nodes to delete plus, optionally, one
-replacement to launch. Commands go to an orchestration queue, which taints the nodes with `karpenter.sh/disrupted`,
-launches the replacement, waits for it to be initialized, and then deletes the NodeClaims. The node termination
-controller takes over from there: it drains each node through the Eviction API, respecting PodDisruptionBudgets
-and termination grace periods, and terminates the instance.
+the first that returns commands: node repair first, when its gate is on; then emptiness (delete nodes with no
+reschedulable pods), static drift and drift (replace nodes whose NodeClaim no longer matches its NodePool or
+NodeClass), multi-node consolidation and single-node consolidation. A command is one or more nodes to delete plus,
+optionally, one replacement to launch. Commands go to an orchestration queue, which taints the nodes with
+`karpenter.sh/disrupted`, launches the replacement, waits for it to be initialized, and then deletes the NodeClaims.
+The node termination controller takes over from there: it drains each node through the Eviction API, respecting
+PodDisruptionBudgets and termination grace periods, and terminates the instance.
 
 **Candidates.** Both consolidation methods begin with the same candidates: nodes whose NodePool allows consolidation
 (`consolidationPolicy` is not `WhenEmpty`), that have been consolidatable for at least `consolidateAfter` (measured
@@ -99,9 +99,9 @@ over the eviction cost of its pods, highest first, so the nodes whose removal sa
 cost come first.
 
 **Multi-node consolidation** asks how many of the first candidates can go at once. It binary-searches over a prefix
-length k: take the k cheapest-to-disrupt candidates, run Karpenter's scheduling simulation to see whether their pods
-fit onto the remaining nodes plus at most one new node, and accept the prefix if the result is valid and cheaper.
-The window is at most 101 nodes and the search stops after one minute of wall-clock time.
+length k: take the first k candidates in savings-ratio order, run Karpenter's scheduling simulation to see whether
+their pods fit onto the remaining nodes plus at most one new node, and accept the prefix if the result is valid and
+cheaper. The window is at most 101 nodes and the search stops after one minute of wall-clock time.
 
 **Single-node consolidation** walks the candidates one at a time, interleaving NodePools, simulating each node's
 removal or replacement by a cheaper instance, and stops at the first acceptable command. It is bounded by three
@@ -122,10 +122,11 @@ landed on a candidate in the meantime, or the replacement no longer fits, the co
 
 Three properties of this design matter for what follows. First, every move removes a node; there is no way to say
 "move these three pods off node A" unless A is being deleted. After a ReplicaSet scale-down, which spreads its
-deletions across nodes, every node is partly full and no single removal clears a Balanced threshold, yet a few pod
-moves would. Second, the search is bounded by time, so its decisions can depend on the machine, and two search
-strategies cannot be compared at equal work. Third, the search order (savings ratio, prefix binary search) is a
-heuristic, and nothing in the controller records what it considered and rejected.
+deletions across nodes, every node is partly full and a single removal may fail a Balanced threshold; whether a few
+pod moves would do better is the question H3 asks (section 6.3 answers no under the settings tested). Second, the
+search is bounded by time, so its decisions can depend on the machine, and two search strategies cannot be compared at
+equal work. Third, the search order (savings ratio, prefix binary search) is a heuristic, and nothing in the
+controller records what it considered and rejected.
 
 ## 3. First principles: what consolidation is, and what fights it
 
@@ -164,13 +165,14 @@ its hourly price, so that a half-empty expensive node counts more than a half-em
 right-sizing, since replacing a half-full 4-unit node by a full 2-unit one leaves every share unchanged) and a
 quadratic u(1 - u) that is cheaper to compute.
 
-The reason to prefer a concave h is a theorem, not a preference. For a fixed total load L_tot spread over n nodes
-of capacities c_i, the feasible loads form the polytope {0 <= L_i <= c_i, sum L_i = L_tot}. A concave function
-over a polytope attains its minimum at a vertex, and a vertex of this polytope has every node empty or full except
-at most one. So *minimizing Phi drives the fleet to exactly the packed-or-empty shape that costs least*, and the
-drop in Phi from a move measures progress toward it, whether or not the move removes a node. Discrete pods, several
-resource dimensions and scheduling constraints turn this smooth landscape into one with local minima, which is why
-a search can get stuck and why annealing was among the hypotheses.
+The reason to prefer a concave h is a theorem, not a preference. For a fixed total load L_tot spread over n nodes of
+capacities c_i, the feasible loads form the polytope {0 <= L_i <= c_i, sum L_i = L_tot}. A concave function over a
+polytope attains its minimum at a vertex, and a vertex of this polytope has every node empty or full except at most
+one. So *minimizing Phi drives the fleet toward the packed-or-empty shape*, and the drop in Phi from a move measures
+progress toward it, whether or not the move removes a node. Which of those fleets costs least is decided by the
+savings term, since Phi is zero for every full or empty node whatever its price. Discrete pods, several resource
+dimensions and scheduling constraints turn this smooth landscape into one with local minima, which is why a search can
+get stuck and why annealing was among the hypotheses.
 
 Two traps follow from the definition. Phi is zero for an empty node, so removing an empty node does not change it;
 the saving from removal is a separate term. And the potential must be over nodes, not over a histogram of
@@ -196,7 +198,8 @@ they matter because a consolidator's job is to undo them at least as fast as the
    when planned is wrong a minute later, and validation rejects it.
 4. **Pod shape.** CPU-heavy and memory-heavy pods on the same fleet strand resources: a node full on CPU and empty
    on memory cannot take a memory-heavy pod. A single-resource potential cannot see this, which is why the
-   dominant-share form is used and a stranding term exists.
+   dominant-share form is used, and why the potential has an optional stranding term (a weight times
+   |u_cpu - u_mem| per node, off by default and not used in these experiments).
 5. **Scheduling constraints.** These are different in kind from the first four. They do not drift the fleet away
    from packed-or-empty; they *move the floor*. A fleet can be at its constrained optimum and still look, by Phi,
    like it has room to consolidate. Section 3.4 takes them one at a time.
@@ -240,14 +243,17 @@ What each does follows from its definition; the measured example at the end is o
   node with another such pod, which is a floor of its own.
 
 The simulator models the hostname forms of spread and anti-affinity, PDBs and `do-not-disrupt` (zone spread is
-implemented but excluded because Karpenter's own domain counting iterates a map, which would make runs
-non-reproducible). One workload, W5, adds them to the diurnal workload: each Deployment independently gets a PDB
-with `maxUnavailable: 1` with probability one half, a hostname spread with `maxSkew: 2` with probability 0.3,
-required hostname anti-affinity with probability 0.1 when it has no spread, and `do-not-disrupt` with probability
-0.05. It was cut from the experiment matrix for time (section 5.6), but one run of upstream consolidation on it
-finished, and it can be set beside the unconstrained diurnal run of the same seed (seed 101, 200 nodes; the two
-have the same number of Deployments, the same shapes and 1,787 versus 1,790 pods at peak; in the constrained one,
-21 of the 50 Deployments carry a spread, 1 anti-affinity, 19 a PDB and 5 `do-not-disrupt`):
+implemented but excluded because, when zones tie for the fewest pods, Karpenter's scheduler pins a new NodeClaim to
+whichever zone it meets first while ranging over a map, which would make runs non-reproducible). One workload, W5 (the
+constrained workload of section 5.2), adds them to the diurnal workload W2: each Deployment independently gets a PDB
+with `maxUnavailable: 1` with probability one half, a hostname spread with `maxSkew: 2` with probability 0.3, required
+hostname anti-affinity with probability 0.1 when it has no spread, and `do-not-disrupt` with probability 0.05. It was
+cut from the experiment matrix for time (section 5.6), but one run of upstream consolidation on it finished, and it
+can be set beside the unconstrained diurnal run of the same seed (seed 101, 200 nodes). The two have the same number
+of Deployments drawn from the same shape catalog and nearly the same aggregate demand, 1,790 (W2) versus 1,787 (W5)
+pods and 1,266 versus 1,264 vCPU at peak, but only the first Deployment is identical: the constrained generator draws
+extra random numbers per Deployment, so individual shapes and replica counts differ. In the constrained one, 21 of the
+50 Deployments carry a spread, 1 anti-affinity, 19 a PDB and 5 `do-not-disrupt`:
 
 | Seed 101, 200 nodes, upstream `WhenEmptyOrUnderutilized` | Unconstrained (W2) | Constrained (W5) |
 | --- | --- | --- |
@@ -260,23 +266,25 @@ have the same number of Deployments, the same shapes and 1,787 versus 1,790 pods
 | Cost integrated after warm-up | $132.0 | $143.6 |
 | Pods evicted | 1,290 | 1,831 |
 | Evictions refused by a PDB | 0 | 8,359 |
-| Share of evicted pods landing on the planned node | 0.40 | 0.17 |
+| Plan fidelity (share of evicted pods landing on the node the plan chose) | 0.40 | 0.17 |
 
 Provisioning spread the constrained workload over 5.7 times the nodes; consolidation then removed 110 of them in
-twenty-five minutes, which is consolidation working as intended. What it could not remove is the floor: at peak
-demand the constrained fleet settled at 3.4 times the nodes, almost all of them small (its largest spread
-Deployment alone has 150 replicas, hence at least 75 nodes in Karpenter's simulation), and after the scale-down at
-2.7 times. Because Karpenter right-sized those many small nodes, the *cost* penalty was modest, 7% per hour at
-peak demand and 7.6% at the end, while the disruption penalty was not: 42% more evictions, 8,359 refused ones, and
-plans that survived placement less than half as often. The pods were the same. This is one seed and one arm, so it
-is an illustration rather than an estimate, but it sets the scale: the 7% that these constraints cost is larger
-than most of the effects any consolidation strategy produced on the unconstrained workloads (section 6), and the
-threefold node count is where a cluster's operational cost (DaemonSets, per-node agents, IP addresses, API server
-load) lives. It also shows what the potential misses. Phi reported the constrained fleet as sparse and improvable
-throughout, because it does not know that a node holding two pods of a spread Deployment is as full, for that
-Deployment, as it is allowed to be. (The simulator's own placement model and Karpenter's simulation also disagree
-on the hostname minimum, the former using the true one and the latter zero, which is a reasoned source of the low
-plan fidelity in this run.)
+twenty-five minutes, which is consolidation working as intended. What it could not remove is the floor: at peak demand
+the constrained fleet settled at 3.4 times the nodes, almost all of them small (its largest spread Deployment alone
+has 150 replicas, hence at least 75 nodes in Karpenter's simulation), and after the scale-down at 2.7 times. Because
+Karpenter right-sized those many small nodes, the *cost* penalty was modest, 7% per hour at peak demand and 7.6% at
+the end, while the disruption penalty was not: 42% more evictions, 8,359 refused ones, and plans that survived
+placement less than half as often. The aggregate demand was the same; the individual Deployments differ, as noted.
+This is one seed and one arm, so it is an illustration rather than an estimate, but it sets the scale: the 7% that
+these constraints cost is larger than most of the effects any consolidation strategy produced on the unconstrained
+workloads (section 6), and the threefold node count is where a cluster's operational cost (DaemonSets, per-node
+agents, IP addresses, API server load) lives. It also shows what the potential misses. Phi reported the constrained
+fleet as more improvable than its twin for almost the whole run (normalized utilization entropy 0.085 against 0.035 at
+peak demand, 0.081 against 0.057 at the end), even though by utilization it was packed after the first passes (mean
+dominant-resource utilization 0.95 at peak and 0.94 at the end, under 4% of nodes between 30 and 70%), because it does
+not know that a node holding two pods of a spread Deployment is as full, for that Deployment, as it is allowed to be.
+(The simulator's own placement model and Karpenter's simulation also disagree on the hostname minimum, the former
+using the true one and the latter zero, which is a reasoned source of the low plan fidelity in this run.)
 
 (The simulator paid a separate price for this workload: its disruption passes took 4.5 seconds on average against
 0.1 seconds for the unconstrained twin, because Karpenter's topology code lists pods by label selector and the
@@ -301,7 +309,8 @@ where dPhi is the potential drop, D the move's disruption (the sum of its pods' 
 removed node) and S its savings per hour, both normalized by the NodePool's totals the way Balanced normalizes
 them, so lambda and mu are scale-free. Balanced's acceptance rule is the case alpha = 0, lambda = 1, mu = k:
 Balanced approves savings-over-disruption at or above 1/k, which is the same inequality as dE <= 0.
-`WhenEmptyOrUnderutilized` is the limit of accepting any positive saving. With alpha > 0 a shift, which has S = 0,
+`WhenEmptyOrUnderutilized` is the limit lambda -> 0 (equivalently mu -> infinity): any move with S > 0 is
+accepted. With alpha > 0 a shift, which has S = 0,
 is accepted when alpha * |dPhi| exceeds lambda * D: the potential drop buys the disruption. This is the trade-off
 that upstream cannot express, and the hypotheses below are about whether it is worth expressing.
 
@@ -312,11 +321,11 @@ evaluation run, each with a primary metric, a decision rule and a correction for
 
 | | Hypothesis in plain words |
 | --- | --- |
-| H1 | If the planner is guided by the potential, *random* candidate selection and random moves reach the same steady-state cost (within 3%) as upstream's hand-built search, at the same number of scheduling simulations per pass. |
+| H1 | If the planner is guided by the potential, *random* candidate selection and random moves reach the same steady-state cost (the mean hourly fleet cost over the last 20% of a run; within 3%) as the pipeline's adapter of upstream's hand-built search under the same planner, with the same cap on scheduling simulations per pass. |
 | H2 | A drop in the potential over ten minutes predicts node removals in the next ten. |
 | H3 | Adding shifts to merges lowers integrated cost at an equal pod-eviction budget, under churn. |
-| H4 | Simulated annealing over the plan reaches cheaper states than greedy acceptance without extra executed disruption; annealing executed move by move pays disruption for little gain. |
-| H5 | Under default kube-scheduler scoring, a measurable share of evicted pods land somewhere other than planned; `MostAllocated` scoring and deletion-cost-aware scale-down shrink that share. |
+| H4 | Simulated annealing over the plan reaches cheaper states than greedy acceptance without extra executed disruption (no more than 10% more evictions); annealing executed move by move pays disruption for little gain. |
+| H5 | Under default kube-scheduler scoring, a measurable share of evicted pods land somewhere other than planned; `MostAllocated` scoring and deletion-cost-aware scale-down shrink that share. (An oracle placement that follows the plan must reach 95% fidelity, or the run set is flagged.) |
 | H6 | Sweeping lambda traces a savings-versus-disruption frontier that matches or dominates upstream's two policies and a descheduler-style baseline. |
 | H7 | Random sampling with a fast feasibility filter has lower decision cost per pass than the prefix binary search at 1,000 nodes, and never hits a timeout. |
 
@@ -335,38 +344,51 @@ with the energy above and chooses which run within the NodePool's node budget, P
 through the unchanged orchestration queue. Shifts are executed by evicting the pods through the Eviction API after
 a `PreferNoSchedule` taint on the source. Every stage decision is recorded in a log.
 
-Two **adapters** make upstream itself a configuration. The coarse adapters call upstream's own `ComputeCommands`
-and convert the result; the fine adapters re-implement the two searches in stages, consulting the configured
-planner where upstream consults its acceptance test, so that the planner can change while the search does not.
-`TestParity` runs upstream and the pipeline on the same generated cluster states and requires identical decisions
-(kind, candidates in order, replacement options in order, budget consumed). It matched on 1,000 of 1,000 states per
-policy and catalog, and then on 10,000 of 10,000 in every configuration (`docs/research/parity.md`). Upstream's
-single-node scan interleaves NodePools in Go map order, so on multi-NodePool states the test compares against the
-set of decisions upstream itself produces across repeated runs.
+Two **adapters** make upstream itself a configuration. The coarse adapters call upstream's own `ComputeCommands` and
+convert the result; the fine adapters re-implement the two searches in stages, consulting the configured planner where
+upstream consults its acceptance test, so that acceptance can change while the candidate order and probes do not. One
+difference remains: only upstream's first-valid planner stops the single-node scan at the first accepted move; the
+energy planners let it run until the candidates or the simulation budget are exhausted (section 7). `TestParity` runs
+upstream and the pipeline on the same generated cluster states and requires identical decisions (kind, candidates in
+order, replacement options in order, budget consumed). It matched on 1,000 of 1,000 states per policy and catalog, and
+then on 10,000 of 10,000 in every configuration (`docs/research/parity.md`). Upstream's single-node scan interleaves
+NodePools in Go map order, so on multi-NodePool states the test compares against the set of decisions upstream itself
+produces across repeated runs.
 
 The strategies the experiments use are: candidate selectors `upstream` (upstream's order) and `uniform-random` (a
 quarter of the eligible nodes sampled as sources); move generators `upstream-multi` and `upstream-single` in fine
-mode, `random-merge` (one to three random sources, their pods first-fit into a random order of destinations,
-confirmed by a scheduling simulation) and `random-shift` (one to four random pods to a fuller node); planners
-`savings-only` (upstream's first-valid rule), `entropy-greedy` (every move with dE < 0, best ratio first, no two
-touching a node, within budgets), `anneal-plan` (a Metropolis search over sequences of up to eight moves on a copy
-of the snapshot, geometric cooling, executing only a net-downhill sequence) and `anneal-online` (one Metropolis step
-per pass, executed on the cluster); and the executors `upstream-queue`, `shift-evict` and `steered` (shift-evict
-plus a preferred node affinity for each evicted pod toward its planned node).
+mode, `random-merge` (one to three random sources, their pods first-fit into a random order of destinations, confirmed
+by a scheduling simulation) and `random-shift` (one to four random pods to a fuller node); planners `savings-only`
+(upstream's first-valid rule), `entropy-greedy` (every move with dE < 0, taken in order of energy saved per unit of
+disruption, no two touching a node, within budgets), `anneal-plan` (a Metropolis search over sequences of up to eight
+moves on a copy of the snapshot, geometric cooling, executing only a net-downhill sequence) and `anneal-online` (one
+Metropolis step per pass, executed on the cluster); and the executors `upstream-queue`, `shift-evict` and `steered`
+(shift-evict plus a preferred node affinity for each evicted pod toward its planned node).
 
-"Heuristic generation" below means `upstream` candidates with the fine upstream searches; "random generation" means
-`uniform-random` with `random-merge` and `random-shift`. Both ran at the same search budget: 16 scheduling
-simulations per pass and 500 attempts per generator. The planners' weights (lambda = 0.1, annealing start
-temperature 1) and the pod-eviction budgets (18 and 36 pods per minute per NodePool) were calibrated on pilot
-seeds by rules committed before the pilot was inspected (`experiments/PILOT.md`).
+Two feasibility checks serve every stage: a *fast* check from the snapshot alone (capacity, taints, node selectors
+and required node affinity, bound-volume zones, hostname anti-affinity, PDB allowances, `do-not-disrupt`; it does
+not see topology spread) and a *full* check that runs Karpenter's scheduling simulation.
+
+Configurations are named generation/planner, for example random/entropy-greedy. "Heuristic generation" below means
+`upstream` candidates with the fine upstream searches; "random generation" means `uniform-random` with
+`random-merge` and `random-shift`. Both ran at the same search budget: 16 scheduling simulations per pass and 500
+attempts per generator. The energy weights were alpha = 1, mu = 1 and lambda = 0.1, the annealing start temperature
+1 (scaled per node, so that one value means the same acceptance odds at every fleet size), with geometric cooling
+by 0.98 per step over 400 steps. The pod-eviction budgets (18 and 36 pods per minute per NodePool) apply only to
+H3 and the ablations. lambda, the start temperature and the budgets were calibrated on the pilot (seeds 1 to 5)
+by rules committed before the calibration cells were inspected, though the pilot's Experiment 1 cells had
+already been seen (`experiments/PILOT.md`; `experiments/RESEARCH_LOG.md`, "Calibration rules").
 
 ## 5. Method
 
 ### 5.1 The simulator
 
-`hack/consolidation-sim` runs Karpenter's real code where it can and models the rest. The disruption controller,
-the consolidation methods, the pipeline, the scheduling simulation, cluster state and the orchestration queue are
-Karpenter's own packages running in-process against an in-memory fake API server. A virtual clock advances by
+`hack/consolidation-sim` runs Karpenter's real code where it can and models the rest. The consolidation methods,
+the pipeline, the provisioner and its scheduling simulation, cluster state and the orchestration queue are
+Karpenter's own packages running in-process against an in-memory fake API server; the simulator re-implements the
+disruption controller's reconcile loop around them (candidate collection, budget mapping, `ComputeCommands` and the
+queue's `StartCommand`, in the controller's order), and the NodeClaim sub-reconciler that marks claims
+consolidatable. A virtual clock advances by
 events: pod arrivals and departures, a disruption pass every 10 seconds (emptiness, then consolidation or the
 pipeline; nothing drifts in the simulator, so the drift methods are omitted), node launch (2 to 5 s) and
 registration (30 to 60 s), pod startup (2 to 10 s) and shutdown (1 to 5 s), each drawn from its range. Instance
@@ -374,10 +396,12 @@ types and on-demand prices are the KWOK catalog's `c7i`, `m7i` and `r7i` familie
 `consolidateAfter: 30s` and a 10% node budget. Runs last three simulated hours with a ten-minute warm-up before
 consolidation starts, and record a per-minute time series and every stage decision.
 
-Three things are modeled rather than run. **Placement**, where kube-scheduler would put a pending pod:
-`least-allocated` (the default, with soft default topology spread), `most-allocated`, or `plan-following`, an oracle
-that binds each evicted pod's replacement to its planned node when that node still passes the scheduler's filters.
-**Scale-down**, which replicas a ReplicaSet deletes: `spread` (the ReplicaSet controller's heuristic) or
+Three things that matter for consolidation are modeled rather than run (the simulator also stands in for the cloud
+provider and node launch, kubelet registration, the termination controller's drain, PDB status, the Eviction API, and
+the ReplicaSet and Job controllers that replace evicted pods). **Placement**, where kube-scheduler would put a pending
+pod: `least-allocated` (the default, with soft default topology spread), `most-allocated`, or `plan-following`, an
+oracle that binds each evicted pod's replacement to its planned node when that node still passes the scheduler's
+filters. **Scale-down**, which replicas a ReplicaSet deletes: `spread` (the ReplicaSet controller's heuristic) or
 `deletion-cost` (the pod-deletion-cost controller's ranking). **Timing**, as above. The same seed, configuration and
 commit produce byte-identical logs, and twenty cells rerun on another machine reproduced their originals exactly.
 
@@ -396,7 +420,8 @@ the fragmented workloads start with exactly n partly filled nodes.
 | W5 | **Constrained.** W2 plus PDBs, hostname spread, anti-affinity and `do-not-disrupt` (section 3.4). | Realism; the gap between fast and full feasibility. |
 | W6 | **Trace replay.** A three-hour window of the 2011 Google cluster trace mapped to pod requests and lifetimes. | External validity. |
 
-W1 to W4 ran in full. W5 and W6 were cut for time (section 5.6); one W5 run exists.
+W1 to W4 ran, except the upstream baselines at 1,000 nodes (section 5.6). W5 and W6 were cut for time; one W5 run
+exists.
 
 ### 5.3 Baselines
 
@@ -411,23 +436,27 @@ W1 to W4 ran in full. W5 and W6 were cut for time (section 5.6); one W5 run exis
 
 ### 5.4 Design and statistics
 
-Every comparison is paired by seed: the arms of a comparison replay the same workload. Ten evaluation seeds
-(101 to 110) per cell; the pilot used seeds 1 to 5 and nothing was tuned on evaluation seeds. Steady-state cost is
-the mean hourly fleet cost over the last 20% of a run; integrated cost is the fleet cost integrated after warm-up.
-Tests are exact paired Wilcoxon signed-rank tests, or two one-sided t-tests at a 3% margin for H1's equivalence
-claim, with Holm correction within each hypothesis's family, and 95% bootstrap intervals on means. Verdict rules
-("supported iff ...") were fixed in the preregistration. 1,551 runs finished in the session matrix; all were valid
-(no PDB or `do-not-disrupt` violation, no error, one binary), and every one of 130 configurations duplicated across
-groups produced identical summaries.
+An *arm* is one configuration under comparison; a *cell* is one arm on one workload at one size, run on every
+seed; a *group* is a named block of the run matrix (`exp1-n200`, `abl`, `b4`, ...). Every comparison is paired by
+seed: the arms of a comparison replay the same workload. Ten evaluation seeds (101 to 110) per cell; the pilot used
+seeds 1 to 5 and nothing was tuned on evaluation seeds. Steady-state cost is the mean hourly fleet cost over the
+last 20% of a run; integrated cost is the fleet cost integrated after warm-up. Tests are exact paired Wilcoxon
+signed-rank tests, or two one-sided tests (TOST) at a 3% margin for H1's equivalence claim, with Holm correction
+within each hypothesis's family, and 95% bootstrap intervals on means. Verdict rules ("supported iff ...") were
+fixed in the preregistration. 1,551 runs finished in the main evaluation matrix (`experiments/matrix/session.yaml`,
+the "session matrix" below); all were valid (no PDB or `do-not-disrupt` violation, no error, one binary), and
+every one of the 130 duplicate sets (13 configurations that appear in more than one group, on 10 seeds each)
+produced identical steady-state cost, evictions, nodes removed and final node count.
 
 ### 5.5 The cluster replay
 
-After the simulator work, the three cheapest pipeline configurations on the diurnal workload at 200 nodes, plus
-B2, B3, B4 and random/entropy-greedy, were replayed on a real control plane: `kind` (Kubernetes 1.34) with KWOK
-fake nodes and the real Karpenter controller built from the branch, at 50 and 200 nodes, five seeds each, on a
-compressed diurnal workload (one drop at five minutes, thirty minutes of observation). kube-scheduler placement,
-ReplicaSet scale-down, the API server and the controller's CPU are real there; node boot and pod startup are not.
-The protocol, controlled variables and results are in
+After the simulator work, the three cheapest pipeline configurations on the diurnal workload at 200 nodes, plus B2,
+B3, B4 and random/entropy-greedy, were replayed on a real control plane: `kind` (Kubernetes in Docker, a genuine
+control plane at Kubernetes 1.34) with KWOK nodes (a fake kubelet that marks nodes Ready and pods Running without
+running containers) and the real Karpenter controller built from the branch, at 50 and 200 nodes, five seeds each, on
+a compressed diurnal workload (one drop at five minutes, thirty minutes of observation). kube-scheduler placement,
+ReplicaSet scale-down, the API server and the controller's CPU are real there; node boot and pod startup are not. The
+protocol, controlled variables and results are in
 [`docs/consolidation/kwok-experiments-and-eks-plan.md`](../docs/consolidation/kwok-experiments-and-eks-plan.md);
 section 6.11 summarizes.
 
@@ -443,17 +472,18 @@ three was declared during the session. Every deviation from the preregistration 
 
 ## 6. Results
 
-Percentages are the arm named first minus the reference, as a share of the reference's mean, with 95% bootstrap
-intervals unless a 90% TOST interval is stated. Table names are under `paper/tables/`.
+Experiment N tests hypothesis HN; Experiment 8 is the optimality gap and has no hypothesis. Percentages are the arm
+named first minus the reference, as a share of the reference's mean, with 95% bootstrap intervals unless a 90% TOST
+interval is stated. Table names are under `paper/tables/`.
 
 ### 6.1 H1: is random generation as good as the hand-built search? Not supported
 
 With the planner fixed (entropy-greedy or anneal-plan) and the same simulation budget, random generation was
 equivalent to heuristic generation within 3% in only 3 of 12 cells (`exp1_h1`). It failed in both directions:
 
-| Steady-state cost, random minus heuristic | W1 fragmented | W2 diurnal | W4 mixed shapes |
+| Steady-state cost, random minus heuristic (90% TOST intervals) | W1 fragmented | W2 diurnal | W4 mixed shapes |
 | --- | --- | --- | --- |
-| entropy-greedy, 200 nodes | -1.7% (90% CI -3.2, -0.2) | +4.3% (+2.1, +6.5) | -4.1% (-5.3, -2.9) |
+| entropy-greedy, 200 nodes | -1.7% (-3.2, -0.2) | +4.3% (+2.1, +6.5) | -4.1% (-5.3, -2.9) |
 | anneal-plan, 200 nodes | -4.3% (-5.8, -2.7) | +2.5% (+1.1, +4.0) | -5.1% (-6.3, -3.8) |
 | entropy-greedy, 1,000 nodes | -2.4% (-3.1, -1.7) | +1.4% (+0.6, +2.3) | -3.9% (-4.8, -2.9) |
 | anneal-plan, 1,000 nodes | +0.1% (-0.8, +1.0) | +2.6% (+2.1, +3.1) | -1.5% (-2.1, -0.9) |
@@ -475,11 +505,11 @@ hand-built order is doing something.
 Per run, over non-overlapping ten-minute windows: the Spearman correlation between the drop in the potential in
 one window and node removals in the next, per potential, per seed (`exp2_correlation`):
 
-| Potential | W2 diurnal: median rho, seeds positive, Holm p | W3 churn | Verdict |
+| Potential | W2 diurnal: median rho (95% interval), seeds positive, Holm p | W3 churn | Verdict |
 | --- | --- | --- | --- |
 | Load-share entropy | +0.61 (+0.58, +0.63), 10 of 10, 0.006 | +0.48 (+0.34, +0.62), 9 of 10, 0.054 | partial |
-| Utilization entropy (the planners' Phi) | -0.27, 0 of 10 | +0.18, 9 of 10, 0.054 | not supported |
-| Quadratic | -0.30, 0 of 10 | +0.12, 7 of 10 | not supported |
+| Utilization entropy (the planners' Phi) | -0.27 (-0.32, -0.22), 0 of 10, 1 | +0.18 (+0.04, +0.26), 9 of 10, 0.054 | not supported |
+| Quadratic | -0.30 (-0.36, -0.23), 0 of 10, 1 | +0.12 (-0.01, +0.21), 7 of 10, 0.52 | not supported |
 
 The plain load-share entropy does predict next-window removals on the diurnal workload in every seed. The
 utilization entropy the planners use does not: on W2 its drops are followed by *fewer* removals in the next window
@@ -530,21 +560,27 @@ deletion-cost scale-down, from one seed), so the Exp 5 run set carries a flag.
 
 ### 6.6 H6: does the pipeline's frontier dominate upstream? No; Balanced is the strongest point
 
-At the lambda fixed in advance for each baseline, random/entropy-greedy against upstream and the descheduler
+Each baseline was matched in advance to the lambda its own acceptance rule implies: `WhenEmptyOrUnderutilized` to
+0.05 (it accepts any saving), Balanced to 0.5 (Balanced at k = 2 is dE <= 0 with lambda/mu = 1/2), and the
+descheduler to the calibrated default 0.1. Savings are measured against a no-consolidation run of the same seed:
+the no-consolidation run's integrated cost after warm-up minus the run's, in dollars; eviction cost is the sum of
+the evicted pods' per-pod eviction costs. At its matched lambda, random/entropy-greedy against each baseline
 (`exp6_dominance`): three cells dominated (less saved and more evicted than upstream), one dominates (the
 descheduler on W2), two inconclusive. Within the lambda sweep, raising lambda cut eviction cost at no loss of
 savings up to lambda = 2 on W2 and 1 on W3, so the calibrated lambda = 0.1 and the matched points are themselves
-dominated by higher lambdas. On W2, Balanced saved more than any pipeline point ($66.9 at an eviction cost of
-822, against the pipeline's $60.6 to $61.9 at 748 to 1,182); on W3 both upstream policies saved more than any
-pipeline point. The descheduler saved far less than either on W2.
+dominated by higher lambdas. On W2, Balanced saved more than any pipeline point ($66.9 of integrated savings at an
+eviction cost of 822, against the pipeline's $60.6 to $61.9 at 748 to 1,182); on W3 both upstream policies saved
+more than any pipeline point. The descheduler saved far less than either on W2.
 
 ### 6.7 H7: is random sampling cheaper per pass at 1,000 nodes? On the mean, yes; on the tail, no
 
 On W1 at 1,000 nodes, random generation's mean CPU time per disruption pass was 37% lower than heuristic
 generation's (895 vs 1,425 ms; lower in all ten seeds) but its 95th percentile was 19% higher (2,726 vs 2,285 ms;
 higher in all ten seeds), so the preregistered rule ("both lower") fails (`exp7_tests`). A timing rerun of both arms
-on one machine, interleaved, gave -29% and +38%, the same outcome. No pass in any run approached upstream's
-one-minute multi-node limit (the slowest: 9.5 s in the session, 20.8 s in the rerun). From 50 to 1,000 nodes the
+on one machine, interleaved, gave -29% and +38%, the same outcome. No random/entropy-greedy pass at 1,000
+nodes approached upstream's one-minute multi-node limit (the slowest: 9.5 s in the session, 20.8 s in the rerun);
+the session's slowest pass overall, 52.3 s, was upstream's own on the one constrained-workload run that finished
+(200 nodes; section 3.4). From 50 to 1,000 nodes the
 mean grew about 72x for heuristic and 53x for random generation against a 20x growth in nodes; the upstream
 reference at 1,000 nodes was cut. Section 7 explains why random's advantage on the mean reverses on other
 workloads.
@@ -562,8 +598,9 @@ itself with one component removed, W1 and W2 at 200 nodes (`fig8_ablation`):
 | random generation | -7.5% | -15.5% | -48% / -73% |
 
 Removing any one component lowered cost, significantly in 6 of 8 cells. Removing the budget recovered most of the
-cost, and removing the potential, annealing or randomness each cut evictions by 21 to 76% as well, which says that
-under a binding budget each of them spends evictions on moves that do not pay off within it.
+cost, and removing the potential, annealing or randomness each cut evictions by 21 to 76% as well, which suggests
+that under a binding budget each of them spends evictions on moves that do not pay off within it (a reading not
+tested further).
 
 ### 6.9 Distance from the cheapest fleet
 
@@ -571,25 +608,29 @@ Against the offline packing bound on each run's final pod set, the consolidating
 above it at 50 nodes (the descheduler 78 to 145% above), 9 to 22% at 200, and 11 to 43% at 1,000 (`exp8_gap`; the
 bound is exact for 25 of 30 final 50-node pod sets and a relaxation above that, so the gaps are upper estimates).
 The smallest gaps were random generation with upstream's first-valid planner on the fragmented workloads (8 to
-12%). Every strategy, upstream included, leaves a tenth or more of the fleet's cost on the table relative to a
-fresh packing; how much of that is reachable at acceptable disruption is the open question.
+12%). Every strategy leaves at least 8% of the fleet's cost on the table relative to a fresh packing, and upstream 13%
+or more; how much of that is reachable at acceptable disruption is the open question.
 
 ### 6.10 Parity in the wild
 
 The pipeline configured as upstream (B4) against upstream (B2), and its Balanced form against Balanced, over
 whole three-hour runs on W1, W2 and W4: steady-state cost within -0.75% to +0.34%, all six equivalence tests at 3%
-passing, seven of 60 seeds byte-identical (`b4_parity`). The non-identical seeds come from the simulator's candidate
-shuffle consuming one seeded stream differently across method boundaries; the decision-level parity test is the
-exact check.
+passing, seven of 60 seeds matching exactly on steady-state cost, evictions, nodes removed and final nodes
+(`b4_parity`). The likely source of the other 53 is the simulator's candidate shuffle, which draws from one seeded
+stream per run that the pipeline's method boundaries can consume differently from upstream's separate methods;
+whether that accounts for all of them was not tested. The decision-level parity test is the exact check.
 
 ### 6.11 On a real control plane
 
 Seventy runs on the KWOK cluster, all valid. The simulator's coarse order held: in both places the two
 random-generation configurations had the highest integrated cost at both sizes and the highest end cost and
-controller CPU at 200 nodes, and Balanced evicted the fewest pods. Rank agreement on end cost was weak (tau-b 0.20
-at 50 nodes, 0.33 at 200) and strong on evictions at 200 nodes (0.81). The 21 material reversals were almost all
-among the five configurations whose simulator costs lie within 5% of one another, and at five seeds neither the
-simulator nor the cluster separates most of those pairs; no pair was resolved in opposite directions. Random
+controller CPU at 200 nodes, and Balanced evicted the fewest pods. Rank agreement on end cost was weak (Kendall's
+tau-b, which is 1 for the same order and 0 for no relation: 0.20 at 50 nodes, 0.33 at 200) and strong on
+evictions at 200 nodes (0.81). The 21 material reversals (pairs the two orders disagree on by more than a floor: 1%
+for cost, 10% for evictions and compute, 2 minutes for settle time) were almost all among the five configurations
+whose simulator costs lie within 5% of one another, and at five seeds neither the simulator nor the cluster
+*resolves* most of those pairs, where a difference is resolved when its paired 95% interval excludes zero; no pair
+was resolved in opposite directions. Random
 generation ended 10.6% dearer than heuristic generation at 200 nodes (19.3% in the simulator) and used 52% more
 controller CPU (219 to 228 core-seconds over 30 minutes against 136 to 154 for every other configuration). The
 pipeline as upstream and upstream showed no resolved difference. Two noise sources were found: kube-scheduler's
@@ -622,39 +663,45 @@ the compressed-diurnal cells):
 | W2, 200 nodes | 1.00 / 0.20 | 0.10 s / 0.67 s | 3.9 / 15.6 | 0.6 / 32 |
 | Compressed diurnal, 200 nodes | 0.99 / 0.33 | 0.09 s / 0.58 s | 3.5 / 14.6 | 2 / 149 |
 
-The mean cost per pass is, within one or two percent, the share of passes that search times the cost of a
-searching pass. Four mechanisms, each visible in the code, produce those two factors.
+Because the cost of a searching pass is a run's total pass CPU divided by its searching passes, the mean per pass
+is by construction the searching share times that cost; a skipped pass's own small cost is folded into the
+searching-pass figure and was not measured separately. (This table uses three seeds, so its products differ from
+the ten-seed means above by up to 10%.) Four mechanisms, each visible in the code, produce those two factors.
 
 1. **Random generation searches on a third of the passes; the heuristic on all of them.** The pipeline skips a
-   pass when the cluster has not changed since a pass that found nothing and was not limited by a budget. The
+   pass when the cluster has not changed since a pass that executed nothing and was not limited by a budget. The
    upstream adapters opt out of that skip and use upstream's own per-method rule instead, and the multi-node
    adapter counts itself as budget-limited whenever there are more candidates than the NodePool's budget allows,
    which with a 10% budget is nearly always. So the heuristic arm re-runs its search on 99 to 100% of passes and
-   most of those searches execute nothing (69 to 94% at 200 nodes), while the random arm searches on 17 to 48% of
+   most of those searches execute nothing (85 to 94% at 200 nodes, 69 to 88% at 1,000), while the random arm
+   searches on 17 to 48% of
    passes and most of its searches execute something. Neither behavior is the search algorithm's; both are
    gating.
 2. **A random search always spends its whole budget.** Each random generator makes its 500 attempts whether or
    not there is anything left to find; the logs show exactly 1,000 attempts per searching pass in every
-   1,000-node run, and the 16-simulation cap reached in every one of them. `random-merge` keeps computing
+   1,000-node run of the entropy-greedy and anneal-plan arms, and the 16-simulation cap reached in every one of
+   them (under upstream's first-valid planner the round stops after the first generator that yields a move, so
+   those runs log 500). `random-merge` keeps computing
    first-fit placements after the simulations are spent and discards them. The heuristic search is shaped by what
    it finds: the multi-node adapter's binary search needs at most seven simulations, and the single-node adapter
    scans until its candidates or the simulations run out, so on a fleet with few candidates its search is short.
    (With the entropy-greedy or annealing planner the heuristic search does not stop at the first acceptable move,
    as upstream's own single-node scan does; that is why the heuristic pipeline arms cost 1.5 times upstream's
    56 ms per pass on the cluster workload.)
-3. **A random search costs more on dense fleets.** Per attempt, `random-merge` picks one to three sources,
-   first-fits every one of their pods, largest first, over a shuffled list of destinations with a fast
-   feasibility probe per pod and destination, then checks the whole move and, if it passes, spends a simulation
-   on it. `random-shift` samples a source, a fuller destination and one to four pods, and checks them. Every
-   emitted move is then scored (a potential delta over the touched nodes), logged twice, and run through the
-   planner's conflict pass; annealing adds 400 Metropolis steps over them. All of that scales with the pods on the
-   nodes touched. After a diurnal scale-down the fleet is a few dozen large nodes holding about forty pods each,
-   against the fragmented workloads' hundreds of mid-size nodes holding five to fourteen. Per simulation
-   equivalent, random's CPU is 224 ms on W2 at 1,000 nodes against 90 to 127 ms on W1 and W4, while the
-   heuristic's stays near 94 ms. That is the crossover: random's searching pass costs 5.5 to 6.8 times the
-   heuristic's on the diurnal workloads and 1.3 to 3.1 times on the fragmented ones, and only the latter is
-   diluted enough by the gating share to come out cheaper on the mean. (The attribution to pods per node is read
-   from the code and the counts; the pipeline arms were not profiled.)
+3. **A random search costs more on dense fleets.** Per attempt, `random-merge` picks one to three sources, first-fits
+   every one of their pods, largest first, over a shuffled list of destinations with a fast feasibility probe per pod
+   and destination, then checks the whole move and, whether or not it passes, spends a simulation on it while one
+   remains (the simulation may place the pods on a replacement node). `random-shift` samples a source, a fuller
+   destination and one to four pods, and checks them. Every emitted move is then scored (a potential delta over the
+   touched nodes), logged twice, and run through the planner's conflict pass; annealing adds 400 Metropolis steps over
+   them. All of that scales with the pods on the nodes touched. After a diurnal scale-down the fleet is a few dozen
+   large nodes holding about forty pods each, against the fragmented workloads' hundreds of mid-size nodes holding
+   five to fourteen. Per simulation equivalent (CPU per searching pass divided by simulations per search), random's
+   CPU is 224 ms on W2 at 1,000 nodes against 90 to 127 ms on W1 and W4, while the heuristic's is 94 ms on W2 against
+   113 to 135 ms on W1 and W4: the heuristic's unit cost falls on the dense fleet while random's rises. That is the
+   crossover: random's searching pass costs 5.5 to 6.8 times the heuristic's on the diurnal workloads and 1.3 to 3.1
+   times on the fragmented ones, and only the latter is diluted enough by the gating share to come out cheaper on the
+   mean. (The attribution to pods per node is read from the code and the counts; the pipeline arms were not profiled.)
 4. **Part of the heuristic's cost on fragmented fleets is the fleet its own decisions leave.** On W1 and W4 the
    heuristic arm ends with about twice as many nodes as the random arm (605 against 335 at 1,000 nodes on W1), so
    each of its simulations copies twice the nodes and its single-node scan has twice the candidates. Some of its
@@ -670,9 +717,10 @@ ran fewer evaluations in the same 30 minutes (151 against 187). Its 52% higher c
 churn from the extra evictions its shifts cause through the Eviction API (651 against 527 pods).
 
 One more thing the logs show about shifts: in the random/anneal-plan configuration, emptiness, not consolidation,
-removed many of the nodes, spending 176 seconds of evaluation time on the cluster against 5 to 11 for the other
-configurations. That is the design working as intended (a shift empties a node and emptiness removes it) and it
-is also where the cost goes: each such removal is paid for twice, once by the shifts and once by the removal.
+removed many of the nodes, spending 176 seconds of evaluation time on the cluster against 29 for random/entropy-greedy
+and 5 to 11 for upstream and the heuristic configurations. That is the design working as intended (a shift empties a
+node and emptiness removes it) and it is also where the cost goes: each such removal is paid for twice, once by the
+shifts and once by the removal.
 
 The lesson generalizes. "Random" saves the cost of *ordering* candidates, which is small, and gives up the
 *information* the ordering carries, which is what lets a search stop early and spend its simulations on prefixes
@@ -684,11 +732,14 @@ the prefix binary search do exactly that; a fixed budget of blind attempts canno
 ### 8.1 What the entropy view got right
 
 The target shape is right: fleets that consolidate well end packed-or-empty, and the offline bound confirms that
-upstream's fleets are within 9 to 22% of the cheapest packing at 200 nodes. The simplest potential, load-share
+upstream's fleets are within 13 to 22% of the cheapest packing at 200 nodes (every consolidating configuration: 9
+to 22%). The simplest potential, load-share
 entropy, does track consolidation: its drops predict removals on the diurnal workload in every seed. And the
 energy formulation is a clean account of what upstream already does: Balanced's acceptance rule is one point in
-the (alpha, lambda, mu) space, `WhenEmptyOrUnderutilized` another, and the lambda sweep reproduces the intuition
-that Balanced trades a little savings for much less disruption, and finds that upstream's point is a good one.
+the (alpha, lambda, mu) space, `WhenEmptyOrUnderutilized` another, and the lambda sweep shows that disruption can be cut
+at no loss of savings up to a point (lambda = 2 on W2, 1 on W3), beyond which savings collapse. Balanced itself
+saved more than `WhenEmptyOrUnderutilized` on W2 at half the eviction cost, and 8% less on W3 at a third less
+eviction cost, so upstream's point is a good one.
 
 ### 8.2 What it got wrong
 
@@ -751,10 +802,13 @@ nothing about them without one.
   delete, exists but was not in the matrix.
 - **Keep the instrument.** The stage interfaces, the coarse and fine adapters with their parity test, the decision
   log and the equal-compute budgets are the part of this work that survives its results. The RFC's beta criteria
-  list what is left: metrics and events parity in fine mode, the shift-source taint's lifecycle, and a decision on
-  whether experimental strategies ship in the operator.
-- **More seeds for small effects.** At five seeds on the cluster the median 95% interval on end cost was ±5%;
-  differences of 1 to 2% among upstream and the heuristic arms need on the order of 25 seeds at 200 nodes.
+  list what is left: events and Balanced-metrics parity in fine mode, a metric for search timeouts, resolution of
+  the shift/`consolidateAfter` and plan-fidelity questions, and a decision on whether experimental strategies
+  ship in the operator.
+- **More seeds for small effects.** At five seeds on the cluster the median 95% interval on end cost was ±4.7% at
+  200 nodes; scaling that by one over the square root of the seed count, differences of 2% among upstream and the
+  heuristic arms need about 30 seeds and differences of 1% about 110. The simulator, at ±7%, needs more than twice
+  as many.
 
 ## References
 

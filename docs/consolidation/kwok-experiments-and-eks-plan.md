@@ -7,10 +7,11 @@ budgets, drift) but nothing about this research branch. The companion documents 
 [`pipeline-refactor.md`](pipeline-refactor.md), on the consolidation pipeline the experiments exercise, and the
 paper at [`../../paper/paper.md`](../../paper/paper.md), which covers the simulator experiments.
 
-Everything here is reproducible from the branch: the protocol is `experiments/TIERB.md`, the raw runs are under
-`experiments/runs/tierb-kwok/` and `experiments/runs/tierb/`, the tables are `paper/tables/tierb_*.md`, the scripts
-are in `experiments/tierb/`, and the full history of decisions is in `experiments/RESEARCH_LOG.md` from "Tier B
-unblocked" onward. (The research files call this experiment "Tier B"; this document does not.)
+Everything here is reproducible from the branch: the protocol is `experiments/TIERB.md`, the cluster runs are under
+`experiments/runs/tierb-kwok/` and the matching simulator runs under `experiments/runs/tierb/`, the tables are
+`paper/tables/tierb_*.md`, the scripts are in `experiments/tierb/`, and the full history of decisions is in
+`experiments/RESEARCH_LOG.md` from "Tier B unblocked" onward. (The research files call this experiment "Tier B"; this
+document does not.)
 
 ## 1. Why run on a cluster at all
 
@@ -46,9 +47,10 @@ lists what a real cluster adds.
 
 | Item | Value |
 | --- | --- |
-| Machine | one cloud VM, 4 vCPUs, 15 GiB RAM, kept otherwise idle during the run |
+| Machine | the same class of cloud VM across three boots (the VM changed at each of two container restarts; `experiments/tierb/machine-log.txt`), 4 vCPUs, 15 GiB RAM per the session's VM description, kept otherwise idle during the run |
 | Control plane | `kind` v0.30.0, node image `kindest/node:v1.34.0`, one control-plane node |
-| Fake nodes | KWOK v0.8.0, one partition |
+| Fake nodes | KWOK v0.8.0, one controller instance (KWOK can shard nodes across several) |
+| Zones | four fake zones, `us-west-2a` to `us-west-2d`, from the instance catalog |
 | Karpenter | built with `ko` from branch commit `eff89a1`; the KWOK cloud provider (`kwok/`) |
 | Controller resources | requests 1 CPU, 1 GiB; limits 2 CPU, 2 GiB; log level `info` |
 | Feature gates | `NodeRepair`, `CapacityBuffer`, `StaticCapacity` on; `PredictionEnabled` off; `ConsolidationPipeline` set per configuration (section 4) |
@@ -57,8 +59,9 @@ lists what a real cluster adds.
 
 Two workarounds were needed on this VM and are harmless elsewhere: containerd's `restrict_oom_score_adj` in the
 kind config (the VM withholds `CAP_SYS_RESOURCE`), and loading the KWOK image from the host because the kind node
-could not reach the VM's proxy. `experiments/tierb/env/setup.sh` reproduces the whole environment on a fresh
-machine in about three minutes.
+could not reach the VM's proxy. `experiments/tierb/env/setup.sh` recreates the cluster, KWOK, the controller image
+and the binaries on a machine that already has Go, Docker and kubectl: about five minutes with cold build caches
+(316 s in the first end-to-end check) and three with warm ones (174 s in the second).
 
 ## 3. The workload
 
@@ -97,15 +100,17 @@ This compresses the simulator's 3-hour diurnal workload (whose deployments scale
 | --- | --- | --- | --- |
 | **B2** | upstream consolidation, unchanged | `WhenEmptyOrUnderutilized` | off |
 | **B3** | upstream consolidation, unchanged | `Balanced` | off |
-| **B4** | the pipeline configured to reproduce upstream exactly (its "fine" upstream adapters, upstream's planner and the orchestration queue) | `WhenEmptyOrUnderutilized` | on |
+| **B4** | the pipeline configured to reproduce upstream exactly (its "fine" upstream adapters, which re-implement upstream's search in stages, with upstream's planner and the orchestration queue; see [`pipeline-refactor.md`](pipeline-refactor.md)) | `WhenEmptyOrUnderutilized` | on |
 | **heuristic/entropy-greedy** | upstream's candidate order and search, with the entropy-greedy planner | `WhenEmptyOrUnderutilized` | on |
 | **heuristic/anneal-plan** | the same search, with simulated annealing at plan time | `WhenEmptyOrUnderutilized` | on |
 | **random/anneal-plan** | random candidates and random merge/shift moves, annealing at plan time | `WhenEmptyOrUnderutilized` | on |
 | **random/entropy-greedy** | random candidates and moves, the entropy-greedy planner | `WhenEmptyOrUnderutilized` | on |
 
-B2, B3 and B4 are references. The three heuristic/random configurations after them are the three pipeline
-configurations with the lowest steady-state cost on the diurnal workload at 200 nodes in the simulator, chosen by
-that rule before the cluster runs. random/entropy-greedy is added because it is the configuration most of the
+B2, B3 and B4 are references. The three heuristic/random configurations after them are the three of Experiment
+1's six pipeline configurations (generation {heuristic, random} x planner {savings-only, entropy-greedy,
+anneal-plan}) with the lowest mean steady-state cost (the mean hourly fleet cost over the last 20% of the
+simulator's 3-hour runs) on the diurnal workload at 200 nodes: 26.61, 26.72 and 27.40 $/hr, chosen by that rule
+before the cluster runs. random/entropy-greedy is added because it is the configuration most of the
 simulator's hypotheses center on. The pipeline configurations are copied verbatim from the simulator matrix; this is
 random/entropy-greedy:
 
@@ -142,7 +147,7 @@ variable and how it was controlled.
 | NodePool | one NodePool: Linux, on-demand, families `c7i`/`m7i`/`r7i`, up to 32 vCPU; `consolidateAfter: 30s`; disruption budget `nodes: 10%` |
 | Consolidation during warm-up | held off with `consolidateAfter: Never` and a `nodes: "0"` budget, both patched at the drop. A zero budget alone is not enough: the pipeline's shift moves remove no node, so a node budget does not stop them |
 | Provisioning | the NodePool is created only after every pod is pending, so provisioning is one batch rather than a sequence of batches that depends on how fast the ReplicaSets create pods |
-| Node registration delay | `nodeRegistrationDelay` on the `KWOKNodeClass`: `0s` during warm-up, patched to `47s` at the drop. 47 s is the simulator's mean launch-plus-registration time. During warm-up it is zero so that pods bind before Karpenter's next 10-second provisioning pass; with 47 s there, the number of extra NodeClaims Karpenter added depended on timing and the arms of one seed started from different fleets |
+| Node registration delay | `nodeRegistrationDelay` on the `KWOKNodeClass`: `0s` during warm-up, patched to `47s` at the drop. 47 s approximates the simulator's mean launch-plus-registration time of 48.5 s (launch 2 to 5 s plus registration 30 to 60 s), less the second or so KWOK itself takes to register a node. During warm-up it is zero so that pods bind before Karpenter's next 10-second provisioning pass; with 47 s there, the number of extra NodeClaims Karpenter added depended on timing and the arms of one seed started from different fleets |
 | Randomness | the pipeline's seed is the run's seed, as in the simulator |
 | Scheduler and scale-down | kube-scheduler defaults; the ReplicaSet controller's own scale-down |
 | Feature gates | the same for every configuration except `ConsolidationPipeline` |
@@ -177,7 +182,8 @@ What varied: the **configuration** (seven), the **seed** (101 to 105) and the **
 ## 7. What was measured
 
 All metrics are computed from one-minute samples over the 30-minute window, the same way for the cluster runs and
-the simulator runs.
+the simulator runs; "cost at the end" is this window's analogue of the paper's steady-state cost. A difference is
+*resolved* when its paired 95% interval over the five seeds excludes zero.
 
 | Metric | Definition | Measured on the cluster from |
 | --- | --- | --- |
@@ -227,7 +233,8 @@ none of the 94 differences the simulator does resolve does the cluster resolve t
 
 - *Random vs heuristic generation with the same planner* (the central question of the simulator experiments). On
   the cluster, random generation ends 10.6% dearer at 200 nodes (19.3% in the simulator), resolved at five seeds;
-  integrates 23% more cost (28%); and uses 52% more controller CPU (101% more decision CPU in the simulator). At 50
+  integrates 23% more cost (28%); and uses 52% more controller CPU (the simulator's decision CPU over the same
+  30-minute window: 101% more). At 50
   nodes the signs agree but the end-cost difference (+0.9%) is not resolved. Every metric has the same sign in
   both places.
 - *The pipeline reproducing upstream (B4) vs upstream (B2)*. No difference is resolved on the cluster. That is
@@ -297,7 +304,7 @@ made real (kube-scheduler placement and ReplicaSet scale-down).
    how often a pipeline shift aborts because the cluster changed, when node boots and drains take real time.
 4. **Scheduling constraints.** How much topology spread, pod anti-affinity, PDBs and `do-not-disrupt` raise the
    node count a workload needs, and whether the configurations differ under them. The simulator ran one such
-   workload once (the paper, section on constraints); nothing has measured it on a cluster.
+   workload once (the paper, section 3.4); nothing has measured it on a cluster.
 5. **Controller cost at scale.** CPU and memory of the controller at 200 and 500 nodes, with real API server load.
 
 ### Safety rules
@@ -316,7 +323,8 @@ nodes a run integrated $16 to $22 of fleet cost over its 30-minute window, plus 
 at the peak fleet ($69/hr): about $25 per run. At 50 nodes, about $6. Replicating the KWOK matrix (7
 configurations x 2 sizes x 5 seeds) is therefore about 35 x $25 + 35 x $6, roughly $1,100 of EC2 at on-demand
 prices, plus the EKS control plane and the idle time between runs. Doubling the seeds at 200 nodes adds about $875.
-A 3-hour diurnal run at 200 nodes costs about $130 (the simulator's integrated cost for that workload). These are
+A 3-hour diurnal run at 200 nodes costs about $140 (the simulator's integrated cost for that workload, $130 after
+its 10-minute warm-up plus the warm-up at the peak fleet). These are
 instance costs only; EBS, data transfer and the control plane are small beside them.
 
 ### Stages
@@ -328,18 +336,21 @@ stages in order; each one's smoke results decide whether the next is worth its m
 | --- | --- | --- | --- | --- | --- |
 | 0. Smoke | one run of the compressed diurnal workload | B2 | 1 | 50 | prove the harness, the image, the NodeClass, the cost accounting and teardown; under $10 |
 | 1. Replication | the KWOK matrix as run | all seven | 101 to 105 | 50 and 200 | rank agreement across simulator, KWOK and EKS; the real-cost and unavailability columns; about $1,100 |
-| 2. Resolution | more seeds at 200 nodes | B2, B3, B4, heuristic/entropy-greedy | 106 to 115 | 200 | resolve the few-percent differences among the near-tied configurations; about $1,000 |
-| 3. Constraints | the simulator's constrained diurnal workload: half the Deployments carry a PDB (`maxUnavailable: 1`), 30% a hard hostname topology spread (`maxSkew: 2`), 10% of the rest required hostname anti-affinity, 5% `do-not-disrupt` | B2, B3, heuristic/entropy-greedy, random/entropy-greedy | 101 to 105 | 200 | the fleet floor constraints impose and the strategies' behavior against it; the random arm is included because shifts and PDBs interact; about $700, more if the constrained fleet is larger (in the simulator it peaked at 5.7 times the unconstrained fleet) |
-| 4. Full diurnal | the simulator's 3-hour diurnal workload (Deployments scale down one by one over an hour) | B2, B3, heuristic/entropy-greedy | 101 to 105 | 200 | integrated cost over a realistic timeline, in dollars; about $2,000 |
-| 5. Scale | the compressed workload at 500 nodes | B2, B3, heuristic/entropy-greedy, random/entropy-greedy | 101 to 103 | 500 | controller CPU, memory and decision-evaluation time with real API server load; whether any pass approaches upstream's 1-minute multi-node limit; about $1,200 |
+| 2. Resolution | more seeds at 200 nodes | B2, B3, B4, heuristic/entropy-greedy | 106 to 125 | 200 | resolve differences of about 2% among the near-tied configurations (25 seeds in all, from the ±4.7% five-seed interval scaled by one over the square root of the seed count; 1% would take about 110); about $2,000 |
+| 3. Constraints | the simulator's constrained diurnal workload: half the Deployments carry a PDB (`maxUnavailable: 1`), 30% a hard hostname topology spread (`maxSkew: 2`), 10% of the rest required hostname anti-affinity, 5% `do-not-disrupt` | B2, B3, heuristic/entropy-greedy, random/entropy-greedy | 101 to 105 | 200 | the fleet floor constraints impose and the strategies' behavior against it; the random arm is included because shifts and PDBs interact; about $500 at the unconstrained fleet's cost, $550 to $600 if the constrained fleet costs what it did in the simulator (7% more per hour at peak demand, 12% more integrated over the one constrained run), and budget more, since that fleet peaked at 5.7 times the nodes and settled at 3.4 times |
+| 4. Full diurnal | the simulator's 3-hour diurnal workload (Deployments scale down one by one over an hour) | B2, B3, heuristic/entropy-greedy | 101 to 105 | 200 | integrated cost over a realistic timeline, in dollars; about $2,100 (15 runs at $140) |
+| 5. Scale | the compressed workload at 500 nodes | B2, B3, heuristic/entropy-greedy, random/entropy-greedy | 101 to 103 | 500 | controller CPU, memory and decision-evaluation time with real API server load; whether any pass approaches upstream's 1-minute multi-node limit; about $750 (12 runs at roughly 2.5 times the 200-node fleet cost, the simulator's cost scaling about linearly with size), more if the window is lengthened for 500 nodes |
 
 ### What to port
 
 - **The test spec.** `test/suites/performance/tierb_test.go` drives one run against the KWOK provider's test
   environment. It needs a variant for the AWS provider's test environment (`aws/karpenter-provider-aws`,
-  `test/pkg/environment/aws`), which supplies a default `EC2NodeClass`. The only KWOK-specific knob in the spec is
-  `nodeRegistrationDelay`; drop it, since EC2 provides the real delay. Everything else (the Deployments, the drop,
-  the sampler, the eviction counter, the metrics poller, the validity checks) is provider-independent.
+  `test/pkg/environment/aws`), which supplies a default `EC2NodeClass`. The spec has two KWOK-specific pieces: the
+  `nodeRegistrationDelay` it sets on the NodeClass (drop it, since EC2 provides the real delay) and the KWOK
+  provider's label keys in the NodePool requirements (`karpenter.kwok.sh/instance-family` and
+  `karpenter.kwok.sh/instance-cpu`, imported from `kwok/apis/v1alpha1`; replace them with
+  `karpenter.k8s.aws/instance-family` and `karpenter.k8s.aws/instance-cpu`). Everything else (the Deployments, the
+  drop, the sampler, the eviction counter, the metrics poller, the validity checks) is provider-independent.
 - **The NodePool.** Keep the requirements (Linux, on-demand, `c7i`/`m7i`/`r7i`, `karpenter.k8s.aws/instance-cpu`
   below 33) and the `consolidateAfter`/budget patches. Pin one AMI (an `amiSelectorTerms` by ID) for the whole
   experiment and record it.
@@ -371,7 +382,7 @@ terminating when the next one provisions.
 | Launch failures | NodeClaim events (`InsufficientCapacity` and similar) |
 | API server load | `apiserver_request_total` by verb and resource |
 | Dollars | instance-hours times the recorded on-demand prices, cross-checked against the account's bill for the day |
-| The decision log | the controller's structured `consolidation decision` lines, on one seed per configuration at debug level; the KWOK runs collected none, because debug logging inflates the CPU being measured, so keep these runs out of the CPU comparison |
+| The decision log | the controller's structured `consolidation decision` lines, written at verbosity 1 (`--log-level debug`), on one seed per configuration; the KWOK runs collected none, because debug logging inflates the CPU being measured, so keep these runs out of the CPU comparison |
 
 ### Validity rules on EKS
 
@@ -381,12 +392,13 @@ outside the recorded range of the other cells (for example because of an EC2 inc
 
 ### Analysis
 
-The same analysis module (`paper/analysis/tier_b.py`) takes the EKS runs as a third tier: rank agreement with
-Kendall's tau-b per metric and size, material reversals, the two named comparisons, and per-seed paired
-differences with 95% intervals. Report EKS against both the simulator and KWOK, so that any reversal can be
-attributed to node lifecycle (EKS vs KWOK) or to placement and scale-down (KWOK vs simulator). Treat the result as
-descriptive unless a hypothesis is registered before the runs; with five seeds the intervals will be several
-percent wide, as they were on KWOK.
+Extend the analysis module (`paper/analysis/tier_b.py`, written for exactly two tiers, the simulator's `tierb-a` runs
+and the cluster's `tierb-kwok` runs) to read the EKS runs as a third tier and produce the same tables: rank agreement
+with Kendall's tau-b per metric and size, material reversals, the two named comparisons, and per-seed paired
+differences with 95% intervals. Report EKS against both the simulator and KWOK, so that any reversal can be attributed
+to node lifecycle (EKS vs KWOK) or to placement and scale-down (KWOK vs simulator). Treat the result as descriptive
+unless a hypothesis is registered before the runs; with five seeds the intervals will be several percent wide, as they
+were on KWOK.
 
 ### Runbook sketch
 

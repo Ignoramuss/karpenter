@@ -26,7 +26,7 @@ Both consolidation methods start from the same **candidates**: nodes that have b
 and whose NodePool's disruption budget has room. Candidates are sorted by savings ratio: the node's price over the
 eviction cost of its pods, highest first.
 
-- **Multi-node consolidation** binary-searches over how many of the cheapest-to-disrupt candidates can go at once:
+- **Multi-node consolidation** binary-searches over how many of the highest-savings-ratio candidates can go at once:
   take the first k, simulate scheduling their pods onto the remaining nodes plus at most one new node, and accept
   if the result is valid and cheaper; grow or shrink k accordingly. The search window is up to 101 nodes and the
   whole search stops after 1 minute of wall-clock time.
@@ -34,7 +34,9 @@ eviction cost of its pods, highest first.
   removal or replacement, and stops at the first acceptable command. It has a 3-minute limit and records which
   NodePools it did not reach so the next pass starts with them.
 - **Acceptance** depends on the NodePool's `consolidationPolicy`. `WhenEmptyOrUnderutilized` accepts any command
-  that reduces cost (subject to the price filters and the spot-to-spot rules). `Balanced` scores a command by its
+  that reduces cost, subject to the price filters (a replacement must be cheaper than what it replaces, and is never
+  more than one node) and, behind its own gate, the spot-to-spot rule (spot is replaced by spot only when at least
+  15 cheaper instance types are available). `Balanced` scores a command by its
   savings fraction over its disruption fraction and accepts it at or above 1/k with k = 2.
 - **Validation.** A chosen command waits 15 seconds and is re-simulated; if the cluster changed in a way that
   breaks it, it is rejected.
@@ -107,7 +109,7 @@ pipeline:
   executor:  {name: shift-evict}
   potential: {name: util-entropy}
   search:    {maxFullSimulations: 16, maxAttempts: 500}
-  budgets:   {podEvictionsPerMinute: 18}  # optional; per NodePool
+  budgets:   {podEvictionsPerMinute: 18, workloadEvictionsPerMinute: 2}  # optional; per NodePool, per owner
   seed:      101
 ```
 
@@ -126,8 +128,8 @@ Registered strategies (every one is selectable by name; the defaults when the fl
 | 2 | `swap` | exchange pods between a CPU-stranded and a memory-stranded node |
 | 3 | `upstream` (default), `savings-only` | the first acceptable move within budgets; Balanced scoring where a NodePool asks for it |
 | 3 | `balanced` | the same, scoring every NodePool as Balanced |
-| 3 | `entropy-greedy` | every move whose energy falls (below), best ratio first, no two touching a node, within budgets |
-| 3 | `anneal-plan` | simulated annealing over move sequences on the snapshot; runs only a net-downhill sequence |
+| 3 | `entropy-greedy` | every move whose energy falls (section 3), taken in order of energy saved per unit of disruption, no two touching a node, within budgets |
+| 3 | `anneal-plan` | simulated annealing over move sequences on the snapshot (`t0` the start temperature, `cooling` the geometric factor per step, `steps` 400, `maxLength` 8, `temperatureUnit: per-node` divides the temperature by the node count so one value means the same acceptance odds at every fleet size); runs only a net-downhill sequence |
 | 3 | `anneal-online` | one annealing step per cycle, executed on the cluster (experiment-only) |
 | 3 | `sequence` | chains shifts that empty a node and scores the chain with its final delete |
 | 4 | `upstream-queue` (default) | validate merges and hand them to the orchestration queue |
@@ -142,7 +144,9 @@ The default configuration runs the **coarse** adapters: stage 2 calls upstream's
 converts the result into a move and back. This mode is upstream by construction.
 
 The **fine** adapters re-implement the two searches in stages: upstream's candidate order, the prefix binary
-search with its budget pre-filter and instance-type filter, the single-node scan with its 3-minute limit and its
+search with its budget pre-filter (the prefix is truncated to what the NodePool's node budget allows) and
+instance-type filter (replacement types priced at or above an existing candidate's are dropped), the single-node
+scan with its 3-minute limit and its
 resume state. Where upstream consults its acceptance test, the fine adapters consult the configured planner. This is
 what makes the stages swappable: with `mode: fine`, a different planner changes acceptance without touching the
 search.
@@ -157,10 +161,13 @@ upstream's single-node scan interleaves NodePools in Go map order, so with more 
 nondeterministic; the test compares against the set of decisions upstream makes over repeated runs. A 40-state
 version runs in `make test`.
 
-Two further checks ran the pipeline-as-upstream configuration (called B4 in the experiments) against upstream over
-whole simulated days and on a KWOK cluster. In the simulator, its steady-state cost was within -0.75% to +0.34% of
-upstream's across six workload-policy pairs, every 90% interval within -1.8% to +1.0% (seven of 60 seeds were
-byte-identical, the rest differ because the simulator's candidate shuffle consumes its random stream differently).
+Two further checks ran the pipeline-as-upstream configuration (called B4 in the experiments: the fine adapters
+with the upstream planner and the queue, not the coarse default) against upstream over whole 3-hour simulated
+runs and on a KWOK cluster. In the simulator, its steady-state cost was within -0.75% to +0.34% of upstream's
+across six workload-policy pairs, every 90% interval within -1.8% to +1.0% (seven of 60 seeds matched upstream
+exactly on steady-state cost, evictions, nodes removed and final node count; the other 53 were not diagnosed. The
+stated but untested hypothesis is that the simulator's candidate shuffle consumes its seeded random stream
+differently across the pipeline's method boundaries).
 On the KWOK cluster, no difference between the two was resolved at five seeds.
 
 ### Shift moves and eviction budgets
@@ -175,9 +182,9 @@ pods actually evicted.
 ### The decision log
 
 Every stage decision is one structured event: cycle, time on the injected clock, stage, strategy, the move (kind,
-sources, destinations, pod count), its scores, whether it was accepted, and if not, why (`not downhill`,
-`node budget for default: 2 > 1`, `conflicts with m4`, `validation: churn`). The controller writes them at
-verbosity 1; the simulator writes them to a file. Given the same seed, configuration and commit, the log is
+sources, destinations, pod count), its scores, whether it was accepted, and if not, why (`not downhill`, `node budget
+for default: 2 > 1`, `conflicts with m4`, `validation: churn`). The controller writes them at verbosity 1 (Karpenter's
+`--log-level debug`); the simulator writes them to a file. Given the same seed, configuration and commit, the log is
 byte-identical.
 
 ### Size
@@ -185,7 +192,8 @@ byte-identical.
 The pipeline package is 41 new files and 12,356 lines, of which 3,356 lines in 8 files are tests (62 top-level
 test functions, the parity test among them). Six upstream-owned files are touched: five are modified by 70 added
 and 2 removed lines (the gate and flag in `options.go`, the wiring in `controllers.go`, the test options, one
-documented metric value, and two registered experimental annotations in `labels.go`), and one is new, 61 lines of
+documented metric value, and two registered experimental annotations in `labels.go`: the shift-source timestamp
+and a simulated volume zone), and one is new, 61 lines of
 exported hooks that change no behavior. The disruption controller itself is not changed. The simulator
 (`hack/consolidation-sim`) is another 5,400 lines of Go, 1,600 lines of tests and a trace file.
 
@@ -194,24 +202,28 @@ exported hooks that change no behavior. The disruption controller itself is not 
 The planners that are new need a number for a move that removes no node. The pipeline's answer is a **potential**:
 a function of the fleet that is lowest when every node is either packed or empty. The default, `util-entropy`, is
 
-    Phi = sum over nodes i of  price_i * h(u_i),    h(u) = -u ln u - (1-u) ln(1-u)
+    Phi = (1/P) * sum over nodes i of  price_i * h(u_i),    h(u) = -u ln u - (1-u) ln(1-u)
 
-where u_i is the node's dominant-resource utilization. h is zero at u = 0 and u = 1 and largest at 50%, and it is
-concave, so moving load from a less-utilized node onto a more-utilized one of the same price and size always
-lowers Phi. A planner then scores a move by an **energy change**
+where u_i is the node's dominant-resource utilization and P is the fleet's total price when the cycle's snapshot was
+taken (forks keep the same P, so removing a node never shrinks the denominator). h is zero at u = 0 and u = 1 and
+largest at 50%, and it is concave, so moving load from a less-utilized node onto a more-utilized one of the same price
+and size always lowers Phi. A planner then scores a move by an **energy change**
 
     dE = alpha * dPhi + lambda * D - mu * S
 
-with D the normalized disruption and S the normalized savings. Balanced's acceptance rule is the special case
-alpha = 0, lambda = 1, mu = k; `WhenEmptyOrUnderutilized` is the limit of any positive saving. With alpha > 0 a
+with D the normalized disruption and S the normalized savings. Balanced's acceptance rule is the special case alpha =
+0, lambda = 1, mu = k; `WhenEmptyOrUnderutilized` is the limit lambda -> 0: any move with S > 0. With alpha > 0 a
 shift, which saves nothing now, can still be worth its disruption if it lowers Phi enough. The paper discusses what
 the data say about this.
 
 ## 4. What the pipeline makes possible
 
 - **Change one thing at a time.** The planner can change while candidate selection, generation and execution stay
-  on the upstream adapters, so the parity test still pins the stages not under study. The experiments did exactly
-  this: the same search with four different planners, and the same planner with two different generators.
+  on the upstream adapters, so the parity test still pins the stages not under study. The experiments came close
+  to this: upstream's candidate order and searches (the fine adapters) with three different planners at one search
+  budget, and the same planner with two different generators; those arms ran pooled with capped search and
+  executed through `shift-evict`, which sends merges, the only moves the upstream searches produce, to the
+  orchestration queue.
 - **Compare at equal compute.** `maxFullSimulations` and `maxAttempts` cap search per cycle, so two strategies can
   be given the same budget. Upstream's time limits cannot do this.
 - **Express moves that delete no node**, and bound their disruption with pod-eviction budgets.
@@ -247,17 +259,22 @@ the data say about this.
   stop a scheduling simulation part-way. The two agree with a real clock except at the granularity of one
   simulation, which is what makes fine mode deterministic, but it is a difference.
 - **A snapshot per pass.** Building it deep-copies the nodes and lists pods and PDBs. It is small next to a
-  scheduling simulation and has not been profiled beyond 1,000 nodes.
-- **Measured overhead of the pipeline configured as upstream.** Small, and not consistently in one direction. In
-  the simulator over whole 3-hour runs at 200 nodes it spent 5 to 16% *less* CPU per disruption pass than upstream
-  (for example 93 vs 111 ms on the diurnal workload; from the raw `b4` and `exp1-baselines-n200` runs), and on the
-  compressed diurnal workload 3 to 4% more. On the KWOK cluster at 200 nodes: 3.4% more controller CPU (154 vs
-  149 core-seconds over 30 minutes, the paired interval including zero), 5% more peak memory (227 vs 216 MB) and
-  11% more wall-clock time in decision evaluation (462 vs 415 s), with no resolved difference in cost or evictions.
-- **Loose ends.** The decision log's `budget_remaining` field is never set; the conformance suite checks generated
-  moves against the fast feasibility check, not the full one, and does not exercise executors; the RFC's open
-  questions list two items the code has since closed (the wrapped configuration form is decoded strictly, and the
-  shift-source annotations are registered), so the RFC is behind the code there.
+  scheduling simulation, but it has not been profiled at any scale (the only CPU profiles taken were of upstream
+  arms); the RFC's own caveat is that it is unprofiled at 5,000 nodes.
+- **Measured overhead of the pipeline configured as upstream.** Small, and not consistently in one direction. In the
+  simulator over whole 3-hour runs at 200 nodes it spent 5 to 16% *less* CPU per disruption pass than upstream (for
+  example 93 vs 111 ms on the diurnal workload; from the raw `b4` and `exp1-baselines-n200` runs), and on the
+  compressed diurnal workload (35-minute runs at 50 and 200 nodes, five seeds) 3 to 4% more decision CPU over the
+  observation window, which per pass is +3.7% at 50 nodes and +4.6% at 200. On the KWOK cluster at 200 nodes: 3.4%
+  more controller CPU (154 vs 149 core-seconds over 30 minutes, the paired interval including zero), 5% more peak
+  memory (227 vs 216 MB) and 11% more wall-clock time in decision evaluation (462 vs 415 s), with no resolved
+  difference in cost or evictions.
+- **Loose ends.** The decision log's `budget_remaining` field is never set; the conformance suite (the shared test
+  suite every registered strategy must pass) checks generated
+  moves against the fast feasibility check (the snapshot-only check of section 2), not the full one, and does not
+  exercise executors; the RFC's open questions list two items the code already handles (the `pipeline:`-wrapped
+  configuration form is decoded strictly, and the shift-source annotations are registered; the code and the RFC
+  text that calls them open date from the same commit), so the RFC is behind the code there.
 - **12,000 lines to own.**
 
 ## 6. What the experiments found when the new pieces were used
@@ -265,9 +282,11 @@ the data say about this.
 The point of the pipeline was to answer questions, and the answers so far favor upstream. In the simulator
 (preregistered, 10 seeds per cell; details and intervals in the paper):
 
-- **Random generation is not a drop-in for upstream's search.** With the same planner and the same simulation
-  budget, it ended 1.5 to 5% cheaper on workloads that start fragmented but 1.4 to 4.3% dearer after a diurnal
-  scale-down, evicted 26 to 129% more pods, and converged more slowly. On the KWOK cluster it ended 10.6% dearer at
+- **Random generation is not a drop-in for upstream's search.** With the same planner and the same simulation budget,
+  it ended 1.5 to 5.1% cheaper in seven of eight cells on workloads that start fragmented (the eighth was equivalent
+  at +0.1%) but 1.4 to 4.3% dearer after a diurnal scale-down; evicted 48 to 129% more pods on the fragmented and
+  mixed-shape workloads and 26 to 41% more on the diurnal one at 1,000 nodes (at 200 nodes on the diurnal workload,
+  -5% to +13% with intervals spanning zero); and converged more slowly. On the KWOK cluster it ended 10.6% dearer at
   200 nodes and used 52% more controller CPU. Section 7 of the paper explains why random costs more.
 - **Shifts, as configured, cost more than they saved.** Merge-plus-shift had 1.7 to 7.0% higher integrated cost
   than merge-only at an equal pod-eviction budget, because the budget was spent on moves that did not pay off.
@@ -290,7 +309,7 @@ comparison, a decision log, and one code path from simulator to cluster. No new 
 | For | Against |
 | --- | --- |
 | Off by default; with the gate off, no code path changes | 12,000 new lines and a second copy of the two upstream searches to keep in sync |
-| Decisions proven identical to upstream on 10,000 states, and equivalent over whole simulated days | Parity covers decisions, not events or metrics; fine mode drops Balanced's metrics |
+| Decisions proven identical to upstream on 10,000 states, and equivalent over whole 3-hour simulated runs | Parity covers decisions, not events or metrics; fine mode drops Balanced's metrics |
 | Any stage swappable by name; strategies compared at equal compute | Experimental strategies are compiled into the operator |
 | Moves that delete no node, with pod-eviction budgets | Shift taints and `consolidateAfter` interactions are unresolved |
 | Seeded, deterministic, fully logged decisions | A few percent more controller CPU and memory in the as-upstream configuration |
