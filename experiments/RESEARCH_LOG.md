@@ -781,3 +781,20 @@ Every decision taken without asking, every fallback, and every blocked host, in 
     The analysis will add each run's `boot_id` and report the compute agreement twice: on all complete blocks, and
     on the blocks whose seven cells ran on one VM. The other metrics do not depend on machine speed in the
     simulator. In Tier B, they could depend on it only through timing, and they are reported on all blocks.
+- **Second container restart (Oct 31, about 00:42 UTC; 60 of 70 cells done).** The container restarted during
+  cell 61 (B3, n = 200, seed 105; started 00:09). This time the session's scratch directory, which held the driver's
+  tools and binaries, was lost as well. Docker's state and the committed repository survived, so the kind cluster
+  came back with the controller image already loaded. Recovery:
+  - Docker was started by hand. kind, ko, helm and kubectl were reinstalled into `/tmp/tierb/bin` at the same
+    versions, as `experiments/tierb/env/setup.sh` does.
+  - The simulator was rebuilt from a clean clone at `eff89a1`; its VCS stamp is `eff89a1`, unmodified. It regenerated
+    seed 105's n = 200 workload identical to the one committed in that block's B2 cell.
+  - The spec binary was rebuilt from the branch. No file under `test/`, `pkg/`, `cmd/`, `kwok/` or the Go modules
+    changed after `bd2619e`, the Go toolchain is the same (1.26.10), and the new binary has the same size, 96,071,646
+    bytes. From cell 61's rerun on, manifests record the new binaries' paths (`/tmp/tierb/bin/...`).
+  - The interrupted cell's NodePool, NodeClaims and 807 pods were deleted by hand, as after the first restart. The
+    driver resumed at 00:52 through `experiments/tierb/env/run-driver.sh`: it set cell 61's first attempt aside and
+    reran it. Seed 105's round had started at 21:40 on Oct 30, before the 36-hour cutoff (23:11), so it is finished
+    as the stopping rule says.
+  - The new boot's CPU is again "Intel(R) Xeon(R) Processor @ 2.10GHz" (`experiments/tierb/machine-log.txt`). The
+    block (seed 105, n = 200) now mixes two boots, so the single-VM compute check leaves it out too.
