@@ -33,11 +33,13 @@ eviction cost of its pods, highest first.
 - **Single-node consolidation** walks the candidates one at a time (interleaving NodePools), simulates each one's
   removal or replacement, and stops at the first acceptable command. It has a 3-minute limit and records which
   NodePools it did not reach so the next pass starts with them.
-- **Acceptance** depends on the NodePool's `consolidationPolicy`. `WhenEmptyOrUnderutilized` accepts any command
-  that reduces cost, subject to the price filters (a replacement must be cheaper than what it replaces, and is never
-  more than one node) and, behind its own gate, the spot-to-spot rule (spot is replaced by spot only when at least
-  15 cheaper instance types are available). `Balanced` scores a command by its
-  savings fraction over its disruption fraction and accepts it at or above 1/k with k = 2.
+- **Acceptance** depends on the NodePool's `consolidationPolicy`. `WhenEmptyOrUnderutilized` accepts any command that
+  reduces cost. Before either policy scores a command, the simulation result passes the price filters (a replacement
+  must be cheaper than what it replaces, and is never more than one node) and, behind its own gate, the spot-to-spot
+  rule: a spot node is replaced by spot only with `SpotToSpotConsolidation` on, and single-node consolidation
+  additionally requires at least 15 cheaper instance types and launches only the 15 cheapest, so the new node is not
+  itself the next consolidation target. `Balanced` scores a command by its savings fraction over its disruption
+  fraction and accepts it at or above 1/k with k = 2.
 - **Validation.** A chosen command waits 15 seconds and is re-simulated; if the cluster changed in a way that
   breaks it, it is rejected.
 
@@ -143,13 +145,14 @@ The default configuration runs the **coarse** adapters: stage 2 calls upstream's
 `ComputeCommands`, so upstream's search, acceptance, metrics and events all run as today, and the pipeline only
 converts the result into a move and back. This mode is upstream by construction.
 
-The **fine** adapters re-implement the two searches in stages: upstream's candidate order, the prefix binary
-search with its budget pre-filter (the prefix is truncated to what the NodePool's node budget allows) and
-instance-type filter (replacement types priced at or above an existing candidate's are dropped), the single-node
-scan with its 3-minute limit and its
-resume state. Where upstream consults its acceptance test, the fine adapters consult the configured planner. This is
-what makes the stages swappable: with `mode: fine`, a different planner changes acceptance without touching the
-search.
+The **fine** adapters re-implement the two searches in stages: upstream's candidate order, the prefix binary search
+with its budget pre-filter (candidates whose NodePool's node budget is already used up are dropped from the sorted
+list, in order, so each NodePool contributes at most its budget) and instance-type filter (when a replacement type is
+also one of the candidates' own types, every replacement type priced at or above that candidate's price is dropped,
+since keeping that candidate would be the same consolidation with less disruption), the single-node scan with its
+3-minute limit and its resume state. Where upstream consults its acceptance test, the fine adapters consult the
+configured planner. This is what makes the stages swappable: with `mode: fine`, a different planner changes acceptance
+without touching the search.
 
 `TestParity` checks both. For each of thousands of seeded cluster states (4 to 40 nodes, one to three NodePools,
 two instance catalogs, both consolidation policies), it runs upstream's methods and then one pipeline cycle with
@@ -264,17 +267,18 @@ the data say about this.
 - **Measured overhead of the pipeline configured as upstream.** Small, and not consistently in one direction. In the
   simulator over whole 3-hour runs at 200 nodes it spent 5 to 16% *less* CPU per disruption pass than upstream (for
   example 93 vs 111 ms on the diurnal workload; from the raw `b4` and `exp1-baselines-n200` runs), and on the
-  compressed diurnal workload (35-minute runs at 50 and 200 nodes, five seeds) 3 to 4% more decision CPU over the
-  observation window, which per pass is +3.7% at 50 nodes and +4.6% at 200. On the KWOK cluster at 200 nodes: 3.4%
-  more controller CPU (154 vs 149 core-seconds over 30 minutes, the paired interval including zero), 5% more peak
-  memory (227 vs 216 MB) and 11% more wall-clock time in decision evaluation (462 vs 415 s), with no resolved
-  difference in cost or evictions.
+  compressed diurnal workload (35-minute runs at 50 and 200 nodes) 3 to 4% more decision CPU on the five seeds that
+  pair with the KWOK runs (+3.7% per pass at 50 nodes, +4.6% at 200), but +2.6% and -0.03% per pass over all ten
+  simulator seeds; neither five-seed paired interval excludes zero. On the KWOK cluster at 200 nodes: 3.4% more
+  controller CPU (154 vs 149 core-seconds over 30 minutes, the paired interval including zero), 5% more peak memory
+  (227 vs 216 MB) and 11% more wall-clock time in decision evaluation (462 vs 415 s), with no resolved difference in
+  cost or evictions.
 - **Loose ends.** The decision log's `budget_remaining` field is never set; the conformance suite (the shared test
-  suite every registered strategy must pass) checks generated
-  moves against the fast feasibility check (the snapshot-only check of section 2), not the full one, and does not
-  exercise executors; the RFC's open questions list two items the code already handles (the `pipeline:`-wrapped
-  configuration form is decoded strictly, and the shift-source annotations are registered; the code and the RFC
-  text that calls them open date from the same commit), so the RFC is behind the code there.
+  suite that every registered selector, generator, planner and potential that builds without a live cluster must pass)
+  checks generated moves against the fast feasibility check (the snapshot-only check of section 2), not the full one,
+  and does not exercise executors; the RFC's open questions list two items the code already handles (the
+  `pipeline:`-wrapped configuration form is decoded strictly, and the shift-source annotation is registered; the code
+  and the RFC text that calls them open date from the same commit), so the RFC is behind the code there.
 - **12,000 lines to own.**
 
 ## 6. What the experiments found when the new pieces were used

@@ -57,11 +57,12 @@ lists what a real cluster adds.
 | Instance types | 15: `c7i`, `m7i`, `r7i` at `large`, `xlarge`, `2xlarge`, `4xlarge`, `8xlarge`; on-demand only; $0.098 to $2.117 per hour, identical to the simulator's catalog (`experiments/catalog.json`) |
 | Scheduler | kube-scheduler defaults (`LeastAllocated` scoring) |
 
-Two workarounds were needed on this VM and are harmless elsewhere: containerd's `restrict_oom_score_adj` in the
-kind config (the VM withholds `CAP_SYS_RESOURCE`), and loading the KWOK image from the host because the kind node
-could not reach the VM's proxy. `experiments/tierb/env/setup.sh` recreates the cluster, KWOK, the controller image
-and the binaries on a machine that already has Go, Docker and kubectl: about five minutes with cold build caches
-(316 s in the first end-to-end check) and three with warm ones (174 s in the second).
+Two workarounds were needed on this VM and are harmless elsewhere: containerd's `restrict_oom_score_adj` in the kind
+config (the VM withholds `CAP_SYS_RESOURCE`), and loading the KWOK image from the host because the kind node could not
+reach the VM's proxy. `experiments/tierb/env/setup.sh` recreates the cluster, KWOK, the controller image and the
+binaries on a machine that already has Go, Docker and kubectl. In two end-to-end checks on the VM that had just run
+the experiment (Go's caches and the kind and KWOK images already present) it took 316 s and then 174 s; a fresh
+machine will take longer.
 
 ## 3. The workload
 
@@ -336,8 +337,8 @@ stages in order; each one's smoke results decide whether the next is worth its m
 | --- | --- | --- | --- | --- | --- |
 | 0. Smoke | one run of the compressed diurnal workload | B2 | 1 | 50 | prove the harness, the image, the NodeClass, the cost accounting and teardown; under $10 |
 | 1. Replication | the KWOK matrix as run | all seven | 101 to 105 | 50 and 200 | rank agreement across simulator, KWOK and EKS; the real-cost and unavailability columns; about $1,100 |
-| 2. Resolution | more seeds at 200 nodes | B2, B3, B4, heuristic/entropy-greedy | 106 to 125 | 200 | resolve differences of about 2% among the near-tied configurations (25 seeds in all, from the ±4.7% five-seed interval scaled by one over the square root of the seed count; 1% would take about 110); about $2,000 |
-| 3. Constraints | the simulator's constrained diurnal workload: half the Deployments carry a PDB (`maxUnavailable: 1`), 30% a hard hostname topology spread (`maxSkew: 2`), 10% of the rest required hostname anti-affinity, 5% `do-not-disrupt` | B2, B3, heuristic/entropy-greedy, random/entropy-greedy | 101 to 105 | 200 | the fleet floor constraints impose and the strategies' behavior against it; the random arm is included because shifts and PDBs interact; about $500 at the unconstrained fleet's cost, $550 to $600 if the constrained fleet costs what it did in the simulator (7% more per hour at peak demand, 12% more integrated over the one constrained run), and budget more, since that fleet peaked at 5.7 times the nodes and settled at 3.4 times |
+| 2. Resolution | more seeds at 200 nodes | B2, B3, B4, heuristic/entropy-greedy | 106 to 125 | 200 | narrow the interval on the near-tied configurations to about ±2.1% (25 seeds in all, from the ±4.7% five-seed interval scaled by one over the square root of the seed count; resolving 2% needs about 30 seeds and 1% about 110); about $2,000 |
+| 3. Constraints | the simulator's constrained diurnal workload: half the Deployments carry a PDB (`maxUnavailable: 1`), 30% a hard hostname topology spread (`maxSkew: 2`), 10% of the rest required hostname anti-affinity, 5% `do-not-disrupt` | B2, B3, heuristic/entropy-greedy, random/entropy-greedy | 101 to 105 | 200 | the fleet floor constraints impose and the strategies' behavior against it; the random arm is included because shifts and PDBs interact; about $500 at the unconstrained fleet's cost, $540 to $560 if the constrained fleet costs what it did in the simulator (7% more per hour at peak demand, 9% more integrated after warm-up and 11% over the whole of the one constrained run), and budget more, since that fleet peaked at 5.7 times the nodes and settled at 3.4 times |
 | 4. Full diurnal | the simulator's 3-hour diurnal workload (Deployments scale down one by one over an hour) | B2, B3, heuristic/entropy-greedy | 101 to 105 | 200 | integrated cost over a realistic timeline, in dollars; about $2,100 (15 runs at $140) |
 | 5. Scale | the compressed workload at 500 nodes | B2, B3, heuristic/entropy-greedy, random/entropy-greedy | 101 to 103 | 500 | controller CPU, memory and decision-evaluation time with real API server load; whether any pass approaches upstream's 1-minute multi-node limit; about $750 (12 runs at roughly 2.5 times the 200-node fleet cost, the simulator's cost scaling about linearly with size), more if the window is lengthened for 500 nodes |
 

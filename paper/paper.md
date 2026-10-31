@@ -110,12 +110,12 @@ starts with them.
 
 **Acceptance** is the NodePool's `consolidationPolicy`. `WhenEmptyOrUnderutilized` accepts any command that lowers
 cost, after price filters (a replacement must be cheaper than what it replaces; a replacement is never more than one
-node) and, behind its own off-by-default gate, the spot-to-spot rule (a spot node is replaced by another spot node
-only when at least 15 cheaper instance types are available, so that the replacement is not itself the next
-interruption). `Balanced` (the newer policy)
-scores a command as its savings fraction over its disruption fraction, each normalized by the NodePool's totals,
-and accepts it at or above 1/k with k = 2: a move must save at least half as large a share of the NodePool's cost as
-the share of its disruption it spends.
+node) and, behind its own off-by-default gate, the spot-to-spot rule (a spot node may be replaced by another spot
+node; in single-node consolidation only when at least 15 cheaper instance types are available, and the launch is
+limited to the 15 cheapest, so that the replacement is not itself the next consolidation target). `Balanced` (the
+newer policy) scores a command as its savings fraction over its disruption fraction, each normalized by the NodePool's
+totals, and accepts it at or above 1/k with k = 2: a move must save at least half as large a share of the NodePool's
+cost as the share of its disruption it spends.
 
 **Validation.** The chosen command waits 15 seconds, then is re-simulated against the current cluster. If a pod
 landed on a candidate in the meantime, or the replacement no longer fits, the command is rejected and the pass ends.
@@ -281,10 +281,11 @@ workloads (section 6), and the threefold node count is where a cluster's operati
 agents, IP addresses, API server load) lives. It also shows what the potential misses. Phi reported the constrained
 fleet as more improvable than its twin for almost the whole run (normalized utilization entropy 0.085 against 0.035 at
 peak demand, 0.081 against 0.057 at the end), even though by utilization it was packed after the first passes (mean
-dominant-resource utilization 0.95 at peak and 0.94 at the end, under 4% of nodes between 30 and 70%), because it does
-not know that a node holding two pods of a spread Deployment is as full, for that Deployment, as it is allowed to be.
-(The simulator's own placement model and Karpenter's simulation also disagree on the hostname minimum, the former
-using the true one and the latter zero, which is a reasoned source of the low plan fidelity in this run.)
+dominant-resource utilization 0.95 at peak and 0.94 at the end, under 4% of nodes between 20 and 80% by dominant
+resource: 0.7% at peak demand, 3.7% at the end), because it does not know that a node holding two pods of a spread
+Deployment is as full, for that Deployment, as it is allowed to be. (The simulator's own placement model and
+Karpenter's simulation also disagree on the hostname minimum, the former using the true one and the latter zero, which
+is a reasoned source of the low plan fidelity in this run.)
 
 (The simulator paid a separate price for this workload: its disruption passes took 4.5 seconds on average against
 0.1 seconds for the unconstrained twin, because Karpenter's topology code lists pods by label selector and the
@@ -604,12 +605,13 @@ tested further).
 
 ### 6.9 Distance from the cheapest fleet
 
-Against the offline packing bound on each run's final pod set, the consolidating configurations ended 8 to 21%
-above it at 50 nodes (the descheduler 78 to 145% above), 9 to 22% at 200, and 11 to 43% at 1,000 (`exp8_gap`; the
-bound is exact for 25 of 30 final 50-node pod sets and a relaxation above that, so the gaps are upper estimates).
-The smallest gaps were random generation with upstream's first-valid planner on the fragmented workloads (8 to
-12%). Every strategy leaves at least 8% of the fleet's cost on the table relative to a fresh packing, and upstream 13%
-or more; how much of that is reachable at acceptable disruption is the open question.
+Against the offline packing bound on each run's final pod set, the consolidating configurations ended 8 to 21% above
+it at 50 nodes (the descheduler 78 to 145% above), 9 to 22% at 200, and 11 to 43% at 1,000 (`exp8_gap`; the bound is
+exact for 25 of 30 final 50-node pod sets and a relaxation above that, so the gaps are upper estimates). The smallest
+gaps were random generation with upstream's first-valid planner on the fragmented workloads (8 to 12%). Every strategy
+leaves at least 8% of the fleet's cost on the table relative to a fresh packing, and upstream's two policies 11% or
+more (their smallest gap is Balanced's 10.6% on W2 at 50 nodes); how much of that is reachable at acceptable
+disruption is the open question.
 
 ### 6.10 Parity in the wild
 
@@ -666,7 +668,7 @@ the compressed-diurnal cells):
 Because the cost of a searching pass is a run's total pass CPU divided by its searching passes, the mean per pass
 is by construction the searching share times that cost; a skipped pass's own small cost is folded into the
 searching-pass figure and was not measured separately. (This table uses three seeds, so its products differ from
-the ten-seed means above by up to 10%.) Four mechanisms, each visible in the code, produce those two factors.
+the ten-seed means above by up to 11%.) Four mechanisms, each visible in the code, produce those two factors.
 
 1. **Random generation searches on a third of the passes; the heuristic on all of them.** The pipeline skips a
    pass when the cluster has not changed since a pass that executed nothing and was not limited by a budget. The
@@ -677,17 +679,17 @@ the ten-seed means above by up to 10%.) Four mechanisms, each visible in the cod
    searches on 17 to 48% of
    passes and most of its searches execute something. Neither behavior is the search algorithm's; both are
    gating.
-2. **A random search always spends its whole budget.** Each random generator makes its 500 attempts whether or
-   not there is anything left to find; the logs show exactly 1,000 attempts per searching pass in every
-   1,000-node run of the entropy-greedy and anneal-plan arms, and the 16-simulation cap reached in every one of
-   them (under upstream's first-valid planner the round stops after the first generator that yields a move, so
-   those runs log 500). `random-merge` keeps computing
-   first-fit placements after the simulations are spent and discards them. The heuristic search is shaped by what
-   it finds: the multi-node adapter's binary search needs at most seven simulations, and the single-node adapter
-   scans until its candidates or the simulations run out, so on a fleet with few candidates its search is short.
-   (With the entropy-greedy or annealing planner the heuristic search does not stop at the first acceptable move,
-   as upstream's own single-node scan does; that is why the heuristic pipeline arms cost 1.5 times upstream's
-   56 ms per pass on the cluster workload.)
+2. **A random search always spends its whole budget.** Each random generator makes its 500 attempts whether or not
+   there is anything left to find; the logs show exactly 1,000 attempts per searching pass in every 1,000-node run of
+   the entropy-greedy and anneal-plan arms, and the 16-simulation cap reached in every one of them (under upstream's
+   first-valid planner the round stops after the first generator that yields a move, so those runs log 500 attempts on
+   the searching passes where `random-merge` yields a move, 68 to 89% of them, and 1,000 on the rest). `random-merge`
+   keeps computing first-fit placements after the simulations are spent and discards them. The heuristic search is
+   shaped by what it finds: the multi-node adapter's binary search needs at most seven simulations, and the
+   single-node adapter scans until its candidates or the simulations run out, so on a fleet with few candidates its
+   search is short. (With the entropy-greedy or annealing planner the heuristic search does not stop at the first
+   acceptable move, as upstream's own single-node scan does; that is why the heuristic pipeline arms cost 1.5 times
+   upstream's 56 ms per pass on the cluster workload.)
 3. **A random search costs more on dense fleets.** Per attempt, `random-merge` picks one to three sources, first-fits
    every one of their pods, largest first, over a shuffled list of destinations with a fast feasibility probe per pod
    and destination, then checks the whole move and, whether or not it passes, spends a simulation on it while one
@@ -800,11 +802,13 @@ nothing about them without one.
 - **Value shifts over time, not at once.** A shift's energy should price the delay until its source is removed,
   under `consolidateAfter` and validation; the `sequence` planner, which scores a chain of shifts with its final
   delete, exists but was not in the matrix.
-- **Keep the instrument.** The stage interfaces, the coarse and fine adapters with their parity test, the decision
-  log and the equal-compute budgets are the part of this work that survives its results. The RFC's beta criteria
-  list what is left: events and Balanced-metrics parity in fine mode, a metric for search timeouts, resolution of
-  the shift/`consolidateAfter` and plan-fidelity questions, and a decision on whether experimental strategies
-  ship in the operator.
+- **Keep the instrument.** The stage interfaces, the coarse and fine adapters with their parity test, the decision log
+  and the equal-compute budgets are the part of this work that survives its results. The RFC's beta criteria list what
+  is left: events and Balanced-metrics parity in fine mode, a metric for search timeouts, published results with a
+  decision on which strategies, if any, are recommended, resolution of the shift/`consolidateAfter` and plan-fidelity
+  questions and of the RFC's listed loose ends (its Open Question 10: `budget_remaining` is never set, the conformance
+  suite checks the fast feasibility only, the planner mirror of Balanced's evaluator does not reuse it), and a
+  decision on whether experimental strategies ship in the operator.
 - **More seeds for small effects.** At five seeds on the cluster the median 95% interval on end cost was ±4.7% at
   200 nodes; scaling that by one over the square root of the seed count, differences of 2% among upstream and the
   heuristic arms need about 30 seeds and differences of 1% about 110. The simulator, at ±7%, needs more than twice
