@@ -114,3 +114,8 @@ file before the next action. Decisions and fallbacks are logged in `experiments/
       - The first check found a race between the control-plane taint and kind's local-path provisioner, fixed in
         `c5a055f`.
       - The second check passed, with a valid B4 smoke cell and the same controller image digest.
+- [x] Three documents for readers who know Karpenter but not this branch's jargon (`docs/consolidation/README.md`):
+      the paper (`paper/paper.md`), the pipeline refactor and its trade-offs
+      (`docs/consolidation/pipeline-refactor.md`), and the KWOK experiments with an EKS plan
+      (`docs/consolidation/kwok-experiments-and-eks-plan.md`). Each was claim-checked against the code, tables and
+      raw runs by a checker-and-verifier workflow before its final commit.
