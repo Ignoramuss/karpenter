@@ -19,8 +19,9 @@ Session results and their caveats are in `experiments/RESULTS.md`; the preregist
   ```
 
 - For Tier B: Docker, Go, `kubectl`, and network access to `registry.k8s.io` (KWOK), Docker Hub (the kind node
-  image), `cgr.dev` (the `ko` base image), GitHub (KWOK's manifests) and `get.helm.sh`. Both registries were
-  blocked in the session itself and opened afterwards. `experiments/tierb/env/setup.sh` installs kind, ko and helm.
+  image), `cgr.dev` (the `ko` base image), GitHub (KWOK's manifests) and `get.helm.sh`. `registry.k8s.io` and
+  `cgr.dev` were blocked in the session itself and opened afterwards; Docker Hub was reachable.
+  `experiments/tierb/env/setup.sh` installs kind, ko and helm, and needs `kubectl` already on PATH.
 - Build one simulator binary per commit and use it for a whole matrix, so every cell's manifest carries one SHA.
   To extend the session's runs (reused cells, the cut groups), build the Gate 3 commit in a separate clone. Do not
   use a `git worktree`: its `.git` is a file, so Go writes no VCS stamp and `binary_revision` reads "unknown".
@@ -179,8 +180,17 @@ history and every change to it are in `experiments/RESEARCH_LOG.md`, from "Tier 
    The VM also needed `dockerd` started by hand (`setsid nohup dockerd &`).
    The script ends by writing `$TIERB_HOME/env.sh`, the driver's environment.
 
+   The script was checked end to end on a fresh cluster after the run (Oct 31):
+   - The first check failed on a race. The control-plane taint landed before kind's local-path provisioner was
+     scheduled, and the suite refused to start. The script now waits for kind's add-ons first, and
+     `make setup-kind` has the same race.
+   - The second check took 3 minutes, built the run's controller image with the same digest, and gave a valid
+     B4 smoke cell.
+
 2. **Tier A side.** `experiments/matrix/tierb.yaml` holds the same seven configurations on WB:
-   - `tierb-cal`: pilot seeds 1-5 with a 45-minute window. It was used once, to fix the window T = 30 minutes.
+   - `tierb-cal`: pilot seeds 1-5 with a 45-minute window. It fixed the window at T = 30 minutes. The Tier B
+     driver also reads each pipeline arm's configuration from that arm's n = 50, seed 1 cell (`arm_pipeline` in
+     `run_tierb.py`), so exactly one such cell per arm must exist before step 3.
    - `tierb-a`: seeds 101-110.
 
    Use the simulator `setup.sh` built, so both tiers share one commit:
@@ -199,13 +209,19 @@ history and every change to it are in `experiments/RESEARCH_LOG.md`, from "Tier 
    setsid nohup experiments/tierb/env/run-driver.sh run >> /tmp/tierb/driver.log 2>&1 < /dev/null &
    ```
 
-   - Re-invoke `run` after any interruption: finished cells are skipped and an interrupted one starts over.
+   - Re-invoke `run` after any interruption: valid cells are skipped, and an interrupted cell is set aside and
+     rerun.
+   - After a container restart, start `dockerd` first. Then delete the interrupted cell's NodePool, NodeClaims and
+     pods, and wait until only the control-plane node remains. The suite's pre-suite cleanup does not wait for
+     leftover nodes, and the driver's preflight does not check for them (`experiments/RESEARCH_LOG.md`,
+     "Container restart during Tier B").
    - Progress is in `experiments/tierb/run.log`.
    - Each cell writes `cell.json`, `manifest.json`, `summary.json`, `timeseries.csv` and `test.log.gz` under
      `experiments/runs/tierb-kwok/<run_id>/`.
    - To commit cells as they finish, list `experiments/runs/tierb-kwok/` in `.git/info/exclude` and run
-     `experiments/tierb/commit_tierb.sh`. It adds only cells whose manifest says `done`, so a cell still running
-     is never committed.
+     `experiments/tierb/commit_tierb.sh`. It adds cells whose manifest says `done`, so a cell still running is
+     never committed. It also adds every set-aside attempt, `machine-log.txt`, `run.log` and `plan.json`. It then
+     commits and pushes to the branch named on its last line, so change that line before using it elsewhere.
    - Keep the machine otherwise idle: Tier B measures the controller's CPU.
 
 4. **Analysis.** `make figures` includes `paper/analysis/tier_b.py`. It uses only complete (seed, n) blocks. Per
@@ -214,9 +230,13 @@ history and every change to it are in `experiments/RESEARCH_LOG.md`, from "Tier 
    It skips itself when there are no Tier B runs.
 
 5. **Larger runs.** The plan's full profile adds n = 500. Set `SIZES` and `SEEDS` in
-   `experiments/tierb/run_tierb.py`, and add the matching sizes and seeds to `tierb-a`. 500 nodes was not tried
-   here. Expect to need more CPU and memory for kind (at least 16 GB). Check that a smoke cell's pods are all
-   running at the drop before a long run.
+   `experiments/tierb/run_tierb.py`, and add the matching sizes and seeds to `tierb-a`.
+   - New seeds also need the stopping rule lifted. `STOP_AFTER_H` (36 hours) counts from the first cell in
+     `experiments/runs/tierb-kwok/` (Oct 29, 11:11:33 UTC). Raise it, or point `RUNS` at a fresh directory.
+     Otherwise the driver logs "STOP before round" and starts no new seed. `--only <run_id>` bypasses the rule
+     for one cell.
+   - 500 nodes was not tried here. Expect to need more CPU and memory for kind (at least 16 GB). Check that a
+     smoke cell's pods are all running at the drop before a long run.
 
 `test/suites/performance/pipeline_test.go` holds older stress specs from the session. They run a pipeline
 configuration through a diurnal scale-out and a 65% scale-down, and are not part of the rank check. To run them on

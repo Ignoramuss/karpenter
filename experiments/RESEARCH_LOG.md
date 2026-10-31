@@ -758,7 +758,8 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   `smoke-warmup47s-*`.
 - **Tier B evaluation run (from Oct 29, 11:11 UTC).** The driver started the 70 evaluation cells (seeds 101-105,
   both sizes, seven configurations) at 11:11 UTC, in the order in `experiments/tierb/plan.json`. Cells take 36-37
-  minutes. Finished cells are committed as they land.
+  minutes. Finished cells are committed in batches by `experiments/tierb/commit_tierb.sh`, run after every third
+  cell (about every 110 minutes).
 - **Interim structural check (Oct 30, 05:30 UTC; 30 of 70 cells done).** The analysis module was run once on the
   finished cells, into scratch space, to confirm that it reads real Tier B output. It found four complete blocks
   (seeds 101 and 102, both sizes) and no missing metric in any finished cell. The running cell, which has no
@@ -766,7 +767,8 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   mean or agreement statistic was looked at, and nothing in the protocol or the analysis changed.
 - **Container restart during Tier B (Oct 30, about 07:01 UTC; 32 of 70 cells done).** The container restarted
   during cell 33 (B3, n = 200, seed 103; started 06:43). Docker and the driver stopped. Cells 1-32 had all finished
-  and were valid; the 32nd finished at 06:43 and is committed. After the restart:
+  and were valid. The 32nd finished at 06:43. Cells 31 and 32 were on disk but not yet committed at the restart, and
+  were committed after it (`c0180c5`, 07:07). After the restart:
   - `dockerd` was started by hand, and the kind node came back on its own, with the interrupted cell's NodePool,
     NodeClaims and 825 pods still in place. They were deleted by hand, and the cluster was left with only its
     control-plane node before the driver resumed. The suite's own pre-suite cleanup does the same deletion but
@@ -785,8 +787,9 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   cell 61 (B3, n = 200, seed 105; started 00:09). This time the session's scratch directory, which held the driver's
   tools and binaries, was lost as well. Docker's state and the committed repository survived, so the kind cluster
   came back with the controller image already loaded. Recovery:
-  - Docker was started by hand. kind, ko, helm and kubectl were reinstalled into `/tmp/tierb/bin` at the same
-    versions, as `experiments/tierb/env/setup.sh` does.
+  - Docker was started by hand. kind v0.30.0 and ko v0.18.0 (`go install`) and helm v3.19.0 were reinstalled into
+    `/tmp/tierb/bin`, as `experiments/tierb/env/setup.sh` does. kubectl, which setup.sh only requires on PATH, was
+    linked there from envtest's `/usr/local/kubebuilder/bin/kubectl` (v1.36.2, the binary used before).
   - The simulator was rebuilt from a clean clone at `eff89a1`; its VCS stamp is `eff89a1`, unmodified. It regenerated
     seed 105's n = 200 workload identical to the one committed in that block's B2 cell.
   - The spec binary was rebuilt from the branch. No file under `test/`, `pkg/`, `cmd/`, `kwok/` or the Go modules
@@ -800,11 +803,12 @@ Every decision taken without asking, every fallback, and every blocked host, in 
     block (seed 105, n = 200) now mixes two boots, so the single-VM compute check leaves it out too.
 - **Tier B complete (Oct 31, 06:56 UTC).** All 70 cells finished and were valid on their first counted attempt. No
   cell was rerun for invalidity and none was abandoned. Two attempts were interrupted by container restarts and set
-  aside: cell 33 lost about 25 minutes, cell 61 about 43. The run took 43 h 44 min from the first cell's start (Oct 29, 11:11:33 UTC). All
-  ten (seed, n) blocks are complete, so the analysis drops nothing. Two blocks, (103, 200) and (105, 200), span two
-  boots each.
-- **Tier B results, and one post-hoc exploratory table (Oct 31, 07:00-07:40 UTC).** These are the preregistered
-  tables (`paper/tables/tierb_*`):
+  aside: cell 33 lost about 25 minutes, cell 61 about 43. The run took 43 h 44 min from the first cell's start
+  (Oct 29, 11:11:33 UTC). All ten (seed, n) blocks are complete, so the analysis drops nothing. Two blocks,
+  (103, 200) and (105, 200), span two boots each.
+- **Tier B results, and post-hoc exploratory tables (Oct 31, about 06:57-07:12 UTC).** These are the protocol's
+  tables (`tierb_runs`, `tierb_means`, `tierb_agreement`, `tierb_reversals`, `tierb_pairs`, `tierb_compute_one_vm`
+  and `tier_b.json` in `paper/tables/`):
   - Kendall's tau-b for `cost_end` is 0.20 at n = 50 and 0.33 at n = 200, with 21 material reversals across the
     floored metrics.
   - For evictions, tau-b is 0.49 and 0.81, with no material reversal.
@@ -819,9 +823,54 @@ Every decision taken without asking, every fallback, and every blocked host, in 
 
   So Tier B's run-to-run variation is larger than many of the 1% differences that count as material. To show which
   differences Tier B resolves at 5 seeds, `tierb_paired` and `tierb_reversals_paired` were added after the
-  preregistered tables had been seen. They give the per-seed paired differences per pair and metric in each tier,
-  with a two-sided 95% t interval. They are exploratory, and the preregistered tables are unchanged. The result:
+  protocol's tables had been seen. `tierb_paired_summary`, which backs the counts below, was added shortly after
+  (`671c35e`). They give the per-seed paired differences per pair and metric in each tier,
+  with a two-sided 95% t interval. They are exploratory, and the protocol's tables are unchanged. The result:
   - No material reversal is resolved in both tiers.
   - Tier B resolves one reversal: B3 vs B4 at n = 200 on `cost_end`, a direction Tier A does not resolve.
   - Of the 54 directions Tier A resolves at 5 seeds (cost_end, evictions and compute at both sizes), Tier B shows
     the same sign in 47 and resolves the opposite direction in none.
+- **Claim check of the Tier B write-up (Oct 31, 07:24-07:58 UTC; fixes until about 08:15).** A workflow checked the
+  new RESULTS section, the edits for Tier B elsewhere in RESULTS, PROGRESS, REPRODUCE, the runbook and these log
+  entries against the tables, the raw runs, the scripts and git history. It had five checkers, each followed by an
+  independent verifier, and the verifiers confirmed 32 problems. Fixed:
+  - **The fine-order explanation.** The first write-up blamed Tier B's run-to-run variation for the reversals
+    among the five near-tied configurations. That was wrong. At 5 seeds Tier A itself resolves none of their
+    cost-metric differences (0 of 60 pairs). Tier B resolves 7 of them at n = 200, none of which Tier A resolves.
+    The median `cost_end` interval across pairs is also wider in Tier A than in Tier B (±7.3% against ±5.4% at
+    n = 50; ±7.1% against ±4.7% at n = 200). RESULTS now says the fine order is not established by either tier.
+    The claims that differences of a few percent "do not resolve" in Tier B, and that effects of that size need
+    "far more than 5 seeds", are withdrawn. So is the seed arithmetic built on the B2 vs B4 interval. To back the
+    new text, `tierb_paired` gained each interval's half-width as a percent of the pair's level, and
+    `tierb_paired_summary` gained the medians. `tierb_means` gained the commands decided per cell.
+  - **The protocol's timing.** RESULTS and PROGRESS said the protocol was written before any evaluation-seed run
+    in either tier. That is true only of its first version (`eff89a1`, 08:26). Both revisions (`1806e5a` 09:49,
+    `8ef3481` 11:11, which added `cost_end_rel`) came after Tier A's 140 evaluation-seed runs (08:47-08:59), which
+    were not analyzed, and before any evaluation-seed Tier B run. The same applies to the "Tier B smokes" entry
+    above: `cost_end_rel` was added before any evaluation-seed Tier B run, not before any evaluation-seed run.
+    REPRODUCE now cites `8ef3481` for the protocol as run.
+  - **The other corrections:**
+    - the named-pair table's n = 200 eviction cell (neither tier resolves it);
+    - "random generation is worse on every axis" (not on evictions);
+    - the scope of "random generation ends dearer" (resolved at n = 200, not at n = 50);
+    - what the decision-evaluation histogram times (each whole disruption attempt, including the 15-second
+      validation wait);
+    - what the single-VM check covers (compute's tau-b only);
+    - in REPRODUCE and the runbook: how the driver skips cells (valid cells only), the manual steps after a
+      container restart, the stopping rule for new seeds, the dependence on `tierb-cal`, and what
+      `commit_tierb.sh` adds and where it pushes;
+    - the smoke-cell order in PROGRESS;
+    - in this log: kubectl's source after the second restart, the commit cadence, the results entry's time and
+      tables, and `tier_b.py`'s "the VM changed once".
+
+  The checkers' rejected findings and the verifiers' reasons are in the workflow transcript.
+- **`setup.sh` checked end to end (Oct 31, 07:02-07:38 UTC).** The check ran `setup.sh` on a fresh cluster (the run's
+  cluster deleted), then one smoke cell (B4, n = 50, pilot seed 1).
+  - **First attempt.** The setup finished (316 s), but the smoke failed in the suite's clean-cluster check: kind's
+    local-path provisioner was pending. `setup.sh` had tainted the control plane before the provisioner was
+    scheduled, and the provisioner does not tolerate `CriticalAddonsOnly`. The session's cluster never showed this
+    because it was tainted by hand minutes after creation. `make setup-kind` has the same race. `setup.sh` now waits
+    for kind's add-ons before tainting (`c5a055f`).
+  - **Second attempt.** Setup took 174 s, and `ko` built the run's controller image with the same digest
+    (`f5ee205e…`). The smoke was valid, with 12 nodes at the drop, nothing pending and the right methods.
+

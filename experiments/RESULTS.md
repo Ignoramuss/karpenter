@@ -430,10 +430,20 @@ cut configurations are exactly the four cut groups' (one with the single finishe
 
 ## Tier B: rank agreement on KWOK (after the session; descriptive)
 
-**Status: complete** (Oct 29 11:11 to Oct 31 06:56 UTC). This is not part of the preregistration. The protocol,
-`experiments/TIERB.md`, was written after the session and before any evaluation-seed run in either tier.
-`experiments/RESEARCH_LOG.md` records every change after it, from "Tier B unblocked". Tables:
-`paper/tables/tierb_*` and `paper/tables/tier_b.json`.
+**Status: complete** (Oct 29 11:11 to Oct 31 06:56 UTC). This is not part of the preregistration.
+
+The protocol is `experiments/TIERB.md`. Its first version was written after the session and before any
+evaluation-seed run in either tier (`eff89a1`, Oct 29 08:26 UTC). It was revised twice: once after the harness review
+(`1806e5a`, 09:49) and once after the smoke cells (`8ef3481`, 11:11). The revisions changed:
+- the validity and rerun rules;
+- the stopping rule;
+- the complete-block analysis;
+- the per-phase registration delay;
+- `cost_end_rel`, which the second revision added.
+
+Both revisions came after Tier A's 140 evaluation-seed runs (08:47-08:59), which no one had analyzed, and before
+any evaluation-seed Tier B run. `experiments/RESEARCH_LOG.md` records every change from "Tier B unblocked" on.
+Tables: `paper/tables/tierb_*` and `paper/tables/tier_b.json`.
 
 **What ran.** Seven configurations at n = 50 and 200 nodes, seeds 101-105:
 - B2, B3 and B4;
@@ -448,12 +458,12 @@ commit (`eff89a1`).
 
 All 70 KWOK cells were valid on their first counted attempt. Two attempts were interrupted by container restarts.
 The protocol sets such attempts aside and reruns them, and does not count them. All ten (seed, n) blocks are
-complete. The run moved between VMs twice: two blocks span two VMs, and controller CPU is also reported without
+complete. The VM (boot ID) changed twice, so two blocks span two VMs, and controller CPU is also reported without
 them.
 
-**Agreement (preregistered).** Kendall's tau-b compares the two tiers' orders of the seven configurations' means. A
-material reversal is a pair the two tiers order differently, with both differences above a floor: 1% for cost, 10%
-for evictions and compute, 2 minutes for settle time (`tierb_agreement`):
+**Agreement (fixed by the Tier B protocol).** Kendall's tau-b compares the two tiers' orders of the seven
+configurations' means. A material reversal is a pair the two tiers order differently, with both differences above a
+floor: 1% for cost, 10% for evictions and compute, 2 minutes for settle time (`tierb_agreement`):
 
 | Metric | tau-b, n = 50 | tau-b, n = 200 | Material reversals (50 / 200) |
 | --- | --- | --- | --- |
@@ -468,34 +478,53 @@ for evictions and compute, 2 minutes for settle time (`tierb_agreement`):
 On the blocks that ran on one VM (`tierb_compute_one_vm`), compute's tau-b is 0.33 at n = 50 (5 blocks) and 0.71 at
 n = 200 (3 blocks). The protocol counts every reversal as a finding. There are 21, all listed in `tierb_reversals`.
 
-**The coarse order holds.** In both tiers, the two random-generation arms rank first and second at both sizes on
-`cost_window` and compute, and at n = 200 also on `cost_end` (`tierb_means`). B3 evicts the fewest pods in both
-tiers at both sizes.
+**The coarse order holds** (`tierb_means`). In both tiers, the two random-generation arms have the two highest values
+(dearest, most compute):
+- on `cost_window` at both sizes;
+- on compute and `cost_end` at n = 200.
 
-**The fine order does not resolve.** The other five configurations are B2, B3, B4, heuristic/entropy-greedy and
+At n = 50 they also have Tier B's two highest controller-CPU means, but random/anneal-plan leads B4 by only 2%
+(48.96 against 47.87 core-seconds), well under the protocol's 10% floor for compute. B3 has the fewest evictions in
+both tiers at both sizes, on means.
+
+**The fine order is not established.** The other five configurations are B2, B3, B4, heuristic/entropy-greedy and
 heuristic/anneal-plan. They lie close together in Tier A: their `cost_end` means span 4.8% at n = 50 (6.50-6.81 $/hr)
 and 3.7% at n = 200 (26.73-27.71). 17 of the 21 reversals are among these five. Three are between the two random
-arms, and one is B4 vs random/entropy-greedy on `cost_end` at n = 50. Tier B varies more between runs than these gaps:
-- **B4 and B2 decide alike in the simulator.** Their Tier A `cost_end` difference is zero in every seed at n = 50
-  (`tierb_paired`). In Tier B, B4's `cost_end` differs from B2's by 10.4% in seed 102 at n = 50 (`tierb_runs`).
-- **The starting fleets differ.** Consolidation is held off until the drop. Even so, the configurations' cost at
-  the drop varies within one seed by up to 10% at n = 50 and 4.5% at n = 200 (`tierb_runs`, `cost_at_drop`).
-  kube-scheduler's binding order decides how many follow-up NodeClaims provisioning adds. `cost_end_rel` removes the
-  starting fleet's level and gives the same tau-b.
+arms, and one is B4 vs random/entropy-greedy on `cost_end` at n = 50.
 
-An exploratory analysis, added after the preregistered tables were seen, tests which differences Tier B resolves
-(`tierb_paired`, `tierb_reversals_paired`, `tierb_paired_summary`). For each pair and metric, it takes the per-seed
-paired difference in each tier, with a 95% t interval over the 5 seeds:
-- **No reversal is resolved in both tiers.** Tier B resolves one reversal: B3 vs B4 at n = 200 on `cost_end`, where
-  B4 is $0.40/hr cheaper. Tier A does not resolve that pair.
+At 5 seeds, Tier A does not establish the order among the five either. Its paired 95% intervals (the exploratory
+`tierb_paired`, below) include zero for every cost-metric pair among them at both sizes: 60 pairs, counting
+`cost_end`, `cost_end_rel` and `cost_window`.
+
+Tier B also has run-to-run variation the simulator lacks:
+- **B4 and B2 decide alike in the simulator at n = 50.** Their Tier A `cost_end` difference is zero in every seed at
+  n = 50 (`tierb_paired`). At n = 200 it is zero in three of the five seeds (Tier A runs). In Tier B, B4's `cost_end`
+  differs from B2's by 10.4% in seed 102 at n = 50 (`tierb_runs`).
+- **The starting fleets differ.** Consolidation is held off until the drop. Even so, the configurations' cost at
+  the drop varies within one seed by up to 10% at n = 50 and 4.5% at n = 200 (`tierb_runs`, `cost_at_drop`). The
+  smoke cells' logs point to kube-scheduler binding pods in its own order rather than Karpenter's plan, which changes
+  how many follow-up NodeClaims provisioning adds. `cost_end_rel` removes the starting fleet's level and gives the
+  same tau-b.
+
+**What each tier resolves** (exploratory, added after the protocol's tables were seen: `tierb_paired`,
+`tierb_reversals_paired`, `tierb_paired_summary`). For each pair and metric, this takes the per-seed paired
+difference in each tier, with a 95% t interval over the 5 seeds.
+- **No reversal is resolved in both tiers.** 19 of the 21 are resolved in neither tier. Tier A resolves one: B4 vs
+  random/entropy-greedy at n = 50 on `cost_end`. Tier B resolves another: B3 vs B4 at n = 200 on `cost_end`, where B4
+  is $0.40/hr cheaper.
 - **Tier B never resolves the opposite of a direction Tier A resolves.** Across the six floored metrics and both
   sizes (252 pair directions), Tier A resolves 94. Of those, Tier B shows the same sign for 85, resolves the same
   direction for 59, and resolves the opposite direction for none.
-- **B4 vs B2 is consistent with parity on a real cluster.** Every Tier B interval for that pair includes zero. Its
-  `cost_end` interval shows Tier B's resolution at 5 seeds: about ±$0.47/hr (7%) at n = 50 and ±$0.76/hr (2.9%) at
-  n = 200. At that spread, a ±1% interval would take roughly 25 seeds at n = 200 and 120 at n = 50 (rough
-  arithmetic from the B2 vs B4 interval). The protocol's 1% floor is finer than Tier B resolves, so the material
-  reversals are pairs that neither tier separates.
+- **Among the five close configurations, Tier B resolves 7 cost differences that Tier A does not**, all at n = 200.
+  heuristic/anneal-plan ends dearer than B2 on `cost_end` ($1.13/hr, 4.2%), and is also dearer than B2 on
+  `cost_end_rel` and `cost_window`. It is dearer than B4 on `cost_end_rel` and `cost_window`, and than
+  heuristic/entropy-greedy on `cost_window`. B4 ends $0.40/hr (1.5%) cheaper than B3.
+- **Neither tier is uniformly sharper.** On `cost_end`, the median 95% half-width over the 21 pairs is ±7.3% in
+  Tier A and ±5.4% in Tier B at n = 50, and ±7.1% and ±4.7% at n = 200 (`tierb_paired_summary`). In Tier A, the
+  paired differences vary from seed to seed. In Tier B, run-to-run variation adds to that. With 5 seeds, the
+  protocol's 1% floor is far finer than either tier resolves for most pairs.
+- **B4 vs B2 is consistent with parity on a real cluster.** Every Tier B interval for that pair includes zero. On
+  `cost_end` they are ±$0.47/hr (6.9%) at n = 50 and ±$0.76/hr (2.9%) at n = 200.
 
 **The named pairs** (`tierb_pairs`, `tierb_paired`).
 - **Random vs heuristic generation, entropy-greedy planner** (H1, H7), as random/entropy-greedy minus
@@ -505,7 +534,7 @@ paired difference in each tier, with a 95% t interval over the 5 seeds:
   | --- | --- | --- | --- | --- |
   | `cost_end` | +0.9% (+9.6%) | neither tier | +10.7% (+19.4%) | both tiers |
   | `cost_window` | +18.7% (+17.6%) | both tiers | +23.3% (+28.2%) | both tiers |
-  | evictions | +48% (+39%) | not in Tier B | +23% (+3%) | not in Tier B |
+  | evictions | +48% (+39%) | Tier A only | +23% (+3%) | neither tier |
   | compute | +9% (+47%) | both tiers | +52% (+101%) | both tiers |
 
   The direction matches H1's W2 cells, where random generation was 1.4-4.3% dearer. The magnitudes are not
@@ -516,29 +545,45 @@ paired difference in each tier, with a 95% t interval over the 5 seeds:
 
 **Compute against decision quality** (n = 200, means over the five seeds, `tierb_means`). The compute columns
 measure different things:
-- Tier A decision CPU: CPU seconds spent in disruption passes in the simulator.
-- Tier B controller CPU: CPU of the whole controller process over the window, all its controllers included.
-- Decision evaluation: wall-clock seconds in the controller's own evaluation histogram, summed over the cell, for
-  the pipeline and multi- and single-node consolidation.
-- Peak memory: the controller's peak memory over the window.
+- **Tier A decision CPU:** CPU seconds spent in disruption passes in the simulator.
+- **Tier B controller CPU:** CPU of the whole controller process over the window, all its controllers included.
+- **Decision evaluation:** wall-clock seconds in the controller's decision-evaluation histogram, summed over the
+  cell, for the pipeline and multi- and single-node consolidation. The histogram times each whole disruption attempt
+  (`pkg/controllers/disruption/controller.go`). That includes the fixed 15-second validation wait before each
+  upstream command (`commandValidationDelay`), once per pass for the pipeline. So the column is partly waiting, and
+  it exceeds the controller's whole CPU time. For B2, 15 seconds times its 18.0 decided commands is about 65% of its
+  415 seconds.
+- **Peak memory:** the controller's peak memory over the window.
 
-| Configuration | $/hr at the end, A / B | Evictions, A / B | Decision CPU s (A) | Controller CPU core-s (B) | Decision evaluation s (B) | Peak memory MB (B) |
-| --- | --- | --- | --- | --- | --- | --- |
-| B2 | 27.71 / 26.66 | 532 / 545 | 9.0 | 148.8 | 414.7 | 216.1 |
-| B3 | 26.98 / 27.14 | 432 / 473 | 9.1 | 135.9 | 388.5 | 199.7 |
-| B4 | 27.66 / 26.74 | 546 / 575 | 9.4 | 153.8 | 461.9 | 227.0 |
-| heuristic/entropy-greedy | 26.73 / 26.72 | 511 / 527 | 13.1 | 144.7 | 527.4 | 254.3 |
-| heuristic/anneal-plan | 27.63 / 27.79 | 660 / 763 | 12.6 | 149.1 | 620.4 | 286.6 |
-| random/anneal-plan | 30.36 / 31.27 | 737 / 943 | 27.6 | 228.2 | 903.5 | 345.7 |
-| random/entropy-greedy | 31.90 / 29.57 | 529 / 651 | 26.4 | 219.3 | 886.4 | 341.2 |
+| Configuration | $/hr at the end, A / B | Evictions, A / B | Decision CPU s (A) | Controller CPU core-s (B) | Decision evaluation s (B) | Commands decided (B) | Peak memory MB (B) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| B2 | 27.71 / 26.66 | 532 / 545 | 9.0 | 148.8 | 414.7 | 18.0 | 216.1 |
+| B3 | 26.98 / 27.14 | 432 / 473 | 9.1 | 135.9 | 388.5 | 16.2 | 199.7 |
+| B4 | 27.66 / 26.74 | 546 / 575 | 9.4 | 153.8 | 461.9 | 18.8 | 227.0 |
+| heuristic/entropy-greedy | 26.73 / 26.72 | 511 / 527 | 13.1 | 144.7 | 527.4 | 22.0 | 254.3 |
+| heuristic/anneal-plan | 27.63 / 27.79 | 660 / 763 | 12.6 | 149.1 | 620.4 | 28.8 | 286.6 |
+| random/anneal-plan | 30.36 / 31.27 | 737 / 943 | 27.6 | 228.2 | 903.5 | 12.8 | 345.7 |
+| random/entropy-greedy | 31.90 / 29.57 | 529 / 651 | 26.4 | 219.3 | 886.4 | 24.6 | 341.2 |
 
-On this workload, random generation is worse on every axis at once. Against the other five, it uses 219-228
-controller core-seconds where they use 136-154, and 1.4 to 2.3 times their decision-evaluation time. It ends
-dearer, and evicts more than heuristic generation with the same planner. Among the other five:
+On this workload, random generation is worse on both cost and compute:
+- It uses 219-228 controller core-seconds where the other five use 136-154.
+- It spends 1.4 to 2.3 times their decision-evaluation time, although random/anneal-plan decided the fewest
+  commands.
+- It peaks highest in memory.
+- It ends dearer than all five, in both tiers.
+- Against heuristic generation with the same planner, Tier B resolves the higher `cost_end`, `cost_window` and
+  compute for both planners (`tierb_paired`).
+
+It is not uniformly worse on evictions. random/entropy-greedy evicts fewer pods than heuristic/anneal-plan in both
+tiers, and about as many as B2 in Tier A. At n = 200, each random arm evicts more than heuristic generation with the
+same planner. That difference is resolved only for anneal-plan, and only in Tier B.
+
+Among the other five:
 - controller CPU differs by at most 13%;
-- heuristic/entropy-greedy matches B2's `cost_end` and evictions within Tier B's resolution;
-- the pipeline's heuristic arms take longer to evaluate decisions than B2 (527 and 620 s against 415 s) and peak
-  higher in memory (254 and 287 MB against 216 MB).
+- heuristic/entropy-greedy's `cost_end` and evictions are within Tier B's intervals of B2's;
+- the pipeline's heuristic arms spend more wall-clock time in decision evaluation than B2 (527 and 620 s against
+  415 s), and decided more commands (22.0 and 28.8 against 18.0);
+- the pipeline's heuristic arms peak higher in memory (254 and 287 MB against 216 MB).
 
 At n = 50 the controller's baseline work dominates: every configuration used 45.5-51.1 core-seconds over the window,
 2.5-2.8% of one core.
@@ -549,14 +594,19 @@ random/anneal-plan at both sizes (`tierb_means`).
 
 **What it shows.** The check covers one workload (WB) at two sizes, on a real API server, kube-scheduler and
 controller. There, the simulator's coarse conclusions hold:
-- random generation ends dearer, integrates more cost and uses more compute than heuristic generation;
-- upstream's Balanced policy evicts the fewest pods;
-- B4 stays at parity with B2, within Tier B's resolution.
+- **Random vs heuristic generation.** At n = 200, random generation ends dearer, integrates more cost and uses more
+  compute than heuristic generation with the same planner, and Tier B resolves all three for both planners. At
+  n = 50 the means point the same way, but neither tier resolves the `cost_end` difference.
+- **Evictions.** upstream's Balanced policy (B3) evicts the fewest pods, on means.
+- **Parity.** B4 stays at parity with B2, within Tier B's intervals.
 
-Differences of a few percent among upstream and the heuristic pipeline arms do not resolve at 5 seeds, in either
-direction. The session's small effects come from other workloads or timelines, and this check does not test them:
-for example H3's 1.7-7.0% (W2 and W3, 3-hour runs) and H4's -3.0% (W1). It does suggest that on a real cluster,
-effects of that size need far more than 5 seeds per configuration.
+The order among upstream and the heuristic pipeline arms, whose costs lie within a few percent of each other, is not
+established. Tier A resolves none of their cost differences at 5 seeds. Tier B resolves a few at n = 200, and Tier A
+resolves none of those.
+
+The session's small effects come from other workloads or timelines, and this check does not test them: for example
+H3's 1.7-7.0% (W2 and W3, 3-hour runs) and H4's -3.0% (W1). For scale, the median `cost_end` interval half-width
+across pairs was ±4.7% in Tier B and ±7.1% in Tier A at 200 nodes and 5 seeds (`tierb_paired_summary`).
 
 Not covered:
 - W1 and W3-W6, and 1,000 nodes;
@@ -566,7 +616,8 @@ Not covered:
 Limits specific to Tier B:
 - arms of one seed start from different fleets;
 - KWOK's registration delay approximates the simulator's latency;
-- controller CPU includes all of the controller's work and depends on the VM. The single-VM check covers this.
+- controller CPU includes all of the controller's work and depends on the VM. The single-VM check repeats only
+  compute's tau-b. The controller-CPU means above include the two blocks that span two VMs.
 
 ## Deviations from the preregistration
 
@@ -632,8 +683,9 @@ the log gives no time, the item below gives the commit time.
 The preregistered threats stand: simulated scheduler and ReplicaSets; synthetic workloads; calibration on random
 arms only; H1's power at 10 seeds; little headroom in a bimodal fleet; on-demand prices, with EvictionCost standing
 in for restart cost; and decision cost measured on a 4-vCPU VM with up to 4 concurrent cells. The Tier B check, run
-after the session, bounds the first threat for one workload (WB) at 50 and 200 nodes. There the coarse order holds,
-but differences of a few percent among configurations do not resolve at 5 seeds. Added in the session:
+after the session, bounds the first threat for one workload (WB) at 50 and 200 nodes. There the coarse order holds.
+The order among configurations within a few percent of each other is not established: Tier A resolves none of
+those cost differences at 5 seeds, and the few Tier B resolves are not resolved in Tier A. Added in the session:
 
 - **Decision cost also depends on which machine ran it.** Two VM replacements put H7's arms on different VMs. Load
   also varies inside every group: each hour the runner stops launching and drains before it is re-invoked, and the
@@ -670,11 +722,16 @@ but differences of a few percent among configurations do not resolve at 5 seeds.
   the new binary as a deviation with its own run tree.
 - The full profile (`experiments/matrix/full.yaml`: 20 seeds, 5,000-node cells), on a larger machine
   (`docs/research/runbook.md`).
-- Extend Tier B, with the same scripts (`experiments/tierb/env/`, runbook section 4):
-  - Run more seeds. At the B2 vs B4 spread, resolving 1% cost differences takes roughly 25 seeds at 200 nodes and
-    120 at 50.
-  - Add a workload where random generation ended cheaper in the simulator (W1 or W4).
-  - Add 500 nodes.
+- Extend Tier B: environment in `experiments/tierb/env/`, driver in `experiments/tierb/run_tierb.py`, runbook
+  section 4.
+  - **More seeds.** At 5 seeds, the median `cost_end` interval across pairs is about ±5% in Tier B and ±7% in
+    Tier A (`tierb_paired_summary`), so resolving differences of 1-2% needs many times as many seeds in both
+    tiers. Set `SEEDS`. Also lift the driver's 36-hour stopping rule (`STOP_AFTER_H`), or use a fresh run
+    directory, because the rule counts from the first cell in `experiments/runs/tierb-kwok/` (Oct 29).
+  - **Another workload.** Add one where random generation ended cheaper in the simulator, W1 or W4. This needs a
+    new KWOK spec and driver changes, because both replay WB only, and W1 and W4 start from pre-placed,
+    fragmented nodes.
+  - **500 nodes.** Set `SIZES`.
 - Diagnose two things the session only measured: why the pipeline misses about 6% of plan-following placements in one
   Exp 5 cell (random/entropy-greedy with deletion-cost scale-down: 19% in seed 107, about 5% in the other nine seeds,
   against about 2% for B2), and why B2's plans survive placement better than the pipeline's merges.

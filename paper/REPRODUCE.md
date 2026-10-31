@@ -20,7 +20,8 @@ the session driver's records (`experiments/session-driver/`).
 | Simulator binary for every session and H7 timing run (`experiments/session-binary.txt`; each manifest's `binary_revision`; built with Go 1.26.10) | `c78b5f95063c1995b10fa6d66571a16d0a32b243` |
 | Pilot binaries (`experiments/PILOT.md`) | baselines `c3e9e35`, pipeline arms `2d8fce7` |
 | Analysis code | `paper/analysis/` at the head of the branch; every change after Gate 3 that touches a test, verdict or rule is in `experiments/RESEARCH_LOG.md`, and presentation-only changes are in the git history |
-| Tier B: protocol, WB scenario, Tier A binary and controller image (after the session) | `eff89a17bb3a7c22ac2db77621d72d96f2843215` |
+| Tier B: WB scenario, Tier A binary and controller image (after the session) | `eff89a17bb3a7c22ac2db77621d72d96f2843215` |
+| Tier B: protocol as run (`experiments/TIERB.md`; first version in `eff89a1`, revised after the harness review and the smokes) | `8ef3481` |
 | Tier B: KWOK spec and driver as they ran (`tierb_test.go`, `run_tierb.py`) | `bd2619e` |
 
 ## Hardware and software of the session
@@ -176,12 +177,14 @@ To set up the same environment and run cells:
 
 ```bash
 TIERB_HOME=/tmp/tierb experiments/tierb/env/setup.sh        # kind cluster, KWOK, controller, binaries
-experiments/tierb/env/run-driver.sh run                       # every cell not yet in experiments/runs/tierb-kwok
+experiments/tierb/env/run-driver.sh run      # every cell without a valid run in experiments/runs/tierb-kwok
 /tmp/tierb/bin/csim matrix --matrix experiments/matrix/tierb.yaml --workers 4   # the Tier A side
 ```
 
-The driver skips any cell whose directory exists. To rerun one, move its directory aside and pass
-`--only <run_id>`. A Tier B rerun does not reproduce its cell byte for byte, because timing on a real API server and
+The driver skips a cell only when its manifest records exit status 0 and its summary says valid. It sets an
+interrupted cell aside (`.interrupted-<ts>`) and reruns it. It sets a finished invalid cell aside (`.failed-N`) and
+reruns it once. To rerun a valid cell, move its directory aside and pass `--only <run_id>`. To run new seeds, see the
+stopping rule in `docs/research/runbook.md`, section 4. A Tier B rerun does not reproduce its cell byte for byte, because timing on a real API server and
 kube-scheduler varies between runs. B2 and B4 decide alike in the simulator, and their Tier B difference gives a
 sense of the size of that variation (`experiments/RESULTS.md`, "Tier B"). The Tier A side is deterministic, as
 above. `make figures` builds the Tier B tables (`paper/analysis/tier_b.py`).

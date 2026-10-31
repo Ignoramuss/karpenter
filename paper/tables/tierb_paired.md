@@ -1,254 +1,254 @@
-| n | metric | config_1 | config_2 | a_seeds | a_mean | a_lo | a_hi | a_resolved | b_seeds | b_mean | b_lo | b_hi | b_resolved | b_seeds_with_a_sign |
-| ---: | --- | --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: | --- | ---: |
-| 50 | cost_end | B2 | B3 | 5 | -0.03698 | -0.3516 | 0.2776 | false | 5 | 0.1818 | -0.1536 | 0.5173 | false | 1 |
-| 50 | cost_end | B2 | B4 | 5 | 0 | 0 | 0 | false | 5 | -0.1144 | -0.58 | 0.3512 | false |  |
-| 50 | cost_end | B2 | heuristic/entropy-greedy | 5 | 0.07085 | -0.2214 | 0.3631 | false | 5 | 0.05065 | -0.24 | 0.3413 | false | 2 |
-| 50 | cost_end | B2 | heuristic/anneal-plan | 5 | -0.2397 | -0.7309 | 0.2514 | false | 5 | 0.2045 | -0.08913 | 0.4981 | false | 1 |
-| 50 | cost_end | B2 | random/anneal-plan | 5 | -0.8031 | -1.666 | 0.05999 | false | 5 | -0.3475 | -1.06 | 0.3654 | false | 3 |
-| 50 | cost_end | B2 | random/entropy-greedy | 5 | -0.5539 | -0.9598 | -0.1479 | true | 5 | -0.007107 | -0.5752 | 0.5609 | false | 3 |
-| 50 | cost_end | B3 | B4 | 5 | 0.03698 | -0.2776 | 0.3516 | false | 5 | -0.2962 | -0.6005 | 0.008054 | false | 1 |
-| 50 | cost_end | B3 | heuristic/entropy-greedy | 5 | 0.1078 | -0.05953 | 0.2752 | false | 5 | -0.1312 | -0.2636 | 0.001254 | false | 0 |
-| 50 | cost_end | B3 | heuristic/anneal-plan | 5 | -0.2028 | -0.9731 | 0.5676 | false | 5 | 0.02266 | -0.2747 | 0.32 | false | 2 |
-| 50 | cost_end | B3 | random/anneal-plan | 5 | -0.7661 | -1.676 | 0.1439 | false | 5 | -0.5293 | -1.257 | 0.1981 | false | 4 |
-| 50 | cost_end | B3 | random/entropy-greedy | 5 | -0.5169 | -1.175 | 0.1414 | false | 5 | -0.1889 | -0.5089 | 0.131 | false | 4 |
-| 50 | cost_end | B4 | heuristic/entropy-greedy | 5 | 0.07085 | -0.2214 | 0.3631 | false | 5 | 0.165 | -0.1984 | 0.5284 | false | 3 |
-| 50 | cost_end | B4 | heuristic/anneal-plan | 5 | -0.2397 | -0.7309 | 0.2514 | false | 5 | 0.3189 | -0.2505 | 0.8883 | false | 1 |
-| 50 | cost_end | B4 | random/anneal-plan | 5 | -0.8031 | -1.666 | 0.05999 | false | 5 | -0.2331 | -0.7011 | 0.2349 | false | 4 |
-| 50 | cost_end | B4 | random/entropy-greedy | 5 | -0.5539 | -0.9598 | -0.1479 | true | 5 | 0.1073 | -0.1695 | 0.3841 | false | 2 |
-| 50 | cost_end | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | -0.3106 | -1.033 | 0.4121 | false | 5 | 0.1538 | -0.1149 | 0.4226 | false | 1 |
-| 50 | cost_end | heuristic/entropy-greedy | random/anneal-plan | 5 | -0.874 | -1.688 | -0.06031 | true | 5 | -0.3982 | -1.163 | 0.3669 | false | 3 |
-| 50 | cost_end | heuristic/entropy-greedy | random/entropy-greedy | 5 | -0.6247 | -1.264 | 0.01448 | false | 5 | -0.05776 | -0.3889 | 0.2734 | false | 4 |
-| 50 | cost_end | heuristic/anneal-plan | random/anneal-plan | 5 | -0.5634 | -1.538 | 0.4113 | false | 5 | -0.552 | -1.489 | 0.385 | false | 3 |
-| 50 | cost_end | heuristic/anneal-plan | random/entropy-greedy | 5 | -0.3141 | -0.7139 | 0.08569 | false | 5 | -0.2116 | -0.7869 | 0.3637 | false | 4 |
-| 50 | cost_end | random/anneal-plan | random/entropy-greedy | 5 | 0.2493 | -0.9317 | 1.43 | false | 5 | 0.3404 | -0.365 | 1.046 | false | 4 |
-| 50 | cost_end_rel | B2 | B3 | 5 | -0.00262 | -0.02186 | 0.01662 | false | 5 | 0.01147 | -0.01935 | 0.04229 | false | 1 |
-| 50 | cost_end_rel | B2 | B4 | 5 | 0 | 0 | 0 | false | 5 | 0.0002065 | -0.02249 | 0.0229 | false |  |
-| 50 | cost_end_rel | B2 | heuristic/entropy-greedy | 5 | 0.003926 | -0.01346 | 0.02131 | false | 5 | 0.01343 | -0.02017 | 0.04703 | false | 3 |
-| 50 | cost_end_rel | B2 | heuristic/anneal-plan | 5 | -0.01312 | -0.04186 | 0.01562 | false | 5 | 0.01849 | -0.008629 | 0.04562 | false | 1 |
-| 50 | cost_end_rel | B2 | random/anneal-plan | 5 | -0.04987 | -0.1011 | 0.001354 | false | 5 | -0.01667 | -0.04757 | 0.01423 | false | 3 |
-| 50 | cost_end_rel | B2 | random/entropy-greedy | 5 | -0.032 | -0.05257 | -0.01144 | true | 5 | 0.001242 | -0.03826 | 0.04074 | false | 3 |
-| 50 | cost_end_rel | B3 | B4 | 5 | 0.00262 | -0.01662 | 0.02186 | false | 5 | -0.01126 | -0.02404 | 0.001509 | false | 1 |
-| 50 | cost_end_rel | B3 | heuristic/entropy-greedy | 5 | 0.006545 | -0.004225 | 0.01732 | false | 5 | 0.001957 | -0.009311 | 0.01323 | false | 3 |
-| 50 | cost_end_rel | B3 | heuristic/anneal-plan | 5 | -0.0105 | -0.05661 | 0.03561 | false | 5 | 0.007023 | -0.01077 | 0.02482 | false | 2 |
-| 50 | cost_end_rel | B3 | random/anneal-plan | 5 | -0.04725 | -0.1007 | 0.006212 | false | 5 | -0.02814 | -0.06993 | 0.01364 | false | 3 |
-| 50 | cost_end_rel | B3 | random/entropy-greedy | 5 | -0.02938 | -0.0666 | 0.007836 | false | 5 | -0.01023 | -0.04041 | 0.01995 | false | 4 |
-| 50 | cost_end_rel | B4 | heuristic/entropy-greedy | 5 | 0.003926 | -0.01346 | 0.02131 | false | 5 | 0.01322 | -0.002937 | 0.02938 | false | 4 |
-| 50 | cost_end_rel | B4 | heuristic/anneal-plan | 5 | -0.01312 | -0.04186 | 0.01562 | false | 5 | 0.01829 | -0.002805 | 0.03938 | false | 0 |
-| 50 | cost_end_rel | B4 | random/anneal-plan | 5 | -0.04987 | -0.1011 | 0.001354 | false | 5 | -0.01688 | -0.04753 | 0.01377 | false | 3 |
-| 50 | cost_end_rel | B4 | random/entropy-greedy | 5 | -0.032 | -0.05257 | -0.01144 | true | 5 | 0.001036 | -0.02241 | 0.02448 | false | 2 |
-| 50 | cost_end_rel | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | -0.01704 | -0.05904 | 0.02495 | false | 5 | 0.005066 | -0.01048 | 0.02061 | false | 2 |
-| 50 | cost_end_rel | heuristic/entropy-greedy | random/anneal-plan | 5 | -0.0538 | -0.1024 | -0.00521 | true | 5 | -0.0301 | -0.07598 | 0.01578 | false | 4 |
-| 50 | cost_end_rel | heuristic/entropy-greedy | random/entropy-greedy | 5 | -0.03593 | -0.07066 | -0.001199 | true | 5 | -0.01219 | -0.03645 | 0.01208 | false | 4 |
-| 50 | cost_end_rel | heuristic/anneal-plan | random/anneal-plan | 5 | -0.03675 | -0.0935 | 0.01999 | false | 5 | -0.03517 | -0.08462 | 0.01428 | false | 3 |
-| 50 | cost_end_rel | heuristic/anneal-plan | random/entropy-greedy | 5 | -0.01889 | -0.04328 | 0.005506 | false | 5 | -0.01725 | -0.05148 | 0.01698 | false | 4 |
-| 50 | cost_end_rel | random/anneal-plan | random/entropy-greedy | 5 | 0.01787 | -0.04895 | 0.08469 | false | 5 | 0.01791 | -0.02152 | 0.05735 | false | 4 |
-| 50 | cost_window | B2 | B3 | 5 | -0.1228 | -0.264 | 0.01834 | false | 5 | 0.2513 | -0.41 | 0.9126 | false | 1 |
-| 50 | cost_window | B2 | B4 | 5 | 0 | 0 | 0 | false | 5 | 0.3253 | -0.4967 | 1.147 | false |  |
-| 50 | cost_window | B2 | heuristic/entropy-greedy | 5 | -0.05922 | -0.1993 | 0.08086 | false | 5 | 0.3157 | -0.003568 | 0.6349 | false | 0 |
-| 50 | cost_window | B2 | heuristic/anneal-plan | 5 | -0.5896 | -1.18 | 0.0005814 | false | 5 | 0.3281 | -0.3776 | 1.034 | false | 1 |
-| 50 | cost_window | B2 | random/anneal-plan | 5 | -0.8882 | -1.517 | -0.2597 | true | 5 | -0.314 | -1.191 | 0.5631 | false | 4 |
-| 50 | cost_window | B2 | random/entropy-greedy | 5 | -0.7556 | -1.067 | -0.4445 | true | 5 | -0.4274 | -0.8857 | 0.03092 | false | 4 |
-| 50 | cost_window | B3 | B4 | 5 | 0.1228 | -0.01834 | 0.264 | false | 5 | 0.07402 | -0.5509 | 0.6989 | false | 2 |
-| 50 | cost_window | B3 | heuristic/entropy-greedy | 5 | 0.06359 | -0.1593 | 0.2865 | false | 5 | 0.06439 | -0.3957 | 0.5245 | false | 1 |
-| 50 | cost_window | B3 | heuristic/anneal-plan | 5 | -0.4668 | -1.115 | 0.1816 | false | 5 | 0.07677 | -0.7387 | 0.8922 | false | 3 |
-| 50 | cost_window | B3 | random/anneal-plan | 5 | -0.7654 | -1.363 | -0.1678 | true | 5 | -0.5653 | -1.134 | 0.003805 | false | 4 |
-| 50 | cost_window | B3 | random/entropy-greedy | 5 | -0.6328 | -0.9545 | -0.3111 | true | 5 | -0.6787 | -1.6 | 0.2426 | false | 4 |
-| 50 | cost_window | B4 | heuristic/entropy-greedy | 5 | -0.05922 | -0.1993 | 0.08086 | false | 5 | -0.009629 | -0.718 | 0.6987 | false | 1 |
-| 50 | cost_window | B4 | heuristic/anneal-plan | 5 | -0.5896 | -1.18 | 0.0005814 | false | 5 | 0.002747 | -0.6235 | 0.629 | false | 3 |
-| 50 | cost_window | B4 | random/anneal-plan | 5 | -0.8882 | -1.517 | -0.2597 | true | 5 | -0.6393 | -0.8274 | -0.4512 | true | 5 |
-| 50 | cost_window | B4 | random/entropy-greedy | 5 | -0.7556 | -1.067 | -0.4445 | true | 5 | -0.7527 | -1.476 | -0.02954 | true | 4 |
-| 50 | cost_window | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | -0.5304 | -1.237 | 0.1761 | false | 5 | 0.01238 | -0.5293 | 0.554 | false | 2 |
-| 50 | cost_window | heuristic/entropy-greedy | random/anneal-plan | 5 | -0.829 | -1.544 | -0.1141 | true | 5 | -0.6297 | -1.397 | 0.1373 | false | 4 |
-| 50 | cost_window | heuristic/entropy-greedy | random/entropy-greedy | 5 | -0.6964 | -0.9882 | -0.4046 | true | 5 | -0.7431 | -1.374 | -0.1126 | true | 5 |
-| 50 | cost_window | heuristic/anneal-plan | random/anneal-plan | 5 | -0.2986 | -1.039 | 0.4417 | false | 5 | -0.642 | -1.43 | 0.1462 | false | 4 |
-| 50 | cost_window | heuristic/anneal-plan | random/entropy-greedy | 5 | -0.166 | -0.8757 | 0.5438 | false | 5 | -0.7555 | -1.398 | -0.113 | true | 5 |
-| 50 | cost_window | random/anneal-plan | random/entropy-greedy | 5 | 0.1326 | -0.6888 | 0.954 | false | 5 | -0.1134 | -0.9482 | 0.7213 | false | 1 |
-| 50 | evictions | B2 | B3 | 5 | 27.8 | -13.18 | 68.78 | false | 5 | 96.6 | 10.66 | 182.5 | true | 5 |
-| 50 | evictions | B2 | B4 | 5 | 0 | 0 | 0 | false | 5 | 54.2 | -45.3 | 153.7 | false |  |
-| 50 | evictions | B2 | heuristic/entropy-greedy | 5 | -8.4 | -52.28 | 35.48 | false | 5 | 60.6 | -48.06 | 169.3 | false | 1 |
-| 50 | evictions | B2 | heuristic/anneal-plan | 5 | -50.6 | -141.4 | 40.25 | false | 5 | 4 | -65.27 | 73.27 | false | 3 |
-| 50 | evictions | B2 | random/anneal-plan | 5 | -83 | -143.8 | -22.16 | true | 5 | 2.6 | -76.67 | 81.87 | false | 2 |
-| 50 | evictions | B2 | random/entropy-greedy | 5 | -56.2 | -101.9 | -10.49 | true | 5 | -5.2 | -40.08 | 29.68 | false | 3 |
-| 50 | evictions | B3 | B4 | 5 | -27.8 | -68.78 | 13.18 | false | 5 | -42.4 | -83.98 | -0.8219 | true | 4 |
-| 50 | evictions | B3 | heuristic/entropy-greedy | 5 | -36.2 | -85.86 | 13.46 | false | 5 | -36 | -89.46 | 17.46 | false | 3 |
-| 50 | evictions | B3 | heuristic/anneal-plan | 5 | -78.4 | -158.6 | 1.789 | false | 5 | -92.6 | -170.4 | -14.78 | true | 5 |
-| 50 | evictions | B3 | random/anneal-plan | 5 | -110.8 | -201.9 | -19.71 | true | 5 | -94 | -174.6 | -13.38 | true | 5 |
-| 50 | evictions | B3 | random/entropy-greedy | 5 | -84 | -127.7 | -40.34 | true | 5 | -101.8 | -165.3 | -38.3 | true | 5 |
-| 50 | evictions | B4 | heuristic/entropy-greedy | 5 | -8.4 | -52.28 | 35.48 | false | 5 | 6.4 | -79.4 | 92.2 | false | 2 |
-| 50 | evictions | B4 | heuristic/anneal-plan | 5 | -50.6 | -141.4 | 40.25 | false | 5 | -50.2 | -152 | 51.55 | false | 4 |
-| 50 | evictions | B4 | random/anneal-plan | 5 | -83 | -143.8 | -22.16 | true | 5 | -51.6 | -160.6 | 57.36 | false | 3 |
-| 50 | evictions | B4 | random/entropy-greedy | 5 | -56.2 | -101.9 | -10.49 | true | 5 | -59.4 | -146.9 | 28.08 | false | 4 |
-| 50 | evictions | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | -42.2 | -122.3 | 37.85 | false | 5 | -56.6 | -132.6 | 19.4 | false | 4 |
-| 50 | evictions | heuristic/entropy-greedy | random/anneal-plan | 5 | -74.6 | -141.6 | -7.587 | true | 5 | -58 | -138 | 21.95 | false | 5 |
-| 50 | evictions | heuristic/entropy-greedy | random/entropy-greedy | 5 | -47.8 | -81.06 | -14.54 | true | 5 | -65.8 | -151.4 | 19.84 | false | 5 |
-| 50 | evictions | heuristic/anneal-plan | random/anneal-plan | 5 | -32.4 | -130.5 | 65.71 | false | 5 | -1.4 | -102.2 | 99.36 | false | 2 |
-| 50 | evictions | heuristic/anneal-plan | random/entropy-greedy | 5 | -5.6 | -56.19 | 44.99 | false | 5 | -9.2 | -79.46 | 61.06 | false | 3 |
-| 50 | evictions | random/anneal-plan | random/entropy-greedy | 5 | 26.8 | -37.67 | 91.27 | false | 5 | -7.8 | -59.23 | 43.63 | false | 1 |
-| 50 | compute | B2 | B3 | 5 | 0.1184 | -0.05836 | 0.2951 | false | 5 | -0.9587 | -11.56 | 9.642 | false | 3 |
-| 50 | compute | B2 | B4 | 5 | -0.05863 | -0.2688 | 0.1515 | false | 5 | -1.107 | -8.121 | 5.908 | false | 2 |
-| 50 | compute | B2 | heuristic/entropy-greedy | 5 | -0.2054 | -0.5028 | 0.09204 | false | 5 | 0.07588 | -6.528 | 6.679 | false | 2 |
-| 50 | compute | B2 | heuristic/anneal-plan | 5 | -0.197 | -0.4551 | 0.0611 | false | 5 | 1.262 | -3.68 | 6.204 | false | 2 |
-| 50 | compute | B2 | random/anneal-plan | 5 | -0.9864 | -1.52 | -0.4527 | true | 5 | -2.192 | -8.463 | 4.079 | false | 3 |
-| 50 | compute | B2 | random/entropy-greedy | 5 | -1.02 | -1.442 | -0.5986 | true | 5 | -4.298 | -7.432 | -1.164 | true | 5 |
-| 50 | compute | B3 | B4 | 5 | -0.177 | -0.3045 | -0.04955 | true | 5 | -0.148 | -4.502 | 4.206 | false | 3 |
-| 50 | compute | B3 | heuristic/entropy-greedy | 5 | -0.3237 | -0.5316 | -0.1159 | true | 5 | 1.035 | -4.421 | 6.491 | false | 2 |
-| 50 | compute | B3 | heuristic/anneal-plan | 5 | -0.3154 | -0.5671 | -0.06366 | true | 5 | 2.22 | -7.028 | 11.47 | false | 3 |
-| 50 | compute | B3 | random/anneal-plan | 5 | -1.105 | -1.7 | -0.5094 | true | 5 | -1.233 | -7.059 | 4.592 | false | 4 |
-| 50 | compute | B3 | random/entropy-greedy | 5 | -1.139 | -1.659 | -0.619 | true | 5 | -3.339 | -10.92 | 4.243 | false | 4 |
-| 50 | compute | B4 | heuristic/entropy-greedy | 5 | -0.1467 | -0.4344 | 0.1409 | false | 5 | 1.183 | -0.5134 | 2.879 | false | 2 |
-| 50 | compute | B4 | heuristic/anneal-plan | 5 | -0.1384 | -0.4444 | 0.1676 | false | 5 | 2.368 | -3.155 | 7.892 | false | 2 |
-| 50 | compute | B4 | random/anneal-plan | 5 | -0.9277 | -1.587 | -0.2681 | true | 5 | -1.085 | -4.41 | 2.239 | false | 3 |
-| 50 | compute | B4 | random/entropy-greedy | 5 | -0.9618 | -1.467 | -0.4567 | true | 5 | -3.191 | -7.518 | 1.135 | false | 4 |
-| 50 | compute | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | 0.008354 | -0.1516 | 0.1683 | false | 5 | 1.186 | -3.24 | 5.612 | false | 3 |
-| 50 | compute | heuristic/entropy-greedy | random/anneal-plan | 5 | -0.781 | -1.347 | -0.2146 | true | 5 | -2.268 | -6.592 | 2.056 | false | 4 |
-| 50 | compute | heuristic/entropy-greedy | random/entropy-greedy | 5 | -0.8151 | -1.342 | -0.2886 | true | 5 | -4.374 | -8.591 | -0.157 | true | 4 |
-| 50 | compute | heuristic/anneal-plan | random/anneal-plan | 5 | -0.7893 | -1.395 | -0.1837 | true | 5 | -3.454 | -9.015 | 2.107 | false | 3 |
-| 50 | compute | heuristic/anneal-plan | random/entropy-greedy | 5 | -0.8234 | -1.332 | -0.3148 | true | 5 | -5.56 | -9.644 | -1.475 | true | 5 |
-| 50 | compute | random/anneal-plan | random/entropy-greedy | 5 | -0.03408 | -0.4392 | 0.371 | false | 5 | -2.106 | -5.704 | 1.492 | false | 3 |
-| 50 | settle_min | B2 | B3 | 5 | 1.2 | -1.764 | 4.164 | false | 5 | 4.6 | -4.55 | 13.75 | false | 4 |
-| 50 | settle_min | B2 | B4 | 5 | 0 | 0 | 0 | false | 5 | 5.2 | -3.008 | 13.41 | false |  |
-| 50 | settle_min | B2 | heuristic/entropy-greedy | 5 | -0.4 | -2.478 | 1.678 | false | 5 | 3.2 | -4.008 | 10.41 | false | 1 |
-| 50 | settle_min | B2 | heuristic/anneal-plan | 5 | -3.4 | -18.65 | 11.85 | false | 5 | 3.4 | -2.194 | 8.994 | false | 2 |
-| 50 | settle_min | B2 | random/anneal-plan | 5 | -8.2 | -11.53 | -4.868 | true | 5 | -13.6 | -22.92 | -4.283 | true | 5 |
-| 50 | settle_min | B2 | random/entropy-greedy | 5 | -10 | -14.12 | -5.882 | true | 5 | -9.8 | -17.91 | -1.686 | true | 5 |
-| 50 | settle_min | B3 | B4 | 5 | -1.2 | -4.164 | 1.764 | false | 5 | 0.6 | -1.283 | 2.483 | false | 2 |
-| 50 | settle_min | B3 | heuristic/entropy-greedy | 5 | -1.6 | -3.016 | -0.1843 | true | 5 | -1.4 | -3.975 | 1.175 | false | 4 |
-| 50 | settle_min | B3 | heuristic/anneal-plan | 5 | -4.6 | -17.46 | 8.262 | false | 5 | -1.2 | -7.245 | 4.845 | false | 4 |
-| 50 | settle_min | B3 | random/anneal-plan | 5 | -9.4 | -12.98 | -5.823 | true | 5 | -18.2 | -23.35 | -13.05 | true | 5 |
-| 50 | settle_min | B3 | random/entropy-greedy | 5 | -11.2 | -13.89 | -8.508 | true | 5 | -14.4 | -25.56 | -3.239 | true | 5 |
-| 50 | settle_min | B4 | heuristic/entropy-greedy | 5 | -0.4 | -2.478 | 1.678 | false | 5 | -2 | -4.483 | 0.4833 | false | 3 |
-| 50 | settle_min | B4 | heuristic/anneal-plan | 5 | -3.4 | -18.65 | 11.85 | false | 5 | -1.8 | -7.517 | 3.917 | false | 4 |
-| 50 | settle_min | B4 | random/anneal-plan | 5 | -8.2 | -11.53 | -4.868 | true | 5 | -18.8 | -23.05 | -14.55 | true | 5 |
-| 50 | settle_min | B4 | random/entropy-greedy | 5 | -10 | -14.12 | -5.882 | true | 5 | -15 | -25.01 | -4.989 | true | 5 |
-| 50 | settle_min | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | -3 | -16.32 | 10.32 | false | 5 | 0.2 | -3.566 | 3.966 | false | 3 |
-| 50 | settle_min | heuristic/entropy-greedy | random/anneal-plan | 5 | -7.8 | -11.36 | -4.244 | true | 5 | -16.8 | -21.4 | -12.2 | true | 5 |
-| 50 | settle_min | heuristic/entropy-greedy | random/entropy-greedy | 5 | -9.6 | -12.02 | -7.18 | true | 5 | -13 | -22.29 | -3.708 | true | 5 |
-| 50 | settle_min | heuristic/anneal-plan | random/anneal-plan | 5 | -4.8 | -20.76 | 11.16 | false | 5 | -17 | -22.48 | -11.52 | true | 5 |
-| 50 | settle_min | heuristic/anneal-plan | random/entropy-greedy | 5 | -6.6 | -18.13 | 4.935 | false | 5 | -13.2 | -19.91 | -6.49 | true | 5 |
-| 50 | settle_min | random/anneal-plan | random/entropy-greedy | 5 | -1.8 | -7.024 | 3.424 | false | 5 | 3.8 | -3.461 | 11.06 | false | 0 |
-| 200 | cost_end | B2 | B3 | 5 | 0.7373 | -0.892 | 2.367 | false | 5 | -0.473 | -1.336 | 0.3899 | false | 0 |
-| 200 | cost_end | B2 | B4 | 5 | 0.05289 | -0.1877 | 0.2935 | false | 5 | -0.07314 | -0.8355 | 0.6892 | false | 4 |
-| 200 | cost_end | B2 | heuristic/entropy-greedy | 5 | 0.9816 | -0.1925 | 2.156 | false | 5 | -0.05779 | -1.222 | 1.106 | false | 3 |
-| 200 | cost_end | B2 | heuristic/anneal-plan | 5 | 0.08222 | -0.8545 | 1.019 | false | 5 | -1.128 | -1.617 | -0.6395 | true | 0 |
-| 200 | cost_end | B2 | random/anneal-plan | 5 | -2.645 | -5.957 | 0.6681 | false | 5 | -4.609 | -6.974 | -2.244 | true | 5 |
-| 200 | cost_end | B2 | random/entropy-greedy | 5 | -4.191 | -6.81 | -1.571 | true | 5 | -2.903 | -4.234 | -1.573 | true | 5 |
-| 200 | cost_end | B3 | B4 | 5 | -0.6844 | -2.462 | 1.093 | false | 5 | 0.3998 | 0.2069 | 0.5927 | true | 0 |
-| 200 | cost_end | B3 | heuristic/entropy-greedy | 5 | 0.2443 | -1.258 | 1.746 | false | 5 | 0.4152 | -0.3582 | 1.189 | false | 4 |
-| 200 | cost_end | B3 | heuristic/anneal-plan | 5 | -0.6551 | -2.547 | 1.237 | false | 5 | -0.6553 | -1.906 | 0.5954 | false | 4 |
-| 200 | cost_end | B3 | random/anneal-plan | 5 | -3.382 | -7.313 | 0.5493 | false | 5 | -4.136 | -6.135 | -2.137 | true | 5 |
-| 200 | cost_end | B3 | random/entropy-greedy | 5 | -4.928 | -7.114 | -2.741 | true | 5 | -2.43 | -4.405 | -0.4559 | true | 5 |
-| 200 | cost_end | B4 | heuristic/entropy-greedy | 5 | 0.9287 | -0.4787 | 2.336 | false | 5 | 0.01535 | -0.7977 | 0.8284 | false | 2 |
-| 200 | cost_end | B4 | heuristic/anneal-plan | 5 | 0.02932 | -0.8078 | 0.8665 | false | 5 | -1.055 | -2.209 | 0.09901 | false | 1 |
-| 200 | cost_end | B4 | random/anneal-plan | 5 | -2.697 | -6.09 | 0.695 | false | 5 | -4.536 | -6.683 | -2.388 | true | 5 |
-| 200 | cost_end | B4 | random/entropy-greedy | 5 | -4.243 | -7.022 | -1.465 | true | 5 | -2.83 | -4.784 | -0.8762 | true | 5 |
-| 200 | cost_end | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | -0.8994 | -2.736 | 0.937 | false | 5 | -1.07 | -2.571 | 0.43 | false | 4 |
-| 200 | cost_end | heuristic/entropy-greedy | random/anneal-plan | 5 | -3.626 | -6.482 | -0.7703 | true | 5 | -4.551 | -7.047 | -2.056 | true | 5 |
-| 200 | cost_end | heuristic/entropy-greedy | random/entropy-greedy | 5 | -5.172 | -7.268 | -3.077 | true | 5 | -2.846 | -5.105 | -0.5864 | true | 5 |
-| 200 | cost_end | heuristic/anneal-plan | random/anneal-plan | 5 | -2.727 | -6.447 | 0.9934 | false | 5 | -3.481 | -6.038 | -0.9234 | true | 5 |
-| 200 | cost_end | heuristic/anneal-plan | random/entropy-greedy | 5 | -4.273 | -6.751 | -1.795 | true | 5 | -1.775 | -2.827 | -0.7238 | true | 5 |
-| 200 | cost_end | random/anneal-plan | random/entropy-greedy | 5 | -1.546 | -5.531 | 2.439 | false | 5 | 1.706 | -0.6971 | 4.108 | false | 1 |
-| 200 | cost_end_rel | B2 | B3 | 5 | 0.01055 | -0.01324 | 0.03435 | false | 5 | -0.006098 | -0.02378 | 0.01158 | false | 2 |
-| 200 | cost_end_rel | B2 | B4 | 5 | 0.0007507 | -0.002759 | 0.00426 | false | 5 | 0.0001586 | -0.01414 | 0.01445 | false | 3 |
-| 200 | cost_end_rel | B2 | heuristic/entropy-greedy | 5 | 0.01413 | -0.0034 | 0.03167 | false | 5 | -0.002449 | -0.02177 | 0.01687 | false | 2 |
-| 200 | cost_end_rel | B2 | heuristic/anneal-plan | 5 | 0.001429 | -0.01138 | 0.01424 | false | 5 | -0.01773 | -0.02799 | -0.007465 | true | 0 |
-| 200 | cost_end_rel | B2 | random/anneal-plan | 5 | -0.03673 | -0.08348 | 0.01002 | false | 5 | -0.06821 | -0.1042 | -0.03227 | true | 5 |
-| 200 | cost_end_rel | B2 | random/entropy-greedy | 5 | -0.059 | -0.09378 | -0.02423 | true | 5 | -0.04179 | -0.06325 | -0.02032 | true | 5 |
-| 200 | cost_end_rel | B3 | B4 | 5 | -0.009803 | -0.03578 | 0.01618 | false | 5 | 0.006257 | -0.002654 | 0.01517 | false | 1 |
-| 200 | cost_end_rel | B3 | heuristic/entropy-greedy | 5 | 0.003579 | -0.01808 | 0.02524 | false | 5 | 0.003649 | -0.01387 | 0.02117 | false | 4 |
-| 200 | cost_end_rel | B3 | heuristic/anneal-plan | 5 | -0.009124 | -0.03629 | 0.01804 | false | 5 | -0.01163 | -0.0283 | 0.005044 | false | 4 |
-| 200 | cost_end_rel | B3 | random/anneal-plan | 5 | -0.04729 | -0.1021 | 0.007507 | false | 5 | -0.06212 | -0.08665 | -0.03759 | true | 5 |
-| 200 | cost_end_rel | B3 | random/entropy-greedy | 5 | -0.06956 | -0.097 | -0.04212 | true | 5 | -0.03569 | -0.06905 | -0.002329 | true | 4 |
-| 200 | cost_end_rel | B4 | heuristic/entropy-greedy | 5 | 0.01338 | -0.007516 | 0.03428 | false | 5 | -0.002608 | -0.01473 | 0.009512 | false | 2 |
-| 200 | cost_end_rel | B4 | heuristic/anneal-plan | 5 | 0.0006787 | -0.01062 | 0.01198 | false | 5 | -0.01788 | -0.03243 | -0.003337 | true | 1 |
-| 200 | cost_end_rel | B4 | random/anneal-plan | 5 | -0.03748 | -0.08551 | 0.01054 | false | 5 | -0.06837 | -0.1009 | -0.03582 | true | 5 |
-| 200 | cost_end_rel | B4 | random/entropy-greedy | 5 | -0.05975 | -0.09709 | -0.02242 | true | 5 | -0.04195 | -0.07581 | -0.008085 | true | 4 |
-| 200 | cost_end_rel | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | -0.0127 | -0.03903 | 0.01362 | false | 5 | -0.01528 | -0.03856 | 0.008006 | false | 3 |
-| 200 | cost_end_rel | heuristic/entropy-greedy | random/anneal-plan | 5 | -0.05087 | -0.08996 | -0.01177 | true | 5 | -0.06577 | -0.1062 | -0.02538 | true | 5 |
-| 200 | cost_end_rel | heuristic/entropy-greedy | random/entropy-greedy | 5 | -0.07314 | -0.09912 | -0.04715 | true | 5 | -0.03934 | -0.07758 | -0.001092 | true | 4 |
-| 200 | cost_end_rel | heuristic/anneal-plan | random/anneal-plan | 5 | -0.03816 | -0.09124 | 0.01491 | false | 5 | -0.05049 | -0.08546 | -0.01552 | true | 5 |
-| 200 | cost_end_rel | heuristic/anneal-plan | random/entropy-greedy | 5 | -0.06043 | -0.09487 | -0.026 | true | 5 | -0.02406 | -0.04658 | -0.001547 | true | 4 |
-| 200 | cost_end_rel | random/anneal-plan | random/entropy-greedy | 5 | -0.02227 | -0.07897 | 0.03443 | false | 5 | 0.02643 | -0.0163 | 0.06916 | false | 1 |
-| 200 | cost_window | B2 | B3 | 5 | -0.5386 | -2.501 | 1.423 | false | 5 | -0.5563 | -1.856 | 0.743 | false | 3 |
-| 200 | cost_window | B2 | B4 | 5 | 0.0279 | -0.3543 | 0.4101 | false | 5 | -0.2211 | -0.5094 | 0.06714 | false | 1 |
-| 200 | cost_window | B2 | heuristic/entropy-greedy | 5 | 0.1146 | -0.1721 | 0.4014 | false | 5 | -0.6319 | -1.385 | 0.1213 | false | 1 |
-| 200 | cost_window | B2 | heuristic/anneal-plan | 5 | -0.6351 | -1.484 | 0.2139 | false | 5 | -1.619 | -2.188 | -1.051 | true | 5 |
-| 200 | cost_window | B2 | random/anneal-plan | 5 | -5.331 | -8.476 | -2.186 | true | 5 | -6.323 | -7.259 | -5.387 | true | 5 |
-| 200 | cost_window | B2 | random/entropy-greedy | 5 | -4.609 | -6.395 | -2.823 | true | 5 | -4.532 | -6.134 | -2.929 | true | 5 |
-| 200 | cost_window | B3 | B4 | 5 | 0.5665 | -1.733 | 2.866 | false | 5 | 0.3352 | -1.011 | 1.682 | false | 2 |
-| 200 | cost_window | B3 | heuristic/entropy-greedy | 5 | 0.6532 | -1.081 | 2.388 | false | 5 | -0.0756 | -1.173 | 1.022 | false | 2 |
-| 200 | cost_window | B3 | heuristic/anneal-plan | 5 | -0.09651 | -2.27 | 2.077 | false | 5 | -1.063 | -2.225 | 0.09906 | false | 4 |
-| 200 | cost_window | B3 | random/anneal-plan | 5 | -4.792 | -7.794 | -1.791 | true | 5 | -5.767 | -7.753 | -3.781 | true | 5 |
-| 200 | cost_window | B3 | random/entropy-greedy | 5 | -4.071 | -5.573 | -2.568 | true | 5 | -3.976 | -6.574 | -1.378 | true | 5 |
-| 200 | cost_window | B4 | heuristic/entropy-greedy | 5 | 0.08672 | -0.5178 | 0.6913 | false | 5 | -0.4108 | -1.221 | 0.3999 | false | 1 |
-| 200 | cost_window | B4 | heuristic/anneal-plan | 5 | -0.663 | -1.536 | 0.2098 | false | 5 | -1.398 | -2.21 | -0.5864 | true | 5 |
-| 200 | cost_window | B4 | random/anneal-plan | 5 | -5.359 | -8.815 | -1.903 | true | 5 | -6.102 | -7.073 | -5.131 | true | 5 |
-| 200 | cost_window | B4 | random/entropy-greedy | 5 | -4.637 | -6.736 | -2.538 | true | 5 | -4.311 | -6.067 | -2.554 | true | 5 |
-| 200 | cost_window | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | -0.7497 | -1.514 | 0.01443 | false | 5 | -0.9875 | -1.834 | -0.1407 | true | 5 |
-| 200 | cost_window | heuristic/entropy-greedy | random/anneal-plan | 5 | -5.446 | -8.543 | -2.348 | true | 5 | -5.691 | -6.64 | -4.742 | true | 5 |
-| 200 | cost_window | heuristic/entropy-greedy | random/entropy-greedy | 5 | -4.724 | -6.487 | -2.961 | true | 5 | -3.9 | -5.551 | -2.249 | true | 5 |
-| 200 | cost_window | heuristic/anneal-plan | random/anneal-plan | 5 | -4.696 | -8.031 | -1.361 | true | 5 | -4.704 | -5.945 | -3.462 | true | 5 |
-| 200 | cost_window | heuristic/anneal-plan | random/entropy-greedy | 5 | -3.974 | -6.374 | -1.574 | true | 5 | -2.913 | -4.615 | -1.21 | true | 5 |
-| 200 | cost_window | random/anneal-plan | random/entropy-greedy | 5 | 0.7218 | -1.849 | 3.292 | false | 5 | 1.791 | 0.8327 | 2.749 | true | 5 |
-| 200 | evictions | B2 | B3 | 5 | 100.2 | 41.31 | 159.1 | true | 5 | 72.2 | -57.53 | 201.9 | false | 4 |
-| 200 | evictions | B2 | B4 | 5 | -13.2 | -40.65 | 14.25 | false | 5 | -30 | -103.5 | 43.52 | false | 2 |
-| 200 | evictions | B2 | heuristic/entropy-greedy | 5 | 21 | -136.6 | 178.6 | false | 5 | 17.6 | -123.9 | 159.1 | false | 4 |
-| 200 | evictions | B2 | heuristic/anneal-plan | 5 | -128 | -281.1 | 25.09 | false | 5 | -218.4 | -277.9 | -158.9 | true | 5 |
-| 200 | evictions | B2 | random/anneal-plan | 5 | -204.6 | -430.1 | 20.91 | false | 5 | -398.6 | -477.2 | -320 | true | 5 |
-| 200 | evictions | B2 | random/entropy-greedy | 5 | 3.2 | -105.7 | 112.1 | false | 5 | -106.2 | -201 | -11.36 | true | 0 |
-| 200 | evictions | B3 | B4 | 5 | -113.4 | -184 | -42.81 | true | 5 | -102.2 | -175.8 | -28.63 | true | 5 |
-| 200 | evictions | B3 | heuristic/entropy-greedy | 5 | -79.2 | -199.5 | 41.1 | false | 5 | -54.6 | -118 | 8.838 | false | 4 |
-| 200 | evictions | B3 | heuristic/anneal-plan | 5 | -228.2 | -339.9 | -116.5 | true | 5 | -290.6 | -404.3 | -176.9 | true | 5 |
-| 200 | evictions | B3 | random/anneal-plan | 5 | -304.8 | -499.7 | -109.9 | true | 5 | -470.8 | -657.2 | -284.4 | true | 5 |
-| 200 | evictions | B3 | random/entropy-greedy | 5 | -97 | -202.5 | 8.534 | false | 5 | -178.4 | -275.4 | -81.42 | true | 5 |
-| 200 | evictions | B4 | heuristic/entropy-greedy | 5 | 34.2 | -121.6 | 190 | false | 5 | 47.6 | -40.78 | 136 | false | 4 |
-| 200 | evictions | B4 | heuristic/anneal-plan | 5 | -114.8 | -277.8 | 48.2 | false | 5 | -188.4 | -268.4 | -108.4 | true | 5 |
-| 200 | evictions | B4 | random/anneal-plan | 5 | -191.4 | -422.3 | 39.52 | false | 5 | -368.6 | -514.5 | -222.7 | true | 5 |
-| 200 | evictions | B4 | random/entropy-greedy | 5 | 16.4 | -98.27 | 131.1 | false | 5 | -76.2 | -180.1 | 27.74 | false | 0 |
-| 200 | evictions | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | -149 | -251.2 | -46.78 | true | 5 | -236 | -358 | -114 | true | 5 |
-| 200 | evictions | heuristic/entropy-greedy | random/anneal-plan | 5 | -225.6 | -331.7 | -119.5 | true | 5 | -416.2 | -606.4 | -226 | true | 5 |
-| 200 | evictions | heuristic/entropy-greedy | random/entropy-greedy | 5 | -17.8 | -135.3 | 99.67 | false | 5 | -123.8 | -252.5 | 4.913 | false | 4 |
-| 200 | evictions | heuristic/anneal-plan | random/anneal-plan | 5 | -76.6 | -201.6 | 48.43 | false | 5 | -180.2 | -285.4 | -75.03 | true | 5 |
-| 200 | evictions | heuristic/anneal-plan | random/entropy-greedy | 5 | 131.2 | 40.3 | 222.1 | true | 5 | 112.2 | 41.47 | 182.9 | true | 5 |
-| 200 | evictions | random/anneal-plan | random/entropy-greedy | 5 | 207.8 | 64.3 | 351.3 | true | 5 | 292.4 | 170.7 | 414.1 | true | 5 |
-| 200 | compute | B2 | B3 | 5 | -0.03361 | -1.49 | 1.422 | false | 5 | 12.86 | -8.194 | 33.92 | false | 1 |
-| 200 | compute | B2 | B4 | 5 | -0.3023 | -1.674 | 1.07 | false | 5 | -5.074 | -12.79 | 2.646 | false | 4 |
-| 200 | compute | B2 | heuristic/entropy-greedy | 5 | -4.084 | -6.34 | -1.827 | true | 5 | 4.032 | -16.41 | 24.48 | false | 2 |
-| 200 | compute | B2 | heuristic/anneal-plan | 5 | -3.515 | -5.967 | -1.062 | true | 5 | -0.3794 | -21.48 | 20.72 | false | 4 |
-| 200 | compute | B2 | random/anneal-plan | 5 | -18.53 | -27.15 | -9.9 | true | 5 | -79.49 | -95.83 | -63.14 | true | 5 |
-| 200 | compute | B2 | random/entropy-greedy | 5 | -17.36 | -23.39 | -11.32 | true | 5 | -70.57 | -99.32 | -41.82 | true | 5 |
-| 200 | compute | B3 | B4 | 5 | -0.2687 | -0.9533 | 0.4159 | false | 5 | -17.94 | -37.5 | 1.618 | false | 5 |
-| 200 | compute | B3 | heuristic/entropy-greedy | 5 | -4.05 | -5.887 | -2.213 | true | 5 | -8.833 | -20.98 | 3.312 | false | 5 |
-| 200 | compute | B3 | heuristic/anneal-plan | 5 | -3.481 | -5.347 | -1.616 | true | 5 | -13.24 | -18.48 | -8.012 | true | 5 |
-| 200 | compute | B3 | random/anneal-plan | 5 | -18.49 | -26.77 | -10.22 | true | 5 | -92.35 | -124.9 | -59.84 | true | 5 |
-| 200 | compute | B3 | random/entropy-greedy | 5 | -17.32 | -22.77 | -11.88 | true | 5 | -83.44 | -124 | -42.89 | true | 5 |
-| 200 | compute | B4 | heuristic/entropy-greedy | 5 | -3.781 | -5.403 | -2.159 | true | 5 | 9.106 | -12.62 | 30.84 | false | 1 |
-| 200 | compute | B4 | heuristic/anneal-plan | 5 | -3.212 | -5.37 | -1.054 | true | 5 | 4.695 | -16.31 | 25.7 | false | 3 |
-| 200 | compute | B4 | random/anneal-plan | 5 | -18.22 | -26.34 | -10.11 | true | 5 | -74.41 | -91.44 | -57.38 | true | 5 |
-| 200 | compute | B4 | random/entropy-greedy | 5 | -17.05 | -22.7 | -11.4 | true | 5 | -65.5 | -90.26 | -40.74 | true | 5 |
-| 200 | compute | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | 0.5688 | -1.3 | 2.438 | false | 5 | -4.411 | -15.95 | 7.126 | false | 1 |
-| 200 | compute | heuristic/entropy-greedy | random/anneal-plan | 5 | -14.44 | -21.02 | -7.868 | true | 5 | -83.52 | -113.5 | -53.53 | true | 5 |
-| 200 | compute | heuristic/entropy-greedy | random/entropy-greedy | 5 | -13.27 | -18.18 | -8.363 | true | 5 | -74.6 | -114.4 | -34.79 | true | 5 |
-| 200 | compute | heuristic/anneal-plan | random/anneal-plan | 5 | -15.01 | -22.12 | -7.902 | true | 5 | -79.11 | -113.4 | -44.81 | true | 5 |
-| 200 | compute | heuristic/anneal-plan | random/entropy-greedy | 5 | -13.84 | -17.53 | -10.16 | true | 5 | -70.19 | -113.5 | -26.89 | true | 5 |
-| 200 | compute | random/anneal-plan | random/entropy-greedy | 5 | 1.171 | -4.764 | 7.106 | false | 5 | 8.913 | -9.018 | 26.84 | false | 4 |
-| 200 | settle_min | B2 | B3 | 5 | 5.6 | 0.5107 | 10.69 | true | 5 | 3 | 0.366 | 5.634 | true | 4 |
-| 200 | settle_min | B2 | B4 | 5 | 0.2 | -2.892 | 3.292 | false | 5 | 0.2 | -3.862 | 4.262 | false | 2 |
-| 200 | settle_min | B2 | heuristic/entropy-greedy | 5 | 2.6 | -7.958 | 13.16 | false | 5 | -1.4 | -10.84 | 8.04 | false | 2 |
-| 200 | settle_min | B2 | heuristic/anneal-plan | 5 | 1 | -6.079 | 8.079 | false | 5 | -7.6 | -12.54 | -2.664 | true | 0 |
-| 200 | settle_min | B2 | random/anneal-plan | 5 | -0.4 | -7.725 | 6.925 | false | 5 | -14.2 | -19.04 | -9.359 | true | 5 |
-| 200 | settle_min | B2 | random/entropy-greedy | 5 | 0.2 | -6.276 | 6.676 | false | 5 | -10.4 | -16.71 | -4.093 | true | 0 |
-| 200 | settle_min | B3 | B4 | 5 | -5.4 | -12.93 | 2.132 | false | 5 | -2.8 | -6.566 | 0.9662 | false | 4 |
-| 200 | settle_min | B3 | heuristic/entropy-greedy | 5 | -3 | -10.4 | 4.398 | false | 5 | -4.4 | -12.08 | 3.284 | false | 3 |
-| 200 | settle_min | B3 | heuristic/anneal-plan | 5 | -4.6 | -7.955 | -1.245 | true | 5 | -10.6 | -17.09 | -4.112 | true | 5 |
-| 200 | settle_min | B3 | random/anneal-plan | 5 | -6 | -13.35 | 1.346 | false | 5 | -17.2 | -20.65 | -13.75 | true | 5 |
-| 200 | settle_min | B3 | random/entropy-greedy | 5 | -5.4 | -10.18 | -0.6232 | true | 5 | -13.4 | -20.29 | -6.509 | true | 5 |
-| 200 | settle_min | B4 | heuristic/entropy-greedy | 5 | 2.4 | -11.11 | 15.91 | false | 5 | -1.6 | -9.334 | 6.134 | false | 2 |
-| 200 | settle_min | B4 | heuristic/anneal-plan | 5 | 0.8 | -9.11 | 10.71 | false | 5 | -7.8 | -16.51 | 0.9094 | false | 1 |
-| 200 | settle_min | B4 | random/anneal-plan | 5 | -0.6 | -9.75 | 8.55 | false | 5 | -14.4 | -16.48 | -12.32 | true | 5 |
-| 200 | settle_min | B4 | random/entropy-greedy | 5 | 0 | -8.997 | 8.997 | false | 5 | -10.6 | -15.46 | -5.743 | true |  |
-| 200 | settle_min | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | -1.6 | -5.681 | 2.481 | false | 5 | -6.2 | -18.35 | 5.947 | false | 4 |
-| 200 | settle_min | heuristic/entropy-greedy | random/anneal-plan | 5 | -3 | -11.69 | 5.692 | false | 5 | -12.8 | -19.9 | -5.7 | true | 5 |
-| 200 | settle_min | heuristic/entropy-greedy | random/entropy-greedy | 5 | -2.4 | -7.712 | 2.912 | false | 5 | -9 | -21.01 | 3.006 | false | 4 |
-| 200 | settle_min | heuristic/anneal-plan | random/anneal-plan | 5 | -1.4 | -8.511 | 5.711 | false | 5 | -6.6 | -15.79 | 2.592 | false | 4 |
-| 200 | settle_min | heuristic/anneal-plan | random/entropy-greedy | 5 | -0.8 | -4.014 | 2.414 | false | 5 | -2.8 | -13.67 | 8.074 | false | 3 |
-| 200 | settle_min | random/anneal-plan | random/entropy-greedy | 5 | 0.6 | -4.413 | 5.613 | false | 5 | 3.8 | -2.245 | 9.845 | false | 3 |
+| n | metric | config_1 | config_2 | a_seeds | a_mean | a_lo | a_hi | a_resolved | a_half_pct | b_seeds | b_mean | b_lo | b_hi | b_resolved | b_half_pct | b_seeds_with_a_sign |
+| ---: | --- | --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |
+| 50 | cost_end | B2 | B3 | 5 | -0.03698 | -0.3516 | 0.2776 | false | 4.775 | 5 | 0.1818 | -0.1536 | 0.5173 | false | 5.072 | 1 |
+| 50 | cost_end | B2 | B4 | 5 | 0 | 0 | 0 | false | 0 | 5 | -0.1144 | -0.58 | 0.3512 | false | 6.885 |  |
+| 50 | cost_end | B2 | heuristic/entropy-greedy | 5 | 0.07085 | -0.2214 | 0.3631 | false | 4.472 | 5 | 0.05065 | -0.24 | 0.3413 | false | 4.351 | 2 |
+| 50 | cost_end | B2 | heuristic/anneal-plan | 5 | -0.2397 | -0.7309 | 0.2514 | false | 7.341 | 5 | 0.2045 | -0.08913 | 0.4981 | false | 4.447 | 1 |
+| 50 | cost_end | B2 | random/anneal-plan | 5 | -0.8031 | -1.666 | 0.05999 | false | 12.38 | 5 | -0.3475 | -1.06 | 0.3654 | false | 10.36 | 3 |
+| 50 | cost_end | B2 | random/entropy-greedy | 5 | -0.5539 | -0.9598 | -0.1479 | true | 5.928 | 5 | -0.007107 | -0.5752 | 0.5609 | false | 8.468 | 3 |
+| 50 | cost_end | B3 | B4 | 5 | 0.03698 | -0.2776 | 0.3516 | false | 4.775 | 5 | -0.2962 | -0.6005 | 0.008054 | false | 4.561 | 1 |
+| 50 | cost_end | B3 | heuristic/entropy-greedy | 5 | 0.1078 | -0.05953 | 0.2752 | false | 2.554 | 5 | -0.1312 | -0.2636 | 0.001254 | false | 2.01 | 0 |
+| 50 | cost_end | B3 | heuristic/anneal-plan | 5 | -0.2028 | -0.9731 | 0.5676 | false | 11.48 | 5 | 0.02266 | -0.2747 | 0.32 | false | 4.566 | 2 |
+| 50 | cost_end | B3 | random/anneal-plan | 5 | -0.7661 | -1.676 | 0.1439 | false | 13.02 | 5 | -0.5293 | -1.257 | 0.1981 | false | 10.72 | 4 |
+| 50 | cost_end | B3 | random/entropy-greedy | 5 | -0.5169 | -1.175 | 0.1414 | false | 9.587 | 5 | -0.1889 | -0.5089 | 0.131 | false | 4.834 | 4 |
+| 50 | cost_end | B4 | heuristic/entropy-greedy | 5 | 0.07085 | -0.2214 | 0.3631 | false | 4.472 | 5 | 0.165 | -0.1984 | 0.5284 | false | 5.394 | 3 |
+| 50 | cost_end | B4 | heuristic/anneal-plan | 5 | -0.2397 | -0.7309 | 0.2514 | false | 7.341 | 5 | 0.3189 | -0.2505 | 0.8883 | false | 8.55 | 1 |
+| 50 | cost_end | B4 | random/anneal-plan | 5 | -0.8031 | -1.666 | 0.05999 | false | 12.38 | 5 | -0.2331 | -0.7011 | 0.2349 | false | 6.748 | 4 |
+| 50 | cost_end | B4 | random/entropy-greedy | 5 | -0.5539 | -0.9598 | -0.1479 | true | 5.928 | 5 | 0.1073 | -0.1695 | 0.3841 | false | 4.091 | 2 |
+| 50 | cost_end | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | -0.3106 | -1.033 | 0.4121 | false | 10.86 | 5 | 0.1538 | -0.1149 | 0.4226 | false | 4.086 | 1 |
+| 50 | cost_end | heuristic/entropy-greedy | random/anneal-plan | 5 | -0.874 | -1.688 | -0.06031 | true | 11.73 | 5 | -0.3982 | -1.163 | 0.3669 | false | 11.16 | 3 |
+| 50 | cost_end | heuristic/entropy-greedy | random/entropy-greedy | 5 | -0.6247 | -1.264 | 0.01448 | false | 9.383 | 5 | -0.05776 | -0.3889 | 0.2734 | false | 4.955 | 4 |
+| 50 | cost_end | heuristic/anneal-plan | random/anneal-plan | 5 | -0.5634 | -1.538 | 0.4113 | false | 13.74 | 5 | -0.552 | -1.489 | 0.385 | false | 13.83 | 3 |
+| 50 | cost_end | heuristic/anneal-plan | random/entropy-greedy | 5 | -0.3141 | -0.7139 | 0.08569 | false | 5.738 | 5 | -0.2116 | -0.7869 | 0.3637 | false | 8.708 | 4 |
+| 50 | cost_end | random/anneal-plan | random/entropy-greedy | 5 | 0.2493 | -0.9317 | 1.43 | false | 16.29 | 5 | 0.3404 | -0.365 | 1.046 | false | 10.25 | 4 |
+| 50 | cost_end_rel | B2 | B3 | 5 | -0.00262 | -0.02186 | 0.01662 | false | 4.9 | 5 | 0.01147 | -0.01935 | 0.04229 | false | 7.647 | 1 |
+| 50 | cost_end_rel | B2 | B4 | 5 | 0 | 0 | 0 | false | 0 | 5 | 0.0002065 | -0.02249 | 0.0229 | false | 5.554 |  |
+| 50 | cost_end_rel | B2 | heuristic/entropy-greedy | 5 | 0.003926 | -0.01346 | 0.02131 | false | 4.464 | 5 | 0.01343 | -0.02017 | 0.04703 | false | 8.359 | 3 |
+| 50 | cost_end_rel | B2 | heuristic/anneal-plan | 5 | -0.01312 | -0.04186 | 0.01562 | false | 7.223 | 5 | 0.01849 | -0.008629 | 0.04562 | false | 6.79 | 1 |
+| 50 | cost_end_rel | B2 | random/anneal-plan | 5 | -0.04987 | -0.1011 | 0.001354 | false | 12.3 | 5 | -0.01667 | -0.04757 | 0.01423 | false | 7.409 | 3 |
+| 50 | cost_end_rel | B2 | random/entropy-greedy | 5 | -0.032 | -0.05257 | -0.01144 | true | 5.048 | 5 | 0.001242 | -0.03826 | 0.04074 | false | 9.678 | 3 |
+| 50 | cost_end_rel | B3 | B4 | 5 | 0.00262 | -0.01662 | 0.02186 | false | 4.9 | 5 | -0.01126 | -0.02404 | 0.001509 | false | 3.171 | 1 |
+| 50 | cost_end_rel | B3 | heuristic/entropy-greedy | 5 | 0.006545 | -0.004225 | 0.01732 | false | 2.757 | 5 | 0.001957 | -0.009311 | 0.01323 | false | 2.843 | 3 |
+| 50 | cost_end_rel | B3 | heuristic/anneal-plan | 5 | -0.0105 | -0.05661 | 0.03561 | false | 11.55 | 5 | 0.007023 | -0.01077 | 0.02482 | false | 4.52 | 2 |
+| 50 | cost_end_rel | B3 | random/anneal-plan | 5 | -0.04725 | -0.1007 | 0.006212 | false | 12.8 | 5 | -0.02814 | -0.06993 | 0.01364 | false | 10.16 | 3 |
+| 50 | cost_end_rel | B3 | random/entropy-greedy | 5 | -0.02938 | -0.0666 | 0.007836 | false | 9.107 | 5 | -0.01023 | -0.04041 | 0.01995 | false | 7.5 | 4 |
+| 50 | cost_end_rel | B4 | heuristic/entropy-greedy | 5 | 0.003926 | -0.01346 | 0.02131 | false | 4.464 | 5 | 0.01322 | -0.002937 | 0.02938 | false | 4.02 | 4 |
+| 50 | cost_end_rel | B4 | heuristic/anneal-plan | 5 | -0.01312 | -0.04186 | 0.01562 | false | 7.223 | 5 | 0.01829 | -0.002805 | 0.03938 | false | 5.281 | 0 |
+| 50 | cost_end_rel | B4 | random/anneal-plan | 5 | -0.04987 | -0.1011 | 0.001354 | false | 12.3 | 5 | -0.01688 | -0.04753 | 0.01377 | false | 7.35 | 3 |
+| 50 | cost_end_rel | B4 | random/entropy-greedy | 5 | -0.032 | -0.05257 | -0.01144 | true | 5.048 | 5 | 0.001036 | -0.02241 | 0.02448 | false | 5.747 | 2 |
+| 50 | cost_end_rel | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | -0.01704 | -0.05904 | 0.02495 | false | 10.61 | 5 | 0.005066 | -0.01048 | 0.02061 | false | 3.957 | 2 |
+| 50 | cost_end_rel | heuristic/entropy-greedy | random/anneal-plan | 5 | -0.0538 | -0.1024 | -0.00521 | true | 11.73 | 5 | -0.0301 | -0.07598 | 0.01578 | false | 11.18 | 4 |
+| 50 | cost_end_rel | heuristic/entropy-greedy | random/entropy-greedy | 5 | -0.03593 | -0.07066 | -0.001199 | true | 8.567 | 5 | -0.01219 | -0.03645 | 0.01208 | false | 6.046 | 4 |
+| 50 | cost_end_rel | heuristic/anneal-plan | random/anneal-plan | 5 | -0.03675 | -0.0935 | 0.01999 | false | 13.42 | 5 | -0.03517 | -0.08462 | 0.01428 | false | 12.12 | 3 |
+| 50 | cost_end_rel | heuristic/anneal-plan | random/entropy-greedy | 5 | -0.01889 | -0.04328 | 0.005506 | false | 5.893 | 5 | -0.01725 | -0.05148 | 0.01698 | false | 8.582 | 4 |
+| 50 | cost_end_rel | random/anneal-plan | random/entropy-greedy | 5 | 0.01787 | -0.04895 | 0.08469 | false | 15.46 | 5 | 0.01791 | -0.02152 | 0.05735 | false | 9.47 | 4 |
+| 50 | cost_window | B2 | B3 | 5 | -0.1228 | -0.264 | 0.01834 | false | 3.559 | 5 | 0.2513 | -0.41 | 0.9126 | false | 15.9 | 1 |
+| 50 | cost_window | B2 | B4 | 5 | 0 | 0 | 0 | false | 0 | 5 | 0.3253 | -0.4967 | 1.147 | false | 19.94 |  |
+| 50 | cost_window | B2 | heuristic/entropy-greedy | 5 | -0.05922 | -0.1993 | 0.08086 | false | 3.561 | 5 | 0.3157 | -0.003568 | 0.6349 | false | 7.737 | 0 |
+| 50 | cost_window | B2 | heuristic/anneal-plan | 5 | -0.5896 | -1.18 | 0.0005814 | false | 14.06 | 5 | 0.3281 | -0.3776 | 1.034 | false | 17.13 | 1 |
+| 50 | cost_window | B2 | random/anneal-plan | 5 | -0.8882 | -1.517 | -0.2597 | true | 14.45 | 5 | -0.314 | -1.191 | 0.5631 | false | 19.75 | 4 |
+| 50 | cost_window | B2 | random/entropy-greedy | 5 | -0.7556 | -1.067 | -0.4445 | true | 7.265 | 5 | -0.4274 | -0.8857 | 0.03092 | false | 10.19 | 4 |
+| 50 | cost_window | B3 | B4 | 5 | 0.1228 | -0.01834 | 0.264 | false | 3.559 | 5 | 0.07402 | -0.5509 | 0.6989 | false | 15.64 | 2 |
+| 50 | cost_window | B3 | heuristic/entropy-greedy | 5 | 0.06359 | -0.1593 | 0.2865 | false | 5.579 | 5 | 0.06439 | -0.3957 | 0.5245 | false | 11.5 | 1 |
+| 50 | cost_window | B3 | heuristic/anneal-plan | 5 | -0.4668 | -1.115 | 0.1816 | false | 15.22 | 5 | 0.07677 | -0.7387 | 0.8922 | false | 20.42 | 3 |
+| 50 | cost_window | B3 | random/anneal-plan | 5 | -0.7654 | -1.363 | -0.1678 | true | 13.55 | 5 | -0.5653 | -1.134 | 0.003805 | false | 13.19 | 4 |
+| 50 | cost_window | B3 | random/entropy-greedy | 5 | -0.6328 | -0.9545 | -0.3111 | true | 7.406 | 5 | -0.6787 | -1.6 | 0.2426 | false | 21.07 | 4 |
+| 50 | cost_window | B4 | heuristic/entropy-greedy | 5 | -0.05922 | -0.1993 | 0.08086 | false | 3.561 | 5 | -0.009629 | -0.718 | 0.6987 | false | 17.87 | 1 |
+| 50 | cost_window | B4 | heuristic/anneal-plan | 5 | -0.5896 | -1.18 | 0.0005814 | false | 14.06 | 5 | 0.002747 | -0.6235 | 0.629 | false | 15.83 | 3 |
+| 50 | cost_window | B4 | random/anneal-plan | 5 | -0.8882 | -1.517 | -0.2597 | true | 14.45 | 5 | -0.6393 | -0.8274 | -0.4512 | true | 4.396 | 5 |
+| 50 | cost_window | B4 | random/entropy-greedy | 5 | -0.7556 | -1.067 | -0.4445 | true | 7.265 | 5 | -0.7527 | -1.476 | -0.02954 | true | 16.68 | 4 |
+| 50 | cost_window | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | -0.5304 | -1.237 | 0.1761 | false | 16.71 | 5 | 0.01238 | -0.5293 | 0.554 | false | 13.67 | 2 |
+| 50 | cost_window | heuristic/entropy-greedy | random/anneal-plan | 5 | -0.829 | -1.544 | -0.1141 | true | 16.33 | 5 | -0.6297 | -1.397 | 0.1373 | false | 17.91 | 4 |
+| 50 | cost_window | heuristic/entropy-greedy | random/entropy-greedy | 5 | -0.6964 | -0.9882 | -0.4046 | true | 6.767 | 5 | -0.7431 | -1.374 | -0.1126 | true | 14.53 | 5 |
+| 50 | cost_window | heuristic/anneal-plan | random/anneal-plan | 5 | -0.2986 | -1.039 | 0.4417 | false | 15.94 | 5 | -0.642 | -1.43 | 0.1462 | false | 18.43 | 4 |
+| 50 | cost_window | heuristic/anneal-plan | random/entropy-greedy | 5 | -0.166 | -0.8757 | 0.5438 | false | 15.51 | 5 | -0.7555 | -1.398 | -0.113 | true | 14.82 | 5 |
+| 50 | cost_window | random/anneal-plan | random/entropy-greedy | 5 | 0.1326 | -0.6888 | 0.954 | false | 17.38 | 5 | -0.1134 | -0.9482 | 0.7213 | false | 17.93 | 1 |
+| 50 | evictions | B2 | B3 | 5 | 27.8 | -13.18 | 68.78 | false | 40.37 | 5 | 96.6 | 10.66 | 182.5 | true | 57.95 | 5 |
+| 50 | evictions | B2 | B4 | 5 | 0 | 0 | 0 | false | 0 | 5 | 54.2 | -45.3 | 153.7 | false | 58.7 |  |
+| 50 | evictions | B2 | heuristic/entropy-greedy | 5 | -8.4 | -52.28 | 35.48 | false | 36.69 | 5 | 60.6 | -48.06 | 169.3 | false | 65.34 | 1 |
+| 50 | evictions | B2 | heuristic/anneal-plan | 5 | -50.6 | -141.4 | 40.25 | false | 64.57 | 5 | 4 | -65.27 | 73.27 | false | 35.6 | 3 |
+| 50 | evictions | B2 | random/anneal-plan | 5 | -83 | -143.8 | -22.16 | true | 38.77 | 5 | 2.6 | -76.67 | 81.87 | false | 40.59 | 2 |
+| 50 | evictions | B2 | random/entropy-greedy | 5 | -56.2 | -101.9 | -10.49 | true | 31.85 | 5 | -5.2 | -40.08 | 29.68 | false | 17.51 | 3 |
+| 50 | evictions | B3 | B4 | 5 | -27.8 | -68.78 | 13.18 | false | 40.37 | 5 | -42.4 | -83.98 | -0.8219 | true | 34.31 | 4 |
+| 50 | evictions | B3 | heuristic/entropy-greedy | 5 | -36.2 | -85.86 | 13.46 | false | 46.98 | 5 | -36 | -89.46 | 17.46 | false | 45.3 | 3 |
+| 50 | evictions | B3 | heuristic/anneal-plan | 5 | -78.4 | -158.6 | 1.789 | false | 63.24 | 5 | -92.6 | -170.4 | -14.78 | true | 53.19 | 5 |
+| 50 | evictions | B3 | random/anneal-plan | 5 | -110.8 | -201.9 | -19.71 | true | 63.7 | 5 | -94 | -174.6 | -13.38 | true | 54.85 | 5 |
+| 50 | evictions | B3 | random/entropy-greedy | 5 | -84 | -127.7 | -40.34 | true | 33.69 | 5 | -101.8 | -165.3 | -38.3 | true | 42.08 | 5 |
+| 50 | evictions | B4 | heuristic/entropy-greedy | 5 | -8.4 | -52.28 | 35.48 | false | 36.69 | 5 | 6.4 | -79.4 | 92.2 | false | 61.64 | 2 |
+| 50 | evictions | B4 | heuristic/anneal-plan | 5 | -50.6 | -141.4 | 40.25 | false | 64.57 | 5 | -50.2 | -152 | 51.55 | false | 60.75 | 4 |
+| 50 | evictions | B4 | random/anneal-plan | 5 | -83 | -143.8 | -22.16 | true | 38.77 | 5 | -51.6 | -160.6 | 57.36 | false | 64.78 | 3 |
+| 50 | evictions | B4 | random/entropy-greedy | 5 | -56.2 | -101.9 | -10.49 | true | 31.85 | 5 | -59.4 | -146.9 | 28.08 | false | 50.83 | 4 |
+| 50 | evictions | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | -42.2 | -122.3 | 37.85 | false | 55.25 | 5 | -56.6 | -132.6 | 19.4 | false | 46.26 | 4 |
+| 50 | evictions | heuristic/entropy-greedy | random/anneal-plan | 5 | -74.6 | -141.6 | -7.587 | true | 41.6 | 5 | -58 | -138 | 21.95 | false | 48.45 | 5 |
+| 50 | evictions | heuristic/entropy-greedy | random/entropy-greedy | 5 | -47.8 | -81.06 | -14.54 | true | 22.52 | 5 | -65.8 | -151.4 | 19.84 | false | 50.7 | 5 |
+| 50 | evictions | heuristic/anneal-plan | random/anneal-plan | 5 | -32.4 | -130.5 | 65.71 | false | 53.85 | 5 | -1.4 | -102.2 | 99.36 | false | 52.12 | 2 |
+| 50 | evictions | heuristic/anneal-plan | random/entropy-greedy | 5 | -5.6 | -56.19 | 44.99 | false | 29.97 | 5 | -9.2 | -79.46 | 61.06 | false | 35.63 | 3 |
+| 50 | evictions | random/anneal-plan | random/entropy-greedy | 5 | 26.8 | -37.67 | 91.27 | false | 34.85 | 5 | -7.8 | -59.23 | 43.63 | false | 25.99 | 1 |
+| 50 | compute | B2 | B3 | 5 | 0.1184 | -0.05836 | 0.2951 | false | 11.9 | 5 | -0.9587 | -11.56 | 9.642 | false | 22.44 | 3 |
+| 50 | compute | B2 | B4 | 5 | -0.05863 | -0.2688 | 0.1515 | false | 13.36 | 5 | -1.107 | -8.121 | 5.908 | false | 14.82 | 2 |
+| 50 | compute | B2 | heuristic/entropy-greedy | 5 | -0.2054 | -0.5028 | 0.09204 | false | 18.06 | 5 | 0.07588 | -6.528 | 6.679 | false | 14.13 | 2 |
+| 50 | compute | B2 | heuristic/anneal-plan | 5 | -0.197 | -0.4551 | 0.0611 | false | 15.71 | 5 | 1.262 | -3.68 | 6.204 | false | 10.71 | 2 |
+| 50 | compute | B2 | random/anneal-plan | 5 | -0.9864 | -1.52 | -0.4527 | true | 26.2 | 5 | -2.192 | -8.463 | 4.079 | false | 13.1 | 3 |
+| 50 | compute | B2 | random/entropy-greedy | 5 | -1.02 | -1.442 | -0.5986 | true | 20.54 | 5 | -4.298 | -7.432 | -1.164 | true | 6.407 | 5 |
+| 50 | compute | B3 | B4 | 5 | -0.177 | -0.3045 | -0.04955 | true | 8.419 | 5 | -0.148 | -4.502 | 4.206 | false | 9.109 | 3 |
+| 50 | compute | B3 | heuristic/entropy-greedy | 5 | -0.3237 | -0.5316 | -0.1159 | true | 13.1 | 5 | 1.035 | -4.421 | 6.491 | false | 11.56 | 2 |
+| 50 | compute | B3 | heuristic/anneal-plan | 5 | -0.3154 | -0.5671 | -0.06366 | true | 15.9 | 5 | 2.22 | -7.028 | 11.47 | false | 19.84 | 3 |
+| 50 | compute | B3 | random/anneal-plan | 5 | -1.105 | -1.7 | -0.5094 | true | 30.1 | 5 | -1.233 | -7.059 | 4.592 | false | 12.05 | 4 |
+| 50 | compute | B3 | random/entropy-greedy | 5 | -1.139 | -1.659 | -0.619 | true | 26.05 | 5 | -3.339 | -10.92 | 4.243 | false | 15.35 | 4 |
+| 50 | compute | B4 | heuristic/entropy-greedy | 5 | -0.1467 | -0.4344 | 0.1409 | false | 17.17 | 5 | 1.183 | -0.5134 | 2.879 | false | 3.587 | 2 |
+| 50 | compute | B4 | heuristic/anneal-plan | 5 | -0.1384 | -0.4444 | 0.1676 | false | 18.3 | 5 | 2.368 | -3.155 | 7.892 | false | 11.83 | 2 |
+| 50 | compute | B4 | random/anneal-plan | 5 | -0.9277 | -1.587 | -0.2681 | true | 31.92 | 5 | -1.085 | -4.41 | 2.239 | false | 6.866 | 3 |
+| 50 | compute | B4 | random/entropy-greedy | 5 | -0.9618 | -1.467 | -0.4567 | true | 24.24 | 5 | -3.191 | -7.518 | 1.135 | false | 8.746 | 4 |
+| 50 | compute | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | 0.008354 | -0.1516 | 0.1683 | false | 9.165 | 5 | 1.186 | -3.24 | 5.612 | false | 9.601 | 3 |
+| 50 | compute | heuristic/entropy-greedy | random/anneal-plan | 5 | -0.781 | -1.347 | -0.2146 | true | 26.47 | 5 | -2.268 | -6.592 | 2.056 | false | 9.042 | 4 |
+| 50 | compute | heuristic/entropy-greedy | random/entropy-greedy | 5 | -0.8151 | -1.342 | -0.2886 | true | 24.41 | 5 | -4.374 | -8.591 | -0.157 | true | 8.627 | 4 |
+| 50 | compute | heuristic/anneal-plan | random/anneal-plan | 5 | -0.7893 | -1.395 | -0.1837 | true | 28.36 | 5 | -3.454 | -9.015 | 2.107 | false | 11.77 | 3 |
+| 50 | compute | heuristic/anneal-plan | random/entropy-greedy | 5 | -0.8234 | -1.332 | -0.3148 | true | 23.63 | 5 | -5.56 | -9.644 | -1.475 | true | 8.459 | 5 |
+| 50 | compute | random/anneal-plan | random/entropy-greedy | 5 | -0.03408 | -0.4392 | 0.371 | false | 15.9 | 5 | -2.106 | -5.704 | 1.492 | false | 7.194 | 3 |
+| 50 | settle_min | B2 | B3 | 5 | 1.2 | -1.764 | 4.164 | false | 20.3 | 5 | 4.6 | -4.55 | 13.75 | false | 85.51 | 4 |
+| 50 | settle_min | B2 | B4 | 5 | 0 | 0 | 0 | false | 0 | 5 | 5.2 | -3.008 | 13.41 | false | 78.92 |  |
+| 50 | settle_min | B2 | heuristic/entropy-greedy | 5 | -0.4 | -2.478 | 1.678 | false | 13.49 | 5 | 3.2 | -4.008 | 10.41 | false | 63.23 | 1 |
+| 50 | settle_min | B2 | heuristic/anneal-plan | 5 | -3.4 | -18.65 | 11.85 | false | 90.22 | 5 | 3.4 | -2.194 | 8.994 | false | 49.51 | 2 |
+| 50 | settle_min | B2 | random/anneal-plan | 5 | -8.2 | -11.53 | -4.868 | true | 17.26 | 5 | -13.6 | -22.92 | -4.283 | true | 47.05 | 5 |
+| 50 | settle_min | B2 | random/entropy-greedy | 5 | -10 | -14.12 | -5.882 | true | 20.39 | 5 | -9.8 | -17.91 | -1.686 | true | 45.33 | 5 |
+| 50 | settle_min | B3 | B4 | 5 | -1.2 | -4.164 | 1.764 | false | 20.3 | 5 | 0.6 | -1.283 | 2.483 | false | 23.25 | 2 |
+| 50 | settle_min | B3 | heuristic/entropy-greedy | 5 | -1.6 | -3.016 | -0.1843 | true | 9.566 | 5 | -1.4 | -3.975 | 1.175 | false | 28.29 | 4 |
+| 50 | settle_min | B3 | heuristic/anneal-plan | 5 | -4.6 | -17.46 | 8.262 | false | 78.91 | 5 | -1.2 | -7.245 | 4.845 | false | 67.16 | 4 |
+| 50 | settle_min | B3 | random/anneal-plan | 5 | -9.4 | -12.98 | -5.823 | true | 19.13 | 5 | -18.2 | -23.35 | -13.05 | true | 29.43 | 5 |
+| 50 | settle_min | B3 | random/entropy-greedy | 5 | -11.2 | -13.89 | -8.508 | true | 13.73 | 5 | -14.4 | -25.56 | -3.239 | true | 71.55 | 5 |
+| 50 | settle_min | B4 | heuristic/entropy-greedy | 5 | -0.4 | -2.478 | 1.678 | false | 13.49 | 5 | -2 | -4.483 | 0.4833 | false | 28.22 | 3 |
+| 50 | settle_min | B4 | heuristic/anneal-plan | 5 | -3.4 | -18.65 | 11.85 | false | 90.22 | 5 | -1.8 | -7.517 | 3.917 | false | 65.71 | 4 |
+| 50 | settle_min | B4 | random/anneal-plan | 5 | -8.2 | -11.53 | -4.868 | true | 17.26 | 5 | -18.8 | -23.05 | -14.55 | true | 24.69 | 5 |
+| 50 | settle_min | B4 | random/entropy-greedy | 5 | -10 | -14.12 | -5.882 | true | 20.39 | 5 | -15 | -25.01 | -4.989 | true | 65.43 | 5 |
+| 50 | settle_min | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | -3 | -16.32 | 10.32 | false | 77.87 | 5 | 0.2 | -3.566 | 3.966 | false | 38.83 | 3 |
+| 50 | settle_min | heuristic/entropy-greedy | random/anneal-plan | 5 | -7.8 | -11.36 | -4.244 | true | 18.23 | 5 | -16.8 | -21.4 | -12.2 | true | 25.25 | 5 |
+| 50 | settle_min | heuristic/entropy-greedy | random/entropy-greedy | 5 | -9.6 | -12.02 | -7.18 | true | 11.86 | 5 | -13 | -22.29 | -3.708 | true | 57 | 5 |
+| 50 | settle_min | heuristic/anneal-plan | random/anneal-plan | 5 | -4.8 | -20.76 | 11.16 | false | 76 | 5 | -17 | -22.48 | -11.52 | true | 30.29 | 5 |
+| 50 | settle_min | heuristic/anneal-plan | random/entropy-greedy | 5 | -6.6 | -18.13 | 4.935 | false | 52.67 | 5 | -13.2 | -19.91 | -6.49 | true | 41.42 | 5 |
+| 50 | settle_min | random/anneal-plan | random/entropy-greedy | 5 | -1.8 | -7.024 | 3.424 | false | 21.5 | 5 | 3.8 | -3.461 | 11.06 | false | 29.4 | 0 |
+| 200 | cost_end | B2 | B3 | 5 | 0.7373 | -0.892 | 2.367 | false | 5.958 | 5 | -0.473 | -1.336 | 0.3899 | false | 3.208 | 0 |
+| 200 | cost_end | B2 | B4 | 5 | 0.05289 | -0.1877 | 0.2935 | false | 0.869 | 5 | -0.07314 | -0.8355 | 0.6892 | false | 2.855 | 4 |
+| 200 | cost_end | B2 | heuristic/entropy-greedy | 5 | 0.9816 | -0.1925 | 2.156 | false | 4.313 | 5 | -0.05779 | -1.222 | 1.106 | false | 4.361 | 3 |
+| 200 | cost_end | B2 | heuristic/anneal-plan | 5 | 0.08222 | -0.8545 | 1.019 | false | 3.385 | 5 | -1.128 | -1.617 | -0.6395 | true | 1.795 | 0 |
+| 200 | cost_end | B2 | random/anneal-plan | 5 | -2.645 | -5.957 | 0.6681 | false | 11.41 | 5 | -4.609 | -6.974 | -2.244 | true | 8.166 | 5 |
+| 200 | cost_end | B2 | random/entropy-greedy | 5 | -4.191 | -6.81 | -1.571 | true | 8.787 | 5 | -2.903 | -4.234 | -1.573 | true | 4.734 | 5 |
+| 200 | cost_end | B3 | B4 | 5 | -0.6844 | -2.462 | 1.093 | false | 6.505 | 5 | 0.3998 | 0.2069 | 0.5927 | true | 0.7161 | 0 |
+| 200 | cost_end | B3 | heuristic/entropy-greedy | 5 | 0.2443 | -1.258 | 1.746 | false | 5.594 | 5 | 0.4152 | -0.3582 | 1.189 | false | 2.872 | 4 |
+| 200 | cost_end | B3 | heuristic/anneal-plan | 5 | -0.6551 | -2.547 | 1.237 | false | 6.928 | 5 | -0.6553 | -1.906 | 0.5954 | false | 4.554 | 4 |
+| 200 | cost_end | B3 | random/anneal-plan | 5 | -3.382 | -7.313 | 0.5493 | false | 13.71 | 5 | -4.136 | -6.135 | -2.137 | true | 6.845 | 5 |
+| 200 | cost_end | B3 | random/entropy-greedy | 5 | -4.928 | -7.114 | -2.741 | true | 7.426 | 5 | -2.43 | -4.405 | -0.4559 | true | 6.965 | 5 |
+| 200 | cost_end | B4 | heuristic/entropy-greedy | 5 | 0.9287 | -0.4787 | 2.336 | false | 5.175 | 5 | 0.01535 | -0.7977 | 0.8284 | false | 3.042 | 2 |
+| 200 | cost_end | B4 | heuristic/anneal-plan | 5 | 0.02932 | -0.8078 | 0.8665 | false | 3.028 | 5 | -1.055 | -2.209 | 0.09901 | false | 4.233 | 1 |
+| 200 | cost_end | B4 | random/anneal-plan | 5 | -2.697 | -6.09 | 0.695 | false | 11.69 | 5 | -4.536 | -6.683 | -2.388 | true | 7.404 | 5 |
+| 200 | cost_end | B4 | random/entropy-greedy | 5 | -4.243 | -7.022 | -1.465 | true | 9.329 | 5 | -2.83 | -4.784 | -0.8762 | true | 6.942 | 5 |
+| 200 | cost_end | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | -0.8994 | -2.736 | 0.937 | false | 6.756 | 5 | -1.07 | -2.571 | 0.43 | false | 5.505 | 4 |
+| 200 | cost_end | heuristic/entropy-greedy | random/anneal-plan | 5 | -3.626 | -6.482 | -0.7703 | true | 10 | 5 | -4.551 | -7.047 | -2.056 | true | 8.607 | 5 |
+| 200 | cost_end | heuristic/entropy-greedy | random/entropy-greedy | 5 | -5.172 | -7.268 | -3.077 | true | 7.148 | 5 | -2.846 | -5.105 | -0.5864 | true | 8.028 | 5 |
+| 200 | cost_end | heuristic/anneal-plan | random/anneal-plan | 5 | -2.727 | -6.447 | 0.9934 | false | 12.83 | 5 | -3.481 | -6.038 | -0.9234 | true | 8.66 | 5 |
+| 200 | cost_end | heuristic/anneal-plan | random/entropy-greedy | 5 | -4.273 | -6.751 | -1.795 | true | 8.324 | 5 | -1.775 | -2.827 | -0.7238 | true | 3.666 | 5 |
+| 200 | cost_end | random/anneal-plan | random/entropy-greedy | 5 | -1.546 | -5.531 | 2.439 | false | 12.8 | 5 | 1.706 | -0.6971 | 4.108 | false | 7.899 | 1 |
+| 200 | cost_end_rel | B2 | B3 | 5 | 0.01055 | -0.01324 | 0.03435 | false | 6.115 | 5 | -0.006098 | -0.02378 | 0.01158 | false | 4.545 | 2 |
+| 200 | cost_end_rel | B2 | B4 | 5 | 0.0007507 | -0.002759 | 0.00426 | false | 0.8906 | 5 | 0.0001586 | -0.01414 | 0.01445 | false | 3.704 | 3 |
+| 200 | cost_end_rel | B2 | heuristic/entropy-greedy | 5 | 0.01413 | -0.0034 | 0.03167 | false | 4.526 | 5 | -0.002449 | -0.02177 | 0.01687 | false | 4.989 | 2 |
+| 200 | cost_end_rel | B2 | heuristic/anneal-plan | 5 | 0.001429 | -0.01138 | 0.01424 | false | 3.254 | 5 | -0.01773 | -0.02799 | -0.007465 | true | 2.599 | 0 |
+| 200 | cost_end_rel | B2 | random/anneal-plan | 5 | -0.03673 | -0.08348 | 0.01002 | false | 11.32 | 5 | -0.06821 | -0.1042 | -0.03227 | true | 8.557 | 5 |
+| 200 | cost_end_rel | B2 | random/entropy-greedy | 5 | -0.059 | -0.09378 | -0.02423 | true | 8.202 | 5 | -0.04179 | -0.06325 | -0.02032 | true | 5.276 | 5 |
+| 200 | cost_end_rel | B3 | B4 | 5 | -0.009803 | -0.03578 | 0.01618 | false | 6.682 | 5 | 0.006257 | -0.002654 | 0.01517 | false | 2.291 | 1 |
+| 200 | cost_end_rel | B3 | heuristic/entropy-greedy | 5 | 0.003579 | -0.01808 | 0.02524 | false | 5.668 | 5 | 0.003649 | -0.01387 | 0.02117 | false | 4.489 | 4 |
+| 200 | cost_end_rel | B3 | heuristic/anneal-plan | 5 | -0.009124 | -0.03629 | 0.01804 | false | 6.993 | 5 | -0.01163 | -0.0283 | 0.005044 | false | 4.19 | 4 |
+| 200 | cost_end_rel | B3 | random/anneal-plan | 5 | -0.04729 | -0.1021 | 0.007507 | false | 13.45 | 5 | -0.06212 | -0.08665 | -0.03759 | true | 5.797 | 5 |
+| 200 | cost_end_rel | B3 | random/entropy-greedy | 5 | -0.06956 | -0.097 | -0.04212 | true | 6.554 | 5 | -0.03569 | -0.06905 | -0.002329 | true | 8.138 | 4 |
+| 200 | cost_end_rel | B4 | heuristic/entropy-greedy | 5 | 0.01338 | -0.007516 | 0.03428 | false | 5.4 | 5 | -0.002608 | -0.01473 | 0.009512 | false | 3.13 | 2 |
+| 200 | cost_end_rel | B4 | heuristic/anneal-plan | 5 | 0.0006787 | -0.01062 | 0.01198 | false | 2.872 | 5 | -0.01788 | -0.03243 | -0.003337 | true | 3.685 | 1 |
+| 200 | cost_end_rel | B4 | random/anneal-plan | 5 | -0.03748 | -0.08551 | 0.01054 | false | 11.64 | 5 | -0.06837 | -0.1009 | -0.03582 | true | 7.75 | 5 |
+| 200 | cost_end_rel | B4 | random/entropy-greedy | 5 | -0.05975 | -0.09709 | -0.02242 | true | 8.814 | 5 | -0.04195 | -0.07581 | -0.008085 | true | 8.323 | 4 |
+| 200 | cost_end_rel | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | -0.0127 | -0.03903 | 0.01362 | false | 6.808 | 5 | -0.01528 | -0.03856 | 0.008006 | false | 5.878 | 3 |
+| 200 | cost_end_rel | heuristic/entropy-greedy | random/anneal-plan | 5 | -0.05087 | -0.08996 | -0.01177 | true | 9.635 | 5 | -0.06577 | -0.1062 | -0.02538 | true | 9.585 | 5 |
+| 200 | cost_end_rel | heuristic/entropy-greedy | random/entropy-greedy | 5 | -0.07314 | -0.09912 | -0.04715 | true | 6.233 | 5 | -0.03934 | -0.07758 | -0.001092 | true | 9.371 | 4 |
+| 200 | cost_end_rel | heuristic/anneal-plan | random/anneal-plan | 5 | -0.03816 | -0.09124 | 0.01491 | false | 12.88 | 5 | -0.05049 | -0.08546 | -0.01552 | true | 8.151 | 5 |
+| 200 | cost_end_rel | heuristic/anneal-plan | random/entropy-greedy | 5 | -0.06043 | -0.09487 | -0.026 | true | 8.137 | 5 | -0.02406 | -0.04658 | -0.001547 | true | 5.415 | 4 |
+| 200 | cost_end_rel | random/anneal-plan | random/entropy-greedy | 5 | -0.02227 | -0.07897 | 0.03443 | false | 12.82 | 5 | 0.02643 | -0.0163 | 0.06916 | false | 9.689 | 1 |
+| 200 | cost_window | B2 | B3 | 5 | -0.5386 | -2.501 | 1.423 | false | 11.46 | 5 | -0.5563 | -1.856 | 0.743 | false | 7.918 | 3 |
+| 200 | cost_window | B2 | B4 | 5 | 0.0279 | -0.3543 | 0.4101 | false | 2.27 | 5 | -0.2211 | -0.5094 | 0.06714 | false | 1.775 | 1 |
+| 200 | cost_window | B2 | heuristic/entropy-greedy | 5 | 0.1146 | -0.1721 | 0.4014 | false | 1.708 | 5 | -0.6319 | -1.385 | 0.1213 | false | 4.579 | 1 |
+| 200 | cost_window | B2 | heuristic/anneal-plan | 5 | -0.6351 | -1.484 | 0.2139 | false | 4.946 | 5 | -1.619 | -2.188 | -1.051 | true | 3.354 | 5 |
+| 200 | cost_window | B2 | random/anneal-plan | 5 | -5.331 | -8.476 | -2.186 | true | 16.12 | 5 | -6.323 | -7.259 | -5.387 | true | 4.85 | 5 |
+| 200 | cost_window | B2 | random/entropy-greedy | 5 | -4.609 | -6.395 | -2.823 | true | 9.323 | 5 | -4.532 | -6.134 | -2.929 | true | 8.711 | 5 |
+| 200 | cost_window | B3 | B4 | 5 | 0.5665 | -1.733 | 2.866 | false | 13.44 | 5 | 0.3352 | -1.011 | 1.682 | false | 8.151 | 2 |
+| 200 | cost_window | B3 | heuristic/entropy-greedy | 5 | 0.6532 | -1.081 | 2.388 | false | 10.17 | 5 | -0.0756 | -1.173 | 1.022 | false | 6.561 | 2 |
+| 200 | cost_window | B3 | heuristic/anneal-plan | 5 | -0.09651 | -2.27 | 2.077 | false | 12.46 | 5 | -1.063 | -2.225 | 0.09906 | false | 6.75 | 4 |
+| 200 | cost_window | B3 | random/anneal-plan | 5 | -4.792 | -7.794 | -1.791 | true | 15.17 | 5 | -5.767 | -7.753 | -3.781 | true | 10.15 | 5 |
+| 200 | cost_window | B3 | random/entropy-greedy | 5 | -4.071 | -5.573 | -2.568 | true | 7.736 | 5 | -3.976 | -6.574 | -1.378 | true | 13.91 | 5 |
+| 200 | cost_window | B4 | heuristic/entropy-greedy | 5 | 0.08672 | -0.5178 | 0.6913 | false | 3.603 | 5 | -0.4108 | -1.221 | 0.3999 | false | 4.896 | 1 |
+| 200 | cost_window | B4 | heuristic/anneal-plan | 5 | -0.663 | -1.536 | 0.2098 | false | 5.088 | 5 | -1.398 | -2.21 | -0.5864 | true | 4.762 | 5 |
+| 200 | cost_window | B4 | random/anneal-plan | 5 | -5.359 | -8.815 | -1.903 | true | 17.72 | 5 | -6.102 | -7.073 | -5.131 | true | 5.004 | 5 |
+| 200 | cost_window | B4 | random/entropy-greedy | 5 | -4.637 | -6.736 | -2.538 | true | 10.97 | 5 | -4.311 | -6.067 | -2.554 | true | 9.492 | 5 |
+| 200 | cost_window | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | -0.7497 | -1.514 | 0.01443 | false | 4.466 | 5 | -0.9875 | -1.834 | -0.1407 | true | 4.908 | 5 |
+| 200 | cost_window | heuristic/entropy-greedy | random/anneal-plan | 5 | -5.446 | -8.543 | -2.348 | true | 15.92 | 5 | -5.691 | -6.64 | -4.742 | true | 4.839 | 5 |
+| 200 | cost_window | heuristic/entropy-greedy | random/entropy-greedy | 5 | -4.724 | -6.487 | -2.961 | true | 9.233 | 5 | -3.9 | -5.551 | -2.249 | true | 8.825 | 5 |
+| 200 | cost_window | heuristic/anneal-plan | random/anneal-plan | 5 | -4.696 | -8.031 | -1.361 | true | 16.82 | 5 | -4.704 | -5.945 | -3.462 | true | 6.178 | 5 |
+| 200 | cost_window | heuristic/anneal-plan | random/entropy-greedy | 5 | -3.974 | -6.374 | -1.574 | true | 12.33 | 5 | -2.913 | -4.615 | -1.21 | true | 8.862 | 5 |
+| 200 | cost_window | random/anneal-plan | random/entropy-greedy | 5 | 0.7218 | -1.849 | 3.292 | false | 11.78 | 5 | 1.791 | 0.8327 | 2.749 | true | 4.445 | 5 |
+| 200 | evictions | B2 | B3 | 5 | 100.2 | 41.31 | 159.1 | true | 12.21 | 5 | 72.2 | -57.53 | 201.9 | false | 25.5 | 4 |
+| 200 | evictions | B2 | B4 | 5 | -13.2 | -40.65 | 14.25 | false | 5.093 | 5 | -30 | -103.5 | 43.52 | false | 13.13 | 2 |
+| 200 | evictions | B2 | heuristic/entropy-greedy | 5 | 21 | -136.6 | 178.6 | false | 30.21 | 5 | 17.6 | -123.9 | 159.1 | false | 26.39 | 4 |
+| 200 | evictions | B2 | heuristic/anneal-plan | 5 | -128 | -281.1 | 25.09 | false | 25.67 | 5 | -218.4 | -277.9 | -158.9 | true | 9.091 | 5 |
+| 200 | evictions | B2 | random/anneal-plan | 5 | -204.6 | -430.1 | 20.91 | false | 35.53 | 5 | -398.6 | -477.2 | -320 | true | 10.56 | 5 |
+| 200 | evictions | B2 | random/entropy-greedy | 5 | 3.2 | -105.7 | 112.1 | false | 20.51 | 5 | -106.2 | -201 | -11.36 | true | 15.86 | 0 |
+| 200 | evictions | B3 | B4 | 5 | -113.4 | -184 | -42.81 | true | 14.44 | 5 | -102.2 | -175.8 | -28.63 | true | 14.05 | 5 |
+| 200 | evictions | B3 | heuristic/entropy-greedy | 5 | -79.2 | -199.5 | 41.1 | false | 25.5 | 5 | -54.6 | -118 | 8.838 | false | 12.69 | 4 |
+| 200 | evictions | B3 | heuristic/anneal-plan | 5 | -228.2 | -339.9 | -116.5 | true | 20.46 | 5 | -290.6 | -404.3 | -176.9 | true | 18.41 | 5 |
+| 200 | evictions | B3 | random/anneal-plan | 5 | -304.8 | -499.7 | -109.9 | true | 33.34 | 5 | -470.8 | -657.2 | -284.4 | true | 26.32 | 5 |
+| 200 | evictions | B3 | random/entropy-greedy | 5 | -97 | -202.5 | 8.534 | false | 21.95 | 5 | -178.4 | -275.4 | -81.42 | true | 17.26 | 5 |
+| 200 | evictions | B4 | heuristic/entropy-greedy | 5 | 34.2 | -121.6 | 190 | false | 29.47 | 5 | 47.6 | -40.78 | 136 | false | 16.04 | 4 |
+| 200 | evictions | B4 | heuristic/anneal-plan | 5 | -114.8 | -277.8 | 48.2 | false | 27.03 | 5 | -188.4 | -268.4 | -108.4 | true | 11.95 | 5 |
+| 200 | evictions | B4 | random/anneal-plan | 5 | -191.4 | -422.3 | 39.52 | false | 36.01 | 5 | -368.6 | -514.5 | -222.7 | true | 19.22 | 5 |
+| 200 | evictions | B4 | random/entropy-greedy | 5 | 16.4 | -98.27 | 131.1 | false | 21.34 | 5 | -76.2 | -180.1 | 27.74 | false | 16.96 | 0 |
+| 200 | evictions | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | -149 | -251.2 | -46.78 | true | 17.45 | 5 | -236 | -358 | -114 | true | 18.91 | 5 |
+| 200 | evictions | heuristic/entropy-greedy | random/anneal-plan | 5 | -225.6 | -331.7 | -119.5 | true | 17 | 5 | -416.2 | -606.4 | -226 | true | 25.86 | 5 |
+| 200 | evictions | heuristic/entropy-greedy | random/entropy-greedy | 5 | -17.8 | -135.3 | 99.67 | false | 22.58 | 5 | -123.8 | -252.5 | 4.913 | false | 21.85 | 4 |
+| 200 | evictions | heuristic/anneal-plan | random/anneal-plan | 5 | -76.6 | -201.6 | 48.43 | false | 17.89 | 5 | -180.2 | -285.4 | -75.03 | true | 12.33 | 5 |
+| 200 | evictions | heuristic/anneal-plan | random/entropy-greedy | 5 | 131.2 | 40.3 | 222.1 | true | 15.28 | 5 | 112.2 | 41.47 | 182.9 | true | 10 | 5 |
+| 200 | evictions | random/anneal-plan | random/entropy-greedy | 5 | 207.8 | 64.3 | 351.3 | true | 22.67 | 5 | 292.4 | 170.7 | 414.1 | true | 15.26 | 5 |
+| 200 | compute | B2 | B3 | 5 | -0.03361 | -1.49 | 1.422 | false | 16.06 | 5 | 12.86 | -8.194 | 33.92 | false | 14.8 | 1 |
+| 200 | compute | B2 | B4 | 5 | -0.3023 | -1.674 | 1.07 | false | 14.91 | 5 | -5.074 | -12.79 | 2.646 | false | 5.103 | 4 |
+| 200 | compute | B2 | heuristic/entropy-greedy | 5 | -4.084 | -6.34 | -1.827 | true | 20.35 | 5 | 4.032 | -16.41 | 24.48 | false | 13.93 | 2 |
+| 200 | compute | B2 | heuristic/anneal-plan | 5 | -3.515 | -5.967 | -1.062 | true | 22.7 | 5 | -0.3794 | -21.48 | 20.72 | false | 14.16 | 4 |
+| 200 | compute | B2 | random/anneal-plan | 5 | -18.53 | -27.15 | -9.9 | true | 47.11 | 5 | -79.49 | -95.83 | -63.14 | true | 8.669 | 5 |
+| 200 | compute | B2 | random/entropy-greedy | 5 | -17.36 | -23.39 | -11.32 | true | 34.05 | 5 | -70.57 | -99.32 | -41.82 | true | 15.62 | 5 |
+| 200 | compute | B3 | B4 | 5 | -0.2687 | -0.9533 | 0.4159 | false | 7.428 | 5 | -17.94 | -37.5 | 1.618 | false | 13.5 | 5 |
+| 200 | compute | B3 | heuristic/entropy-greedy | 5 | -4.05 | -5.887 | -2.213 | true | 16.54 | 5 | -8.833 | -20.98 | 3.312 | false | 8.656 | 5 |
+| 200 | compute | B3 | heuristic/anneal-plan | 5 | -3.481 | -5.347 | -1.616 | true | 17.24 | 5 | -13.24 | -18.48 | -8.012 | true | 3.671 | 5 |
+| 200 | compute | B3 | random/anneal-plan | 5 | -18.49 | -26.77 | -10.22 | true | 45.16 | 5 | -92.35 | -124.9 | -59.84 | true | 17.86 | 5 |
+| 200 | compute | B3 | random/entropy-greedy | 5 | -17.32 | -22.77 | -11.88 | true | 30.68 | 5 | -83.44 | -124 | -42.89 | true | 22.83 | 5 |
+| 200 | compute | B4 | heuristic/entropy-greedy | 5 | -3.781 | -5.403 | -2.159 | true | 14.43 | 5 | 9.106 | -12.62 | 30.84 | false | 14.56 | 1 |
+| 200 | compute | B4 | heuristic/anneal-plan | 5 | -3.212 | -5.37 | -1.054 | true | 19.7 | 5 | 4.695 | -16.31 | 25.7 | false | 13.86 | 3 |
+| 200 | compute | B4 | random/anneal-plan | 5 | -18.22 | -26.34 | -10.11 | true | 43.93 | 5 | -74.41 | -91.44 | -57.38 | true | 8.913 | 5 |
+| 200 | compute | B4 | random/entropy-greedy | 5 | -17.05 | -22.7 | -11.4 | true | 31.6 | 5 | -65.5 | -90.26 | -40.74 | true | 13.27 | 5 |
+| 200 | compute | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | 0.5688 | -1.3 | 2.438 | false | 14.55 | 5 | -4.411 | -15.95 | 7.126 | false | 7.852 | 1 |
+| 200 | compute | heuristic/entropy-greedy | random/anneal-plan | 5 | -14.44 | -21.02 | -7.868 | true | 32.31 | 5 | -83.52 | -113.5 | -53.53 | true | 16.08 | 5 |
+| 200 | compute | heuristic/entropy-greedy | random/entropy-greedy | 5 | -13.27 | -18.18 | -8.363 | true | 24.83 | 5 | -74.6 | -114.4 | -34.79 | true | 21.87 | 5 |
+| 200 | compute | heuristic/anneal-plan | random/anneal-plan | 5 | -15.01 | -22.12 | -7.902 | true | 35.43 | 5 | -79.11 | -113.4 | -44.81 | true | 18.17 | 5 |
+| 200 | compute | heuristic/anneal-plan | random/entropy-greedy | 5 | -13.84 | -17.53 | -10.16 | true | 18.92 | 5 | -70.19 | -113.5 | -26.89 | true | 23.51 | 5 |
+| 200 | compute | random/anneal-plan | random/entropy-greedy | 5 | 1.171 | -4.764 | 7.106 | false | 21.99 | 5 | 8.913 | -9.018 | 26.84 | false | 8.013 | 4 |
+| 200 | settle_min | B2 | B3 | 5 | 5.6 | 0.5107 | 10.69 | true | 21.56 | 5 | 3 | 0.366 | 5.634 | true | 19.8 | 4 |
+| 200 | settle_min | B2 | B4 | 5 | 0.2 | -2.892 | 3.292 | false | 11.76 | 5 | 0.2 | -3.862 | 4.262 | false | 27.63 | 2 |
+| 200 | settle_min | B2 | heuristic/entropy-greedy | 5 | 2.6 | -7.958 | 13.16 | false | 42.06 | 5 | -1.4 | -10.84 | 8.04 | false | 60.9 | 2 |
+| 200 | settle_min | B2 | heuristic/anneal-plan | 5 | 1 | -6.079 | 8.079 | false | 27.33 | 5 | -7.6 | -12.54 | -2.664 | true | 26.54 | 0 |
+| 200 | settle_min | B2 | random/anneal-plan | 5 | -0.4 | -7.725 | 6.925 | false | 27.54 | 5 | -14.2 | -19.04 | -9.359 | true | 22.1 | 5 |
+| 200 | settle_min | B2 | random/entropy-greedy | 5 | 0.2 | -6.276 | 6.676 | false | 24.62 | 5 | -10.4 | -16.71 | -4.093 | true | 31.53 | 0 |
+| 200 | settle_min | B3 | B4 | 5 | -5.4 | -12.93 | 2.132 | false | 32.05 | 5 | -2.8 | -6.566 | 0.9662 | false | 28.53 | 4 |
+| 200 | settle_min | B3 | heuristic/entropy-greedy | 5 | -3 | -10.4 | 4.398 | false | 33.18 | 5 | -4.4 | -12.08 | 3.284 | false | 54.89 | 3 |
+| 200 | settle_min | B3 | heuristic/anneal-plan | 5 | -4.6 | -7.955 | -1.245 | true | 14.52 | 5 | -10.6 | -17.09 | -4.112 | true | 37.94 | 5 |
+| 200 | settle_min | B3 | random/anneal-plan | 5 | -6 | -13.35 | 1.346 | false | 30.86 | 5 | -17.2 | -20.65 | -13.75 | true | 16.89 | 5 |
+| 200 | settle_min | B3 | random/entropy-greedy | 5 | -5.4 | -10.18 | -0.6232 | true | 20.33 | 5 | -13.4 | -20.29 | -6.509 | true | 37.25 | 5 |
+| 200 | settle_min | B4 | heuristic/entropy-greedy | 5 | 2.4 | -11.11 | 15.91 | false | 54.02 | 5 | -1.6 | -9.334 | 6.134 | false | 50.22 | 2 |
+| 200 | settle_min | B4 | heuristic/anneal-plan | 5 | 0.8 | -9.11 | 10.71 | false | 38.41 | 5 | -7.8 | -16.51 | 0.9094 | false | 47.08 | 1 |
+| 200 | settle_min | B4 | random/anneal-plan | 5 | -0.6 | -9.75 | 8.55 | false | 34.53 | 5 | -14.4 | -16.48 | -12.32 | true | 9.531 | 5 |
+| 200 | settle_min | B4 | random/entropy-greedy | 5 | 0 | -8.997 | 8.997 | false | 34.34 | 5 | -10.6 | -15.46 | -5.743 | true | 24.41 |  |
+| 200 | settle_min | heuristic/entropy-greedy | heuristic/anneal-plan | 5 | -1.6 | -5.681 | 2.481 | false | 16.59 | 5 | -6.2 | -18.35 | 5.947 | false | 62.94 | 4 |
+| 200 | settle_min | heuristic/entropy-greedy | random/anneal-plan | 5 | -3 | -11.69 | 5.692 | false | 34.35 | 5 | -12.8 | -19.9 | -5.7 | true | 31.42 | 5 |
+| 200 | settle_min | heuristic/entropy-greedy | random/entropy-greedy | 5 | -2.4 | -7.712 | 2.912 | false | 21.25 | 5 | -9 | -21.01 | 3.006 | false | 58 | 4 |
+| 200 | settle_min | heuristic/anneal-plan | random/anneal-plan | 5 | -1.4 | -8.511 | 5.711 | false | 27.25 | 5 | -6.6 | -15.79 | 2.592 | false | 35.77 | 4 |
+| 200 | settle_min | heuristic/anneal-plan | random/entropy-greedy | 5 | -0.8 | -4.014 | 2.414 | false | 12.46 | 5 | -2.8 | -13.67 | 8.074 | false | 45.69 | 3 |
+| 200 | settle_min | random/anneal-plan | random/entropy-greedy | 5 | 0.6 | -4.413 | 5.613 | false | 18.92 | 5 | 3.8 | -2.245 | 9.845 | false | 22.31 | 3 |

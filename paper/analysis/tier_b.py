@@ -16,18 +16,20 @@ have a valid Tier B run, and the same blocks in Tier A. Writes, under ``out_root
 - ``tables/tierb_reversals.md``: every material reversal.
 - ``tables/tierb_pairs.md``: the two named pairs, per size and metric, as percent differences in both tiers.
 - ``tables/tierb_compute_one_vm.md``: the compute agreement again, on the complete blocks whose seven Tier B runs
-  share one VM (boot ID). Controller CPU depends on the machine, and the VM changed once during the run; this
-  check was decided before any ranking was looked at (RESEARCH_LOG, "Container restart during Tier B").
+  share one VM (boot ID). Controller CPU depends on the machine, and the VM changed twice during the run, at two
+  container restarts; this check was decided before any ranking was looked at (RESEARCH_LOG, "Container restart
+  during Tier B" and "Second container restart").
 - ``tables/tier_b.json``: the headline.
 
 Exploratory, added after the tables above were first seen (RESEARCH_LOG, "Tier B results"):
 
 - ``tables/tierb_paired.md``: per size, configuration pair and floored metric, the per-seed differences between the
-  two configurations in each tier, over the retained blocks: mean and a two-sided 95% t interval. A direction is
-  resolved when the interval excludes zero.
+  two configurations in each tier, over the retained blocks: mean and a two-sided 95% t interval, and the interval's
+  half-width as a percent of the two configurations' mean. A direction is resolved when the interval excludes zero.
 - ``tables/tierb_reversals_paired.md``: each material reversal, with whether each tier resolves its direction.
 - ``tables/tierb_paired_summary.md``: per size and floored metric, how many of the 21 pairs Tier A resolves, and for
-  those, how many Tier B shows with the same sign, resolves in the same direction, and resolves in the opposite one.
+  those, how many Tier B shows with the same sign, resolves in the same direction, and resolves in the opposite one;
+  and each tier's median interval half-width over the 21 pairs, as a percent of the pair's mean.
 
 Run on its own with ``/opt/research-venv/bin/python -m paper.analysis.tier_b [--runs DIR] [--out DIR]``.
 """
@@ -149,10 +151,12 @@ def tier_b_runs(runs_root: Path) -> pd.DataFrame:
             "cost_at_drop": (s or {}).get("cost_at_drop"), **metrics,
             "compute": (s or {}).get("karpenter_cpu_core_seconds", math.nan),
             "evaluation_s": float(sum(evals.get(t, 0.0) for t in EVALUATED_TYPES)) if s else math.nan,
+            "decisions": float(sum(((s or {}).get("decisions_by_consolidation") or {}).get(t, 0.0)
+                                   for t in EVALUATED_TYPES)) if s else math.nan,
             "max_memory_mb": (s or {}).get("karpenter_max_memory_mb", math.nan),
         })
     cols = ["run_id", "attempt", "boot_id", "label", "seed", "n", "valid", "reasons", "nodes_at_drop", "cost_at_drop",
-            *METRICS, "evaluation_s", "max_memory_mb"]
+            *METRICS, "evaluation_s", "decisions", "max_memory_mb"]
     return pd.DataFrame(rows, columns=cols)
 
 
@@ -224,10 +228,12 @@ def paired_differences(a: pd.DataFrame, b: pd.DataFrame, blocks: Sequence[tuple[
                         d = (p[li] - p[lj]).dropna() if li in p and lj in p else pd.Series(dtype=float)
                         k = len(d)
                         mean = float(d.mean()) if k else math.nan
+                        level = float((p[li][d.index].mean() + p[lj][d.index].mean()) / 2) if k else math.nan
                         half = float(stats.t.ppf(0.975, k - 1) * d.std(ddof=1) / math.sqrt(k)) if k >= 2 else math.nan
                         row.update({f"{tier}_seeds": k, f"{tier}_mean": mean, f"{tier}_lo": mean - half,
                                     f"{tier}_hi": mean + half, f"{tier}_resolved": bool(abs(mean) > half)
-                                    if np.isfinite(half) else None})
+                                    if np.isfinite(half) else None,
+                                    f"{tier}_half_pct": 100 * half / abs(level) if level else math.nan})
                         if tier == "b":
                             sign_a = np.sign(row["a_mean"])
                             row["b_seeds_with_a_sign"] = int((np.sign(d) == sign_a).sum()) if sign_a else None
@@ -243,9 +249,11 @@ def paired_summary(paired: pd.DataFrame) -> pd.DataFrame:
         same = np.sign(res.a_mean) == np.sign(res.b_mean)
         rows.append({"n": n, "metric": metric, "pairs": int(len(g)), "a_resolved": int(len(res)),
                      "b_same_sign": int(same.sum()), "b_resolved_same": int((same & res.b_resolved.eq(True)).sum()),
-                     "b_resolved_opposite": int((~same & res.b_resolved.eq(True)).sum())})
+                     "b_resolved_opposite": int((~same & res.b_resolved.eq(True)).sum()),
+                     "a_half_pct_median": float(g.a_half_pct.median()),
+                     "b_half_pct_median": float(g.b_half_pct.median())})
     return pd.DataFrame(rows, columns=["n", "metric", "pairs", "a_resolved", "b_same_sign", "b_resolved_same",
-                                       "b_resolved_opposite"])
+                                       "b_resolved_opposite", "a_half_pct_median", "b_half_pct_median"])
 
 
 def pair_table(means: pd.DataFrame) -> pd.DataFrame:
@@ -290,7 +298,7 @@ def main(runs_root: Path, out_root: Path) -> None:
         out["label"] = out["label"].astype(str)
         return out
 
-    means = both_tiers(blocks, METRICS, ["evaluation_s", "max_memory_mb", "nodes_at_drop", "cost_at_drop"])
+    means = both_tiers(blocks, METRICS, ["evaluation_s", "decisions", "max_memory_mb", "nodes_at_drop", "cost_at_drop"])
     agree, revs = agreement(means)
     pairs = pair_table(means)
     compute_one_vm, _ = agreement(both_tiers(one_vm, ["compute"], []), ["compute"])
@@ -307,7 +315,7 @@ def main(runs_root: Path, out_root: Path) -> None:
     common.write_table(paired, Path(out_root), "tierb_paired")
     common.write_table(revs_paired, Path(out_root), "tierb_reversals_paired")
     summary = paired_summary(paired) if not paired.empty else paired_summary(pd.DataFrame(
-        columns=["n", "metric", "a_resolved", "a_mean", "b_mean", "b_resolved"]))
+        columns=["n", "metric", "a_resolved", "a_mean", "b_mean", "b_resolved", "a_half_pct", "b_half_pct"]))
     common.write_table(summary, Path(out_root), "tierb_paired_summary")
     common.write_json({
         "blocks": [{"seed": s, "n": n} for s, n in blocks],

@@ -95,15 +95,22 @@ file before the next action. Decisions and fallbacks are logged in `experiments/
 - [x] Network access to the image registries added by the user. Four environment workarounds are logged:
       dockerd, containerd's `restrict_oom_score_adj`, images loaded from the host, and the controller installed
       without its verify step.
-- [x] Protocol written before any evaluation-seed run (`experiments/TIERB.md`). It defines WB, calibrates the
-      window T = 30 minutes on pilot seeds, and adds `consolidation-sim workload`. Tier A ran `tierb-cal` and
-      `tierb-a` at `eff89a1`.
-- [x] KWOK spec and driver (`test/suites/performance/tierb_test.go`, `experiments/tierb/run_tierb.py`). An
-      adversarial harness review came first, then smoke cells. The warmup registration delay was set to 0 s
-      after the smokes.
+- [x] Protocol (`experiments/TIERB.md`), first written before any evaluation-seed run (`eff89a1`). It defines WB,
+      calibrates the window T = 30 minutes on pilot seeds, and adds `consolidation-sim workload`. Tier A ran
+      `tierb-cal` and `tierb-a` at `eff89a1`. The protocol was revised after the harness review and the smokes
+      (`1806e5a`, `8ef3481`), changing the validity and rerun rules, the stopping rule, the complete-block analysis
+      and `cost_end_rel`. The revisions came after the 140 `tierb-a` runs (08:47-08:59 UTC) and before any
+      evaluation-seed Tier B run.
+- [x] KWOK spec and driver (`test/suites/performance/tierb_test.go`, `experiments/tierb/run_tierb.py`).
+      - A mechanics smoke cell ran first, then an adversarial harness review that used it.
+      - Three smoke cells then ran with a 47 s registration delay throughout.
+      - The warmup registration delay was then set to 0 s, and four more smoke cells checked it.
 - [x] 70 evaluation cells, all valid on their first counted attempt. Two attempts were interrupted by container
       restarts and set aside. Machine log: `experiments/tierb/machine-log.txt`.
-- [x] Analysis (`paper/analysis/tier_b.py`): the preregistered agreement tables, plus exploratory paired
+- [x] Analysis (`paper/analysis/tier_b.py`): the protocol's agreement tables, plus exploratory paired
       differences. Write-up in `experiments/RESULTS.md`, "Tier B".
-- [x] Environment as scripts (`experiments/tierb/env/`), runbook section 4. `setup.sh` was checked end to end on a
-      fresh cluster after the run.
+- [x] Environment as scripts (`experiments/tierb/env/`), runbook section 4. `setup.sh` was checked end to end
+      on a fresh cluster after the run:
+      - The first check found a race between the control-plane taint and kind's local-path provisioner, fixed in
+        `c5a055f`.
+      - The second check passed, with a valid B4 smoke cell and the same controller image digest.
