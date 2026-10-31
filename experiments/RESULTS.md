@@ -120,7 +120,7 @@ upstream's heuristic search: it trades disruption and slower convergence for a l
 mixed-shape fleets in most cells, and does worse after a diurnal scale-down. The test answers the preregistered
 question (within 3% or not); it does not say which arm is preferable, which depends on how evictions are priced (Exp
 6 measures that trade-off). On a real cluster (Tier B, below), random/entropy-greedy also ends dearer than
-heuristic/entropy-greedy on WB, a compressed W2: +10.7% at 200 nodes, resolved at 5 seeds, and +0.9% at 50 nodes,
+heuristic/entropy-greedy on WB, a compressed W2: +10.6% at 200 nodes, resolved at 5 seeds, and +0.9% at 50 nodes,
 not resolved. W1 and W4, where random generation ended cheaper, did not run on KWOK, so whether real kube-scheduler
 placement preserves that direction is untested.
 
@@ -434,12 +434,17 @@ cut configurations are exactly the four cut groups' (one with the single finishe
 
 The protocol is `experiments/TIERB.md`. Its first version was written after the session and before any
 evaluation-seed run in either tier (`eff89a1`, Oct 29 08:26 UTC). It was revised twice: once after the harness review
-(`1806e5a`, 09:49) and once after the smoke cells (`8ef3481`, 11:11). The revisions changed:
-- the validity and rerun rules;
-- the stopping rule;
+(`1806e5a`, 09:49) and once after the smoke cells (`8ef3481`, 11:11). The first revision changed:
+- how consolidation is held off during the warmup: `consolidateAfter: Never` until the drop, since a zero node
+  budget alone let the pipeline's shift moves through;
+- when provisioning starts: the NodePool is created only once every pod is pending;
+- KWOK's node registration delay, set to 47 s;
+- the pipeline's seed, now the run seed;
+- the validity and rerun rules, and the stopping rule;
 - the complete-block analysis;
-- the per-phase registration delay;
-- `cost_end_rel`, which the second revision added.
+- the recorded metrics (`evaluation_s`, nodes and cost at the drop).
+
+The second revision made the registration delay 0 s during the warmup and added `cost_end_rel`.
 
 Both revisions came after Tier A's 140 evaluation-seed runs (08:47-08:59), which no one had analyzed, and before
 any evaluation-seed Tier B run. `experiments/RESEARCH_LOG.md` records every change from "Tier B unblocked" on.
@@ -458,8 +463,8 @@ commit (`eff89a1`).
 
 All 70 KWOK cells were valid on their first counted attempt. Two attempts were interrupted by container restarts.
 The protocol sets such attempts aside and reruns them, and does not count them. All ten (seed, n) blocks are
-complete. The VM (boot ID) changed twice, so two blocks span two VMs, and controller CPU is also reported without
-them.
+complete. The VM (boot ID) changed twice, so two blocks span two VMs. Compute's rank agreement is also reported
+without them (`tierb_compute_one_vm`), but the controller-CPU means include them.
 
 **Agreement (fixed by the Tier B protocol).** Kendall's tau-b compares the two tiers' orders of the seven
 configurations' means. A material reversal is a pair the two tiers order differently, with both differences above a
@@ -532,7 +537,7 @@ difference in each tier, with a 95% t interval over the 5 seeds.
 
   | Metric | n = 50, Tier B (Tier A) | Resolved, n = 50 | n = 200, Tier B (Tier A) | Resolved, n = 200 |
   | --- | --- | --- | --- | --- |
-  | `cost_end` | +0.9% (+9.6%) | neither tier | +10.7% (+19.4%) | both tiers |
+  | `cost_end` | +0.9% (+9.6%) | neither tier | +10.6% (+19.3%) | both tiers |
   | `cost_window` | +18.7% (+17.6%) | both tiers | +23.3% (+28.2%) | both tiers |
   | evictions | +48% (+39%) | Tier A only | +23% (+3%) | neither tier |
   | compute | +9% (+47%) | both tiers | +52% (+101%) | both tiers |
@@ -553,6 +558,8 @@ measure different things:
   upstream command (`commandValidationDelay`), once per pass for the pipeline. So the column is partly waiting, and
   it exceeds the controller's whole CPU time. For B2, 15 seconds times its 18.0 decided commands is about 65% of its
   415 seconds.
+- **Commands decided:** commands started by the pipeline or by multi- and single-node consolidation, summed over
+  the cell. Emptiness's commands are left out, as in decision evaluation.
 - **Peak memory:** the controller's peak memory over the window.
 
 | Configuration | $/hr at the end, A / B | Evictions, A / B | Decision CPU s (A) | Controller CPU core-s (B) | Decision evaluation s (B) | Commands decided (B) | Peak memory MB (B) |
@@ -567,8 +574,8 @@ measure different things:
 
 On this workload, random generation is worse on both cost and compute:
 - It uses 219-228 controller core-seconds where the other five use 136-154.
-- It spends 1.4 to 2.3 times their decision-evaluation time, although random/anneal-plan decided the fewest
-  commands.
+- It spends 1.4 to 2.3 times their decision-evaluation time, although random/anneal-plan's pipeline decided the
+  fewest commands (12.8).
 - It peaks highest in memory.
 - It ends dearer than all five, in both tiers.
 - Against heuristic generation with the same planner, Tier B resolves the higher `cost_end`, `cost_window` and
@@ -598,7 +605,9 @@ controller. There, the simulator's coarse conclusions hold:
   compute than heuristic generation with the same planner, and Tier B resolves all three for both planners. At
   n = 50 the means point the same way, but neither tier resolves the `cost_end` difference.
 - **Evictions.** upstream's Balanced policy (B3) evicts the fewest pods, on means.
-- **Parity.** B4 stays at parity with B2, within Tier B's intervals.
+- **Parity.** Tier B resolves no difference between B4 and B2. That is consistent with parity but does not
+  establish it. On `cost_end` its 95% intervals are ±6.9% at n = 50 and ±2.9% at n = 200, against the 3% margin
+  of B4's equivalence test.
 
 The order among upstream and the heuristic pipeline arms, whose costs lie within a few percent of each other, is not
 established. Tier A resolves none of their cost differences at 5 seeds. Tier B resolves a few at n = 200, and Tier A
@@ -726,12 +735,14 @@ those cost differences at 5 seeds, and the few Tier B resolves are not resolved 
   section 4.
   - **More seeds.** At 5 seeds, the median `cost_end` interval across pairs is about ±5% in Tier B and ±7% in
     Tier A (`tierb_paired_summary`), so resolving differences of 1-2% needs many times as many seeds in both
-    tiers. Set `SEEDS`. Also lift the driver's 36-hour stopping rule (`STOP_AFTER_H`), or use a fresh run
-    directory, because the rule counts from the first cell in `experiments/runs/tierb-kwok/` (Oct 29).
+    tiers. Set `SEEDS`, and add seeds past 110 to the `tierb-a` group in `experiments/matrix/tierb.yaml`. Also
+    lift the driver's 36-hour stopping rule (`STOP_AFTER_H`), or use a fresh run directory, because the rule
+    counts from the first cell in `experiments/runs/tierb-kwok/` (Oct 29).
   - **Another workload.** Add one where random generation ended cheaper in the simulator, W1 or W4. This needs a
     new KWOK spec and driver changes, because both replay WB only, and W1 and W4 start from pre-placed,
     fragmented nodes.
-  - **500 nodes.** Set `SIZES`.
+  - **500 nodes.** Set `SIZES` in `run_tierb.py`, and add n = 500 to the `tierb-a` group and run it, so Tier A
+    has cells to compare against. The runbook expects kind to need more CPU and memory at this size.
 - Diagnose two things the session only measured: why the pipeline misses about 6% of plan-following placements in one
   Exp 5 cell (random/entropy-greedy with deletion-cost scale-down: 19% in seed 107, about 5% in the other nine seeds,
   against about 2% for B2), and why B2's plans survive placement better than the pipeline's merges.

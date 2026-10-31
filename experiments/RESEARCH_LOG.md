@@ -771,8 +771,10 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   were committed after it (`c0180c5`, 07:07). After the restart:
   - `dockerd` was started by hand, and the kind node came back on its own, with the interrupted cell's NodePool,
     NodeClaims and 825 pods still in place. They were deleted by hand, and the cluster was left with only its
-    control-plane node before the driver resumed. The suite's own pre-suite cleanup does the same deletion but
-    does not wait for leftover nodes to go, and a leftover node would take the next cell's pods.
+    control-plane node before the driver resumed. This was a precaution. The suite's own pre-suite cleanup
+    deletes the same labeled objects, nodes included, and waits until none remains, but the driver's preflight
+    does not check for leftovers. (The claim first written here, that the cleanup does not wait for leftover
+    nodes, was wrong; corrected in the second claim-check round below.)
   - The driver resumes per protocol: it sets cell 33's first attempt aside as interrupted and reruns it, without
     counting an attempt. The downtime counts toward the 36-hour stopping rule.
   - **The VM changed.** The new boot's CPU is "Intel(R) Xeon(R) Processor @ 2.10GHz". The first Tier B boot's
@@ -830,10 +832,10 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   - Tier B resolves one reversal: B3 vs B4 at n = 200 on `cost_end`, a direction Tier A does not resolve.
   - Of the 54 directions Tier A resolves at 5 seeds (cost_end, evictions and compute at both sizes), Tier B shows
     the same sign in 47 and resolves the opposite direction in none.
-- **Claim check of the Tier B write-up (Oct 31, 07:24-07:58 UTC; fixes until about 08:15).** A workflow checked the
-  new RESULTS section, the edits for Tier B elsewhere in RESULTS, PROGRESS, REPRODUCE, the runbook and these log
-  entries against the tables, the raw runs, the scripts and git history. It had five checkers, each followed by an
-  independent verifier, and the verifiers confirmed 32 problems. Fixed:
+- **Claim check of the Tier B write-up (Oct 31, 07:24-07:58 UTC; fixes committed at 08:04 in `d6afd88`).** A
+  workflow checked the new RESULTS section, the edits for Tier B elsewhere in RESULTS, PROGRESS, REPRODUCE, the
+  runbook and these log entries against the tables, the raw runs, the scripts and git history. It had five
+  checkers, each followed by an independent verifier, and the verifiers confirmed 32 problems. Fixed:
   - **The fine-order explanation.** The first write-up blamed Tier B's run-to-run variation for the reversals
     among the five near-tied configurations. That was wrong. At 5 seeds Tier A itself resolves none of their
     cost-metric differences (0 of 60 pairs). Tier B resolves 7 of them at n = 200, none of which Tier A resolves.
@@ -873,4 +875,21 @@ Every decision taken without asking, every fallback, and every blocked host, in 
     for kind's add-ons before tainting (`c5a055f`).
   - **Second attempt.** Setup took 174 s, and `ko` built the run's controller image with the same digest
     (`f5ee205e…`). The smoke was valid, with 12 nodes at the drop, nothing pending and the right methods.
+- **Second claim-check round (Oct 31, 08:05-08:31 UTC).** Three checkers, each followed by a verifier, checked the
+  rewritten text. The verifiers confirmed 15 problems, all fixed:
+  - **The suite's cleanup.** It does delete leftover nodes and wait for them (`CleanupObjects` includes
+    `corev1.Node`). The first-restart entry above and the runbook had said otherwise. The manual deletion after
+    each restart was a precaution, and the driver's preflight still does not check for leftovers.
+  - **The protocol revisions.** RESULTS had listed only some of what they changed. It now lists the first
+    revision's changes to the warmup hold, provisioning, registration delay and seeding.
+  - **What the single-VM check covers.** It covers compute's tau-b, not the controller-CPU means.
+  - **The commands-decided column.** It now has a definition (pipeline, multi- and single-node only).
+  - **Double rounding.** Two percentages were rounded twice; the H1 pair at n = 200 is +10.6% in Tier B
+    (+19.3% in Tier A).
+  - **Parity.** "Stays at parity" became "consistent with parity, not established".
+  - **Extending Tier B.** The next steps now say to add the Tier A cells too.
+  - **Runbook and REPRODUCE details:** the second setup check's timing, which line of `commit_tierb.sh` holds the
+    branch, when helm is installed, the B2/B4 qualifier at n = 200, and why `harness_dirty` is true for the first
+    cell.
+  - **This log:** the first claim check's commit time.
 

@@ -168,7 +168,8 @@ and Go 1.26.10.
   `kind.local/kwok-418fdffba63cc91b994a09d2373a7ccc:f5ee205e…`, and every manifest records it in full.
 - **Spec and driver.** They are as of `bd2619e`, and neither file changed during the run.
 - **Manifest fields.** A manifest's `harness_revision` is the branch head when its cell started. Its
-  `harness_dirty` is true because the driver's log is tracked and appended to during the run.
+  `harness_dirty` is true because the driver writes its log and plan under `experiments/tierb` during the run. For
+  the first cell they were untracked. From `5978f59` on, the tracked log is appended to.
 - **Rebuilt binaries.** After the second container restart, the binaries were rebuilt, and manifests from cell 61's
   rerun on carry the new paths. The rebuilt simulator regenerated a committed workload exactly, and the rebuilt
   spec binary has the original's size (`experiments/RESEARCH_LOG.md`).
@@ -184,8 +185,10 @@ experiments/tierb/env/run-driver.sh run      # every cell without a valid run in
 The driver skips a cell only when its manifest records exit status 0 and its summary says valid. It sets an
 interrupted cell aside (`.interrupted-<ts>`) and reruns it. It sets a finished invalid cell aside (`.failed-N`) and
 reruns it once. To rerun a valid cell, move its directory aside and pass `--only <run_id>`. To run new seeds, see the
-stopping rule in `docs/research/runbook.md`, section 4. A Tier B rerun does not reproduce its cell byte for byte, because timing on a real API server and
-kube-scheduler varies between runs. B2 and B4 decide alike in the simulator, and their Tier B difference gives a
-sense of the size of that variation (`experiments/RESULTS.md`, "Tier B"). The Tier A side is deterministic, as
-above. `make figures` builds the Tier B tables (`paper/analysis/tier_b.py`).
+stopping rule in `docs/research/runbook.md`, section 4.
+
+A Tier B rerun does not reproduce its cell byte for byte, because timing on a real API server and kube-scheduler
+varies between runs. B2 and B4 decide identically in the simulator at n = 50, and in 3 of 5 seeds at n = 200. Their
+Tier B difference at n = 50 gives a sense of the size of that variation (`experiments/RESULTS.md`, "Tier B"). The
+Tier A side is deterministic, as above. `make figures` builds the Tier B tables (`paper/analysis/tier_b.py`).
 

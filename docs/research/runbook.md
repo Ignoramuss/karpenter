@@ -162,7 +162,8 @@ history and every change to it are in `experiments/RESEARCH_LOG.md`, from "Tier 
    ```
 
    The script deletes and recreates the kind cluster `test-cluster` (`KIND_CLUSTER_NAME` overrides it). It installs
-   kind v0.30.0, ko v0.18.0 and helm v3.19.0 into `$TIERB_HOME/bin`. From a clean clone at the image commit
+   kind v0.30.0 and ko v0.18.0 into `$TIERB_HOME/bin`, and helm v3.19.0 too unless a helm is already on PATH (the
+   run used v3.19.0). From a clean clone at the image commit
    (`IMAGE_SHA`, default `eff89a1`) it builds the simulator, the controller image (with `ko`) and the chart. The
    Tier B spec (`test/suites/performance/tierb_test.go`) is compiled from the checkout. The cluster runs
    `kindest/node:v1.34.0` with KWOK v0.8.0. The controller's chart values are `experiments/tierb/env/helm-values.yaml`:
@@ -184,8 +185,9 @@ history and every change to it are in `experiments/RESEARCH_LOG.md`, from "Tier 
    - The first check failed on a race. The control-plane taint landed before kind's local-path provisioner was
      scheduled, and the suite refused to start. The script now waits for kind's add-ons first, and
      `make setup-kind` has the same race.
-   - The second check took 3 minutes, built the run's controller image with the same digest, and gave a valid
-     B4 smoke cell.
+   - In the second check, `setup.sh` took 3 minutes and built the run's controller image with the same digest. It
+     reused build caches from the first attempt, whose setup took 5 minutes. The B4 smoke cell that followed, about
+     11 minutes, was valid.
 
 2. **Tier A side.** `experiments/matrix/tierb.yaml` holds the same seven configurations on WB:
    - `tierb-cal`: pilot seeds 1-5 with a 45-minute window. It fixed the window at T = 30 minutes. The Tier B
@@ -211,17 +213,18 @@ history and every change to it are in `experiments/RESEARCH_LOG.md`, from "Tier 
 
    - Re-invoke `run` after any interruption: valid cells are skipped, and an interrupted cell is set aside and
      rerun.
-   - After a container restart, start `dockerd` first. Then delete the interrupted cell's NodePool, NodeClaims and
-     pods, and wait until only the control-plane node remains. The suite's pre-suite cleanup does not wait for
-     leftover nodes, and the driver's preflight does not check for them (`experiments/RESEARCH_LOG.md`,
-     "Container restart during Tier B").
+   - After a container restart, start `dockerd` first. The suite's pre-suite cleanup deletes the interrupted cell's
+     labeled objects, nodes included, and waits for them to go. The driver's preflight does not check for
+     leftovers, though. The session deleted them by hand and waited for only the control-plane node to remain, as
+     a precaution (`experiments/RESEARCH_LOG.md`, "Container restart during Tier B").
    - Progress is in `experiments/tierb/run.log`.
    - Each cell writes `cell.json`, `manifest.json`, `summary.json`, `timeseries.csv` and `test.log.gz` under
      `experiments/runs/tierb-kwok/<run_id>/`.
    - To commit cells as they finish, list `experiments/runs/tierb-kwok/` in `.git/info/exclude` and run
      `experiments/tierb/commit_tierb.sh`. It adds cells whose manifest says `done`, so a cell still running is
      never committed. It also adds every set-aside attempt, `machine-log.txt`, `run.log` and `plan.json`. It then
-     commits and pushes to the branch named on its last line, so change that line before using it elsewhere.
+     commits and pushes to the branch hard-coded in its `git push` line (`claude/new-session-03ukbe`), so change
+     that branch before using it elsewhere.
    - Keep the machine otherwise idle: Tier B measures the controller's CPU.
 
 4. **Analysis.** `make figures` includes `paper/analysis/tier_b.py`. It uses only complete (seed, n) blocks. Per
