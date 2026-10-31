@@ -1,0 +1,126 @@
+=== RUN   TestIntegration
+Running Suite: Performance - /home/user/karpenter/test/suites/performance
+=========================================================================
+Random Seed: [1m1793405356[0m
+
+Will run [1m1[0m of [1m19[0m specs
+[38;5;243m------------------------------[0m
+[0m[1m[BeforeSuite] [0m
+[38;5;243m/home/user/karpenter/test/suites/performance/suite_test.go:40[0m
+  [1mSTEP:[0m cleaning up test objects left over from previous runs [38;5;243m@ 10/31/26 00:09:16.69[0m
+[38;5;10m[BeforeSuite] PASSED [1.419 seconds][0m
+[38;5;243m------------------------------[0m
+[38;5;14mS[0m
+[38;5;243m------------------------------[0m
+[0mTier B [0m[1mshould replay a WB cell[0m [38;5;204m[NoWatch][0m
+[38;5;243m/home/user/karpenter/test/suites/performance/tierb_test.go:129[0m
+  [1mSTEP:[0m overriding environment variables for karpenter deployment [38;5;243m@ 10/31/26 00:09:17.9[0m
+  [1mSTEP:[0m rolling out the new karpenter deployment [38;5;243m@ 10/31/26 00:09:17.915[0m
+  [1mSTEP:[0m restarting the deployment [38;5;243m@ 10/31/26 00:09:17.915[0m
+  [1mSTEP:[0m waiting for the newly generated deployment to rollout [38;5;243m@ 10/31/26 00:09:17.929[0m
+  [1mSTEP:[0m waiting for a new karpenter pod to hold the lease [38;5;243m@ 10/31/26 00:09:31.948[0m
+[controller-runtime] log.SetLogger(...) was never called; logs will not be displayed.
+Detected at:
+	>  goroutine 95 [running]:
+	>  runtime/debug.Stack()
+	>  	/root/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.10.linux-amd64/src/runtime/debug/stack.go:26 +0x5e
+	>  sigs.k8s.io/controller-runtime/pkg/log.eventuallyFulfillRoot()
+	>  	/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/log/log.go:60 +0xcd
+	>  sigs.k8s.io/controller-runtime/pkg/log.(*delegatingLogSink).Enabled(0xad8717ffb40, 0x4)
+	>  	/root/go/pkg/mod/sigs.k8s.io/controller-runtime@v0.24.1/pkg/log/deleg.go:111 +0x32
+	>  github.com/go-logr/logr.Logger.Info({{0x2a35760?, 0xad8717ffb40?}, 0xad871c27c00?}, {0x28a4f6e, 0xb}, {0xad87583d320, 0x6, 0x6})
+	>  	/root/go/pkg/mod/github.com/go-logr/logr@v1.4.3/logr.go:276 +0x6e
+	>  k8s.io/client-go/tools/cache.handleAnyWatch({0x2a28f20, 0xad871964300}, {0x0?, 0xad871ad1978?, 0x44697e0?}, {0x2a12778, 0xad871aa4c80}, {0x7f7768b80f88, 0xad871652a00}, {0x2a69c20, ...}, ...)
+	>  	/root/go/pkg/mod/k8s.io/client-go@v0.36.1/tools/cache/reflector.go:1093 +0x151c
+	>  k8s.io/client-go/tools/cache.handleWatch({0x2a28f20?, 0xad871964300?}, {0x0?, 0x4?, 0x44697e0?}, {0x2a12778?, 0xad871aa4c80?}, {0x7f7768b80f88?, 0xad871652a00?}, {0x2a69c20, ...}, ...)
+	>  	/root/go/pkg/mod/k8s.io/client-go@v0.36.1/tools/cache/reflector.go:958 +0xea
+	>  k8s.io/client-go/tools/cache.(*Reflector).watch(0xad871722400, {0x2a28f20, 0xad871964300}, {0x2a12778, 0xad871aa4c80}, 0xad871994620)
+	>  	/root/go/pkg/mod/k8s.io/client-go@v0.36.1/tools/cache/reflector.go:620 +0x70f
+	>  k8s.io/client-go/tools/cache.(*Reflector).watchWithResync(0xad871722400, {0x2a28f20, 0xad871964300}, {0x2a12778, 0xad871aa4c80})
+	>  	/root/go/pkg/mod/k8s.io/client-go@v0.36.1/tools/cache/reflector.go:553 +0x186
+	>  k8s.io/client-go/tools/cache.(*Reflector).ListAndWatchWithContext(0xad871722400, {0x2a28f20, 0xad871964300})
+	>  	/root/go/pkg/mod/k8s.io/client-go@v0.36.1/tools/cache/reflector.go:508 +0x472
+	>  k8s.io/client-go/tools/cache.(*Reflector).RunWithContext.func1({0x2a28f20, 0xad871964300})
+	>  	/root/go/pkg/mod/k8s.io/client-go@v0.36.1/tools/cache/reflector.go:429 +0x2f
+	>  k8s.io/apimachinery/pkg/util/wait.loopConditionUntilContext.func1({0x2a28f20?, 0xad871964300?}, 0x4eefc5?)
+	>  	/root/go/pkg/mod/k8s.io/apimachinery@v0.36.1/pkg/util/wait/loop.go:53 +0x62
+	>  k8s.io/apimachinery/pkg/util/wait.loopConditionUntilContext({0x2a28f20, 0xad871964300}, {0x2a20180, 0xad87194ec20}, 0x1, 0x1, 0xad871ad1f48)
+	>  	/root/go/pkg/mod/k8s.io/apimachinery@v0.36.1/pkg/util/wait/loop.go:54 +0x115
+	>  k8s.io/apimachinery/pkg/util/wait.DelayFunc.Until(...)
+	>  	/root/go/pkg/mod/k8s.io/apimachinery@v0.36.1/pkg/util/wait/delay.go:39
+	>  k8s.io/client-go/tools/cache.(*Reflector).RunWithContext(0xad871722400, {0x2a28f20, 0xad871964300})
+	>  	/root/go/pkg/mod/k8s.io/client-go@v0.36.1/tools/cache/reflector.go:428 +0x289
+	>  k8s.io/client-go/tools/cache.(*controller).RunWithContext.(*Group).StartWithContext.func3()
+	>  	/root/go/pkg/mod/k8s.io/apimachinery@v0.36.1/pkg/util/wait/wait.go:63 +0x1f
+	>  k8s.io/apimachinery/pkg/util/wait.(*Group).Start.func1()
+	>  	/root/go/pkg/mod/k8s.io/apimachinery@v0.36.1/pkg/util/wait/wait.go:72 +0x4c
+	>  created by k8s.io/apimachinery/pkg/util/wait.(*Group).Start in goroutine 85
+	>  	/root/go/pkg/mod/k8s.io/apimachinery@v0.36.1/pkg/util/wait/wait.go:70 +0x73
+  KarpenterMetricsPoller: starting, scraping pod kube-system/karpenter-8559b6f757-26m7m via API server proxy
+  KarpenterMetricsPoller: [sample 1] first sample - memory=187.72 MB, heap=63.19 MB, process_cpu_seconds_total=46.1700 (CPU rate available after next sample)
+  KarpenterMetricsPoller: [sample 2] memory=202.33 MB, heap=51.58 MB, cpu=0.2340 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 3] memory=181.29 MB, heap=47.64 MB, cpu=0.1500 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 4] memory=190.92 MB, heap=50.90 MB, cpu=0.2780 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 5] memory=186.89 MB, heap=51.44 MB, cpu=0.1340 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 10] memory=193.11 MB, heap=49.99 MB, cpu=0.1340 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 15] memory=178.52 MB, heap=49.26 MB, cpu=0.0760 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 20] memory=166.80 MB, heap=38.22 MB, cpu=0.1820 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 25] memory=174.80 MB, heap=45.65 MB, cpu=0.0780 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 30] memory=169.15 MB, heap=44.25 MB, cpu=0.0840 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 35] memory=164.45 MB, heap=41.36 MB, cpu=0.1040 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 40] memory=154.93 MB, heap=37.64 MB, cpu=0.0740 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 45] memory=156.17 MB, heap=33.22 MB, cpu=0.0640 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 50] memory=155.44 MB, heap=32.63 MB, cpu=0.0620 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 55] memory=163.96 MB, heap=41.60 MB, cpu=0.0940 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 60] memory=159.55 MB, heap=46.76 MB, cpu=0.0480 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 65] memory=153.14 MB, heap=31.43 MB, cpu=0.0360 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 70] memory=158.23 MB, heap=40.62 MB, cpu=0.0900 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 75] memory=149.84 MB, heap=30.91 MB, cpu=0.1760 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 80] memory=163.84 MB, heap=41.06 MB, cpu=0.0260 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 85] memory=170.21 MB, heap=44.42 MB, cpu=0.0280 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 90] memory=157.23 MB, heap=45.27 MB, cpu=0.0440 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 95] memory=153.62 MB, heap=31.84 MB, cpu=0.0560 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 100] memory=162.11 MB, heap=40.16 MB, cpu=0.1200 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 105] memory=161.99 MB, heap=40.21 MB, cpu=0.0620 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 110] memory=169.68 MB, heap=42.48 MB, cpu=0.1271 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 115] memory=161.63 MB, heap=45.64 MB, cpu=0.0300 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 120] memory=164.63 MB, heap=39.87 MB, cpu=0.0940 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 125] memory=156.00 MB, heap=32.66 MB, cpu=0.0380 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 130] memory=169.58 MB, heap=45.91 MB, cpu=0.1160 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 135] memory=157.93 MB, heap=30.60 MB, cpu=0.1020 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 140] memory=164.20 MB, heap=40.44 MB, cpu=0.0280 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 145] memory=167.92 MB, heap=39.57 MB, cpu=0.0680 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 150] memory=157.66 MB, heap=42.80 MB, cpu=0.0200 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 155] memory=160.43 MB, heap=31.34 MB, cpu=0.0440 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 160] memory=152.79 MB, heap=30.59 MB, cpu=0.1000 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 165] memory=163.18 MB, heap=39.31 MB, cpu=0.0340 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 170] memory=169.21 MB, heap=48.08 MB, cpu=0.0700 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 175] memory=157.85 MB, heap=36.01 MB, cpu=0.0340 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 180] memory=158.99 MB, heap=40.50 MB, cpu=0.0700 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 185] memory=150.04 MB, heap=31.53 MB, cpu=0.0500 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 190] memory=154.55 MB, heap=30.61 MB, cpu=0.0900 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 195] memory=163.75 MB, heap=43.29 MB, cpu=0.0320 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 200] memory=166.27 MB, heap=42.39 MB, cpu=0.0680 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 205] memory=157.05 MB, heap=31.35 MB, cpu=0.0360 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 210] memory=162.61 MB, heap=41.02 MB, cpu=0.0820 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 215] memory=158.90 MB, heap=45.02 MB, cpu=0.0280 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 220] memory=162.48 MB, heap=42.39 MB, cpu=0.0900 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 225] memory=154.64 MB, heap=32.98 MB, cpu=0.0400 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 230] memory=168.00 MB, heap=45.82 MB, cpu=0.0200 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 235] memory=161.36 MB, heap=39.56 MB, cpu=0.0620 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 240] memory=164.95 MB, heap=40.61 MB, cpu=0.0160 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 245] memory=163.03 MB, heap=42.26 MB, cpu=0.0660 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 250] memory=151.89 MB, heap=31.28 MB, cpu=0.0460 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 255] memory=170.77 MB, heap=40.40 MB, cpu=0.0740 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 260] memory=150.61 MB, heap=31.34 MB, cpu=0.0320 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 265] memory=155.88 MB, heap=30.65 MB, cpu=0.1160 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 270] memory=163.34 MB, heap=39.89 MB, cpu=0.0220 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 275] memory=163.83 MB, heap=40.48 MB, cpu=0.0780 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 280] memory=155.49 MB, heap=32.94 MB, cpu=0.0480 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 285] memory=164.83 MB, heap=41.77 MB, cpu=0.0680 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 290] memory=165.42 MB, heap=47.09 MB, cpu=0.0200 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 295] memory=160.62 MB, heap=43.33 MB, cpu=0.0620 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 300] memory=149.19 MB, heap=31.34 MB, cpu=0.0240 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 305] memory=160.14 MB, heap=47.73 MB, cpu=0.0780 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 310] memory=170.40 MB, heap=43.08 MB, cpu=0.0780 cores (elapsed=5.0s)
+  KarpenterMetricsPoller: [sample 315] memory=148.83 MB, heap=31.30 MB, cpu=0.0400 cores (elapsed=5.0s)
