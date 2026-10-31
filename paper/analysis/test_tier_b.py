@@ -119,6 +119,11 @@ def test_paired_differences() -> None:
         assert len(rev) == 1 and rev.a_resolved.iloc[0] and not rev.b_resolved.iloc[0]
         doc = json.loads((out / "tables" / "tier_b.json").read_text())
         assert doc["exploratory"]["reversals_resolved_in_both_tiers"] == 0
+        summ = pd.read_csv(out / "tables" / "tierb_paired_summary.csv").set_index(["n", "metric"])
+        # Tier A resolves all 21 cost_end pairs (no seed noise). Tier B shows every pair with Tier A's sign except
+        # B2 vs B3, which it reverses without resolving
+        row = summ.loc[(50, "cost_end")]
+        assert row.pairs == 21 and row.a_resolved == 21 and row.b_same_sign == 20 and row.b_resolved_opposite == 0, row
 
 
 def test_compute_on_one_vm() -> None:

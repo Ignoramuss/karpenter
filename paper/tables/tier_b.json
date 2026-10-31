@@ -177,7 +177,10 @@
   ],
   "exploratory": {
     "reversals_resolved_in_both_tiers": 0,
-    "reversals_resolved_in_tier_b": 1
+    "reversals_resolved_in_tier_b": 1,
+    "tier_a_resolved": 94,
+    "tier_b_resolved_opposite": 0,
+    "tier_b_same_sign": 85
   },
   "material_reversals": 21,
   "mixed_vm_blocks": [

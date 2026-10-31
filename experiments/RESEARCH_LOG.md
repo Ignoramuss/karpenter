@@ -814,7 +814,7 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   Two things in those tables mattered for reading them:
   - **B4 and B2 decide alike in Tier A.** Their per-seed `cost_end` is identical in all 5 seeds at n = 50 and in 3 of
     5 at n = 200. In Tier B the same pair differs by 10.4% in one seed (n = 50, seed 102).
-  - **The starting fleets vary.** Each configuration's cost at the drop varies by up to 10.4% within a seed (n = 50,
+  - **The starting fleets vary.** Each configuration's cost at the drop varies by up to 10% within a seed (n = 50,
     seed 101: $15.17-16.75/hr), although consolidation is held off until the drop.
 
   So Tier B's run-to-run variation is larger than many of the 1% differences that count as material. To show which

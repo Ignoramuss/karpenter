@@ -26,6 +26,8 @@ Exploratory, added after the tables above were first seen (RESEARCH_LOG, "Tier B
   two configurations in each tier, over the retained blocks: mean and a two-sided 95% t interval. A direction is
   resolved when the interval excludes zero.
 - ``tables/tierb_reversals_paired.md``: each material reversal, with whether each tier resolves its direction.
+- ``tables/tierb_paired_summary.md``: per size and floored metric, how many of the 21 pairs Tier A resolves, and for
+  those, how many Tier B shows with the same sign, resolves in the same direction, and resolves in the opposite one.
 
 Run on its own with ``/opt/research-venv/bin/python -m paper.analysis.tier_b [--runs DIR] [--out DIR]``.
 """
@@ -233,6 +235,19 @@ def paired_differences(a: pd.DataFrame, b: pd.DataFrame, blocks: Sequence[tuple[
     return pd.DataFrame(rows)
 
 
+def paired_summary(paired: pd.DataFrame) -> pd.DataFrame:
+    """Exploratory: per size and metric, Tier B's view of the directions Tier A resolves."""
+    rows = []
+    for (n, metric), g in paired.groupby(["n", "metric"], sort=False):
+        res = g[g.a_resolved.eq(True)]
+        same = np.sign(res.a_mean) == np.sign(res.b_mean)
+        rows.append({"n": n, "metric": metric, "pairs": int(len(g)), "a_resolved": int(len(res)),
+                     "b_same_sign": int(same.sum()), "b_resolved_same": int((same & res.b_resolved.eq(True)).sum()),
+                     "b_resolved_opposite": int((~same & res.b_resolved.eq(True)).sum())})
+    return pd.DataFrame(rows, columns=["n", "metric", "pairs", "a_resolved", "b_same_sign", "b_resolved_same",
+                                       "b_resolved_opposite"])
+
+
 def pair_table(means: pd.DataFrame) -> pd.DataFrame:
     rows = []
     for n, g in means.groupby("n"):
@@ -291,6 +306,9 @@ def main(runs_root: Path, out_root: Path) -> None:
     common.write_table(compute_one_vm, Path(out_root), "tierb_compute_one_vm")
     common.write_table(paired, Path(out_root), "tierb_paired")
     common.write_table(revs_paired, Path(out_root), "tierb_reversals_paired")
+    summary = paired_summary(paired) if not paired.empty else paired_summary(pd.DataFrame(
+        columns=["n", "metric", "a_resolved", "a_mean", "b_mean", "b_resolved"]))
+    common.write_table(summary, Path(out_root), "tierb_paired_summary")
     common.write_json({
         "blocks": [{"seed": s, "n": n} for s, n in blocks],
         "mixed_vm_blocks": [{"seed": s, "n": n} for s, n in blocks if (s, n) not in one_vm],
@@ -299,7 +317,10 @@ def main(runs_root: Path, out_root: Path) -> None:
         "agreement": agree, "material_reversals": int(len(revs)), "pairs": pairs,
         "exploratory": {"reversals_resolved_in_both_tiers": int((revs_paired.a_resolved.eq(True)
                                                                  & revs_paired.b_resolved.eq(True)).sum()),
-                        "reversals_resolved_in_tier_b": int(revs_paired.b_resolved.eq(True).sum())},
+                        "reversals_resolved_in_tier_b": int(revs_paired.b_resolved.eq(True).sum()),
+                        "tier_a_resolved": int(summary.a_resolved.sum()),
+                        "tier_b_same_sign": int(summary.b_same_sign.sum()),
+                        "tier_b_resolved_opposite": int(summary.b_resolved_opposite.sum())},
     }, Path(out_root), "tier_b")
 
 

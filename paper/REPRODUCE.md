@@ -20,6 +20,8 @@ the session driver's records (`experiments/session-driver/`).
 | Simulator binary for every session and H7 timing run (`experiments/session-binary.txt`; each manifest's `binary_revision`; built with Go 1.26.10) | `c78b5f95063c1995b10fa6d66571a16d0a32b243` |
 | Pilot binaries (`experiments/PILOT.md`) | baselines `c3e9e35`, pipeline arms `2d8fce7` |
 | Analysis code | `paper/analysis/` at the head of the branch; every change after Gate 3 that touches a test, verdict or rule is in `experiments/RESEARCH_LOG.md`, and presentation-only changes are in the git history |
+| Tier B: protocol, WB scenario, Tier A binary and controller image (after the session) | `eff89a17bb3a7c22ac2db77621d72d96f2843215` |
+| Tier B: KWOK spec and driver as they ran (`tierb_test.go`, `run_tierb.py`) | `bd2619e` |
 
 ## Hardware and software of the session
 
@@ -146,3 +148,41 @@ PARITY_STATES=10000 PARITY_SEED=2 PARITY_POLICIES=Balanced PARITY_CATALOGS=assor
 ```
 
 Results: `experiments/parity/` and `docs/research/parity.md`.
+
+## Tier B (after the session)
+
+Tier B ran after the session, from Oct 29 11:11 to Oct 31 06:56 UTC, on the same class of 4-vCPU cloud VM, one
+cell at a time. Three boots ran cells, recorded in `experiments/tierb/machine-log.txt` and in each manifest's
+`boot_id`:
+
+| Boot | CPU as `lscpu` names it | Cells |
+| --- | --- | --- |
+| `51dc11d6` | not recorded | 32 |
+| `b07722a0` | Intel Xeon @ 2.10 GHz | 28 |
+| `be7793d8` | Intel Xeon @ 2.10 GHz | 10 |
+
+The software was kind v0.30.0 with `kindest/node:v1.34.0`, KWOK v0.8.0, ko v0.18.0, helm v3.19.0, kubectl v1.36.2
+and Go 1.26.10.
+- **Controller image and simulator.** Both were built from a clean clone at `eff89a1`. The image is
+  `kind.local/kwok-418fdffba63cc91b994a09d2373a7ccc:f5ee205e…`, and every manifest records it in full.
+- **Spec and driver.** They are as of `bd2619e`, and neither file changed during the run.
+- **Manifest fields.** A manifest's `harness_revision` is the branch head when its cell started. Its
+  `harness_dirty` is true because the driver's log is tracked and appended to during the run.
+- **Rebuilt binaries.** After the second container restart, the binaries were rebuilt, and manifests from cell 61's
+  rerun on carry the new paths. The rebuilt simulator regenerated a committed workload exactly, and the rebuilt
+  spec binary has the original's size (`experiments/RESEARCH_LOG.md`).
+
+To set up the same environment and run cells:
+
+```bash
+TIERB_HOME=/tmp/tierb experiments/tierb/env/setup.sh        # kind cluster, KWOK, controller, binaries
+experiments/tierb/env/run-driver.sh run                       # every cell not yet in experiments/runs/tierb-kwok
+/tmp/tierb/bin/csim matrix --matrix experiments/matrix/tierb.yaml --workers 4   # the Tier A side
+```
+
+The driver skips any cell whose directory exists. To rerun one, move its directory aside and pass
+`--only <run_id>`. A Tier B rerun does not reproduce its cell byte for byte, because timing on a real API server and
+kube-scheduler varies between runs. B2 and B4 decide alike in the simulator, and their Tier B difference gives a
+sense of the size of that variation (`experiments/RESULTS.md`, "Tier B"). The Tier A side is deterministic, as
+above. `make figures` builds the Tier B tables (`paper/analysis/tier_b.py`).
+

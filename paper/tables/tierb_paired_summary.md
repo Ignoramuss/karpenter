@@ -1,0 +1,14 @@
+| n | metric | pairs | a_resolved | b_same_sign | b_resolved_same | b_resolved_opposite |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| 50 | cost_end | 21 | 3 | 2 | 0 | 0 |
+| 50 | cost_end_rel | 21 | 4 | 2 | 0 | 0 |
+| 50 | cost_window | 21 | 8 | 8 | 3 | 0 |
+| 50 | evictions | 21 | 8 | 7 | 2 | 0 |
+| 50 | compute | 21 | 13 | 11 | 3 | 0 |
+| 50 | settle_min | 21 | 9 | 9 | 8 | 0 |
+| 200 | cost_end | 21 | 6 | 6 | 6 | 0 |
+| 200 | cost_end_rel | 21 | 6 | 6 | 6 | 0 |
+| 200 | cost_window | 21 | 10 | 10 | 10 | 0 |
+| 200 | evictions | 21 | 8 | 8 | 7 | 0 |
+| 200 | compute | 21 | 16 | 13 | 11 | 0 |
+| 200 | settle_min | 21 | 3 | 3 | 3 | 0 |

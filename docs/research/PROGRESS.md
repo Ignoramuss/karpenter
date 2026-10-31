@@ -89,3 +89,21 @@ file before the next action. Decisions and fallbacks are logged in `experiments/
       tables (`make figures`), RESULTS (final), REPRODUCE (hardware epochs, H7-S, cut groups), related work
       (drafted, every reference marked "verify"), runbook (full profile, cut groups, KWOK, EKS), full matrix.
 - [x] Final push and session summary (Oct 29, after the 10,000-state parity run and four rounds of claim checks).
+
+## After the session: Tier B on KWOK (Oct 29-31)
+
+- [x] Network access to the image registries added by the user. Four environment workarounds are logged:
+      dockerd, containerd's `restrict_oom_score_adj`, images loaded from the host, and the controller installed
+      without its verify step.
+- [x] Protocol written before any evaluation-seed run (`experiments/TIERB.md`). It defines WB, calibrates the
+      window T = 30 minutes on pilot seeds, and adds `consolidation-sim workload`. Tier A ran `tierb-cal` and
+      `tierb-a` at `eff89a1`.
+- [x] KWOK spec and driver (`test/suites/performance/tierb_test.go`, `experiments/tierb/run_tierb.py`). An
+      adversarial harness review came first, then smoke cells. The warmup registration delay was set to 0 s
+      after the smokes.
+- [x] 70 evaluation cells, all valid on their first counted attempt. Two attempts were interrupted by container
+      restarts and set aside. Machine log: `experiments/tierb/machine-log.txt`.
+- [x] Analysis (`paper/analysis/tier_b.py`): the preregistered agreement tables, plus exploratory paired
+      differences. Write-up in `experiments/RESULTS.md`, "Tier B".
+- [x] Environment as scripts (`experiments/tierb/env/`), runbook section 4. `setup.sh` was checked end to end on a
+      fresh cluster after the run.
