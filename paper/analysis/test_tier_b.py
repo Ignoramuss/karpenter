@@ -97,6 +97,30 @@ def test_agreement_reversal_and_blocks() -> None:
         assert math.isclose(row.tier_a_pct, 20.0) and math.isclose(row.tier_b_pct, 10.0) and row.same_sign
 
 
+def test_paired_differences() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        noise = {101: 1.0, 102: -1.0, 103: 0.5}
+        for i, label in enumerate(tier_b.CONFIGS):
+            for seed in noise:
+                _tier_a(root, label, seed, 50, cost=10.0 + i, ev=10, cpu=1.0)
+                # Tier B: B2 sits above B3 by a seed-dependent amount (+1, -1, +0.5): no resolved direction
+                b_cost = 11.0 + noise[seed] if label == "B2" else 10.0 + i
+                _tier_b(root, label, seed, 50, cost=b_cost, ev=10, cpu=1.0)
+        out = root / "out"
+        tier_b.main(root, out)
+        paired = pd.read_csv(out / "tables" / "tierb_paired.csv")
+        row = paired.query("metric == 'cost_end' and config_1 == 'B2' and config_2 == 'B3'").iloc[0]
+        assert row.a_seeds == 3 and row.b_seeds == 3
+        assert math.isclose(row.a_mean, -1.0) and row.a_resolved  # B2 below B3 in every seed in Tier A
+        assert math.isclose(row.b_mean, 0.5 / 3, abs_tol=1e-4) and not row.b_resolved and row.b_seeds_with_a_sign == 1
+        revs = pd.read_csv(out / "tables" / "tierb_reversals_paired.csv")
+        rev = revs.query("metric == 'cost_end' and config_1 == 'B2' and config_2 == 'B3'")
+        assert len(rev) == 1 and rev.a_resolved.iloc[0] and not rev.b_resolved.iloc[0]
+        doc = json.loads((out / "tables" / "tier_b.json").read_text())
+        assert doc["exploratory"]["reversals_resolved_in_both_tiers"] == 0
+
+
 def test_compute_on_one_vm() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)

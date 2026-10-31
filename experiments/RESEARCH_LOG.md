@@ -798,3 +798,30 @@ Every decision taken without asking, every fallback, and every blocked host, in 
     as the stopping rule says.
   - The new boot's CPU is again "Intel(R) Xeon(R) Processor @ 2.10GHz" (`experiments/tierb/machine-log.txt`). The
     block (seed 105, n = 200) now mixes two boots, so the single-VM compute check leaves it out too.
+- **Tier B complete (Oct 31, 06:56 UTC).** All 70 cells finished and were valid on their first counted attempt. No
+  cell was rerun for invalidity and none was abandoned. Two attempts were interrupted by container restarts and set
+  aside: cell 33 lost about 25 minutes, cell 61 about 43. The run took 43 h 44 min from the first cell's start (Oct 29, 11:11:33 UTC). All
+  ten (seed, n) blocks are complete, so the analysis drops nothing. Two blocks, (103, 200) and (105, 200), span two
+  boots each.
+- **Tier B results, and one post-hoc exploratory table (Oct 31, 07:00-07:40 UTC).** These are the preregistered
+  tables (`paper/tables/tierb_*`):
+  - Kendall's tau-b for `cost_end` is 0.20 at n = 50 and 0.33 at n = 200, with 21 material reversals across the
+    floored metrics.
+  - For evictions, tau-b is 0.49 and 0.81, with no material reversal.
+  - For compute, tau-b is 0.33 and 0.52 on all blocks, and 0.33 and 0.71 on the single-VM blocks (5 and 3 blocks),
+    with no material reversal.
+
+  Two things in those tables mattered for reading them:
+  - **B4 and B2 decide alike in Tier A.** Their per-seed `cost_end` is identical in all 5 seeds at n = 50 and in 3 of
+    5 at n = 200. In Tier B the same pair differs by 10.4% in one seed (n = 50, seed 102).
+  - **The starting fleets vary.** Each configuration's cost at the drop varies by up to 10.4% within a seed (n = 50,
+    seed 101: $15.17-16.75/hr), although consolidation is held off until the drop.
+
+  So Tier B's run-to-run variation is larger than many of the 1% differences that count as material. To show which
+  differences Tier B resolves at 5 seeds, `tierb_paired` and `tierb_reversals_paired` were added after the
+  preregistered tables had been seen. They give the per-seed paired differences per pair and metric in each tier,
+  with a two-sided 95% t interval. They are exploratory, and the preregistered tables are unchanged. The result:
+  - No material reversal is resolved in both tiers.
+  - Tier B resolves one reversal: B3 vs B4 at n = 200 on `cost_end`, a direction Tier A does not resolve.
+  - Of the 54 directions Tier A resolves at 5 seeds (cost_end, evictions and compute at both sizes), Tier B shows
+    the same sign in 47 and resolves the opposite direction in none.

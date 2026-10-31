@@ -194,7 +194,7 @@ history and every change to it are in `experiments/RESEARCH_LOG.md`, from "Tier 
    reruns and the stopping rule.
 
    ```bash
-   # optional: one short check on a pilot seed, written outside the run tree
+   # optional: one short check on pilot seed 1, written to $TIERB_HOME/smoke-b2-50
    experiments/tierb/env/run-driver.sh smoke --label B2 --nodes 50
    setsid nohup experiments/tierb/env/run-driver.sh run >> /tmp/tierb/driver.log 2>&1 < /dev/null &
    ```

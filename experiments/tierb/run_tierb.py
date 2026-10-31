@@ -6,7 +6,9 @@ in a row, or an unhealthy cluster, stop the driver.
 
     run_tierb.py plan                   write experiments/tierb/plan.json (deterministic) and print it
     run_tierb.py run [--only RUN_ID]    run every pending cell in plan order (or one cell), logging to run.log
-    run_tierb.py smoke [--label ARM]    one short mechanics check on a pilot seed, outside the run tree
+    run_tierb.py smoke [--label ARM] [--nodes N] [--out DIR]
+                                        one short mechanics check on pilot seed 1 (a 5-minute window), written
+                                        to DIR, by default $TIERB_HOME/smoke-<arm>-<N>, outside the repository
 
 Paths it relies on (set by the environment the runbook describes): the Tier A binary at $CSIM, the compiled
 performance suite at $PERF_TEST, a kind cluster with KWOK and the controller from $IMAGE_REVISION installed.
@@ -215,12 +217,15 @@ def run(only=None):
     log("TIER B COMPLETE" if only is None else f"DONE --only {only}")
 
 
-def smoke(label, nodes):
+def smoke(label, nodes, out=None):
     require_env()
     preflight()
     c = {"run_id": f"tierb-smoke__arm-{ARMS[label][2]}_nodes-{nodes}_seed-1", "label": label, "seed": 1,
          "nodes": nodes, "round": 0}
-    out = os.path.join(TIERB, f"smoke-{ARMS[label][2]}-{nodes}")
+    # The session's own smoke outputs are committed under experiments/tierb/smoke-*; a new smoke never replaces them.
+    out = out or os.path.join(os.environ.get("TIERB_HOME", "/tmp/tierb"), f"smoke-{ARMS[label][2]}-{nodes}")
+    if os.path.realpath(out).startswith(os.path.realpath(TIERB) + os.sep):
+        raise SystemExit(f"smoke output {out} is inside experiments/tierb; pick a directory outside it")
     shutil.rmtree(out, ignore_errors=True)
     rc, valid = run_cell(c, out, window="5m")
     print(f"smoke rc={rc} valid={valid} out={out}")
@@ -232,6 +237,7 @@ if __name__ == "__main__":
     p.add_argument("--only")
     p.add_argument("--label", default="B2", help="smoke: the arm to check")
     p.add_argument("--nodes", type=int, default=50, help="smoke: the size")
+    p.add_argument("--out", help="smoke: the output directory (default $TIERB_HOME/smoke-<arm>-<nodes>)")
     a = p.parse_args()
     if a.cmd == "plan":
         cells = plan()
@@ -240,4 +246,4 @@ if __name__ == "__main__":
     elif a.cmd == "run":
         run(a.only)
     else:
-        smoke(a.label, a.nodes)
+        smoke(a.label, a.nodes, a.out)

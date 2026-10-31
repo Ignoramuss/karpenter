@@ -20,6 +20,13 @@ have a valid Tier B run, and the same blocks in Tier A. Writes, under ``out_root
   check was decided before any ranking was looked at (RESEARCH_LOG, "Container restart during Tier B").
 - ``tables/tier_b.json``: the headline.
 
+Exploratory, added after the tables above were first seen (RESEARCH_LOG, "Tier B results"):
+
+- ``tables/tierb_paired.md``: per size, configuration pair and floored metric, the per-seed differences between the
+  two configurations in each tier, over the retained blocks: mean and a two-sided 95% t interval. A direction is
+  resolved when the interval excludes zero.
+- ``tables/tierb_reversals_paired.md``: each material reversal, with whether each tier resolves its direction.
+
 Run on its own with ``/opt/research-venv/bin/python -m paper.analysis.tier_b [--runs DIR] [--out DIR]``.
 """
 
@@ -196,6 +203,36 @@ def agreement(means: pd.DataFrame, metrics: Sequence[str] = METRICS) -> tuple[pd
                                                            "tier_a_2", "tier_b_1", "tier_b_2"])
 
 
+def paired_differences(a: pd.DataFrame, b: pd.DataFrame, blocks: Sequence[tuple[int, int]]) -> pd.DataFrame:
+    """Exploratory: per size, configuration pair (in CONFIGS order) and floored metric, the per-seed differences
+    config_1 - config_2 in each tier over the retained blocks, with a two-sided 95% t interval for their mean."""
+    rows = []
+    for n in sorted({bn for _, bn in blocks}):
+        seeds = sorted(s for s, bn in blocks if bn == n)
+        piv = {}
+        for tier, df in (("a", a[a.valid]), ("b", b[b.valid])):
+            sel = df[(df.n == n) & df.seed.isin(seeds)]
+            piv[tier] = {m: sel.pivot_table(index="seed", columns="label", values=m, aggfunc="mean") for m in FLOORS}
+        for metric in FLOORS:
+            for i, li in enumerate(CONFIGS):
+                for lj in CONFIGS[i + 1:]:
+                    row: dict[str, Any] = {"n": n, "metric": metric, "config_1": li, "config_2": lj}
+                    for tier in ("a", "b"):
+                        p = piv[tier][metric]
+                        d = (p[li] - p[lj]).dropna() if li in p and lj in p else pd.Series(dtype=float)
+                        k = len(d)
+                        mean = float(d.mean()) if k else math.nan
+                        half = float(stats.t.ppf(0.975, k - 1) * d.std(ddof=1) / math.sqrt(k)) if k >= 2 else math.nan
+                        row.update({f"{tier}_seeds": k, f"{tier}_mean": mean, f"{tier}_lo": mean - half,
+                                    f"{tier}_hi": mean + half, f"{tier}_resolved": bool(abs(mean) > half)
+                                    if np.isfinite(half) else None})
+                        if tier == "b":
+                            sign_a = np.sign(row["a_mean"])
+                            row["b_seeds_with_a_sign"] = int((np.sign(d) == sign_a).sum()) if sign_a else None
+                    rows.append(row)
+    return pd.DataFrame(rows)
+
+
 def pair_table(means: pd.DataFrame) -> pd.DataFrame:
     rows = []
     for n, g in means.groupby("n"):
@@ -242,18 +279,27 @@ def main(runs_root: Path, out_root: Path) -> None:
     agree, revs = agreement(means)
     pairs = pair_table(means)
     compute_one_vm, _ = agreement(both_tiers(one_vm, ["compute"], []), ["compute"])
+    paired = paired_differences(a, b, blocks)
+    keys = ["n", "metric", "config_1", "config_2"]
+    revs_paired = revs.merge(paired[[*keys, "a_resolved", "b_resolved", "b_seeds_with_a_sign"]], on=keys, how="left") \
+        if not paired.empty else revs.assign(a_resolved=None, b_resolved=None, b_seeds_with_a_sign=None)
     compute_one_vm["blocks"] = [sum(1 for _, bn in one_vm if bn == n) for n in compute_one_vm.n]
     common.write_table(means, Path(out_root), "tierb_means")
     common.write_table(agree, Path(out_root), "tierb_agreement")
     common.write_table(revs, Path(out_root), "tierb_reversals")
     common.write_table(pairs, Path(out_root), "tierb_pairs")
     common.write_table(compute_one_vm, Path(out_root), "tierb_compute_one_vm")
+    common.write_table(paired, Path(out_root), "tierb_paired")
+    common.write_table(revs_paired, Path(out_root), "tierb_reversals_paired")
     common.write_json({
         "blocks": [{"seed": s, "n": n} for s, n in blocks],
         "mixed_vm_blocks": [{"seed": s, "n": n} for s, n in blocks if (s, n) not in one_vm],
         "compute_one_vm": compute_one_vm,
         "runs": {"total": int(len(b)), "valid": int(b.valid.sum()), "set_aside": int((b.attempt != "final").sum())},
         "agreement": agree, "material_reversals": int(len(revs)), "pairs": pairs,
+        "exploratory": {"reversals_resolved_in_both_tiers": int((revs_paired.a_resolved.eq(True)
+                                                                 & revs_paired.b_resolved.eq(True)).sum()),
+                        "reversals_resolved_in_tier_b": int(revs_paired.b_resolved.eq(True).sum())},
     }, Path(out_root), "tier_b")
 
 

@@ -4,7 +4,7 @@
 # driver skips finished cells and reruns interrupted ones. For a long run, detach it:
 #   setsid nohup experiments/tierb/env/run-driver.sh run >> /tmp/tierb/driver.log 2>&1 < /dev/null &
 set -euo pipefail
-TIERB_HOME=${TIERB_HOME:-/tmp/tierb}
+export TIERB_HOME=${TIERB_HOME:-/tmp/tierb}
 # shellcheck source=/dev/null
 . "$TIERB_HOME/env.sh"
 cd "$(dirname "${BASH_SOURCE[0]}")/../../.."
