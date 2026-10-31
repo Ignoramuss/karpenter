@@ -1,0 +1,16 @@
+{
+  "run_id": "tierb-kwok__arm-b2_nodes-50_seed-105",
+  "image_revision": "eff89a17bb3a7c22ac2db77621d72d96f2843215",
+  "image": "kind.local/kwok-418fdffba63cc91b994a09d2373a7ccc:f5ee205ea6d56724ca96906b5cb3ec3ada805a25c06dd3a93fbf4f2da7c4cc06",
+  "harness_revision": "cd9942fea602d0e0c9baab6ceb8aebbb6562791d",
+  "harness_dirty": true,
+  "perf_test": "/tmp/tierb/bin/perf.test",
+  "csim": "/tmp/tierb/bin/csim",
+  "kind_node_image": "kindest/node:v1.34.0",
+  "boot_id": "be7793d8-bb8a-4adc-a02f-c85579b99109",
+  "status": "done",
+  "started_at": "2026-10-31T03:20:33Z",
+  "finished_at": "2026-10-31T03:56:26Z",
+  "test_exit_status": 0,
+  "valid": true
+}
