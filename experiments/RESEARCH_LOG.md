@@ -901,3 +901,26 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   - RESULTS' "conclusions hold" lead-in now matches the parity bullet ("not contradicted").
   - The identifier in the second round's entry above was corrected (`CleanableObjects`).
 
+
+## 2026-11-01 (after the session): Exp 9, biased selection and early stopping
+
+- **Why (Nov 1).** Asked why the random arms spend a fixed budget on blind passes rather than picking candidates
+  biased toward badly utilized nodes, the honest answer was that the code for it (`util-band`, `potential-weighted`,
+  `greedy-shift`) existed since Phase 3 but never ran in the matrix, and that no generator could stop early. Exp 9
+  runs those mechanisms. It is post-session and not preregistered; `experiments/EXP9.md` fixes the arms, metrics
+  and reporting rules, and was committed (`5aff11e`) before any cell ran.
+- **Early stop (Nov 1, 19:00-19:25 UTC).** `idleAttempts` added to `random-merge`, `random-shift` and `greedy-shift`
+  (`5aff11e`): a Generate call stops after that many consecutive attempts emitted nothing; default 0 never stops.
+  The level for the experiment, 50, is a tenth of the attempt budget, fixed by that rule before any run. The
+  package's determinism, budget and conformance tests pass with the new configurations, plus a prefix test (a
+  capped call's moves are a prefix of the uncapped call's). The three new arms were smoked on W1 at 50 nodes, pilot
+  seed 1, 40 minutes: all valid; the two early-stop arms averaged 255 and 272 attempts per searching pass against
+  735 for the arm without it (scratch output, not data).
+- **Design choices.** Both references are re-run under the Exp 9 binary (`97c1a92` records it:
+  `5aff11eade9e9ed5d71eee8a251c8be2897e5d0f`, built from a clean clone, `vcs.modified=false`), so every comparison
+  is same-binary and same-machine; the session's reference cells are not reused. One early-stop level only. 1,000
+  nodes on W1 only, five arms, since the session put random generation's highest per-pass cost there.
+- **Run started (Nov 1, 19:32 UTC).** `experiments/run_exp9.sh` with `/tmp/tierb/bin/csim-exp9`, four workers, on the
+  same 4-vCPU VM as Tier B (boot time in `experiments/exp9-machine-log.txt`). Order: `exp9-n200` (240 cells), then
+  `exp9-n1000` (50 cells). Expected wall time from the session's cell times: about two hours for the first group
+  and three for the second.

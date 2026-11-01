@@ -87,7 +87,8 @@ From each run's `decisions.jsonl.gz`, over the searching passes (cycles with a `
 
 - the share of passes that search;
 - attempts per searching pass, full simulations per searching pass and moves emitted per searching pass;
-- the share of searching passes that exhausted the attempt budget (`exhausted`), which early stopping should lower;
+- the share of searching passes that hit a search cap (`exhausted`: the attempt budget or the simulation pool),
+  which early stopping should lower;
 - CPU per searching pass: `cpu_pass_total_s` over the number of searching passes (an upper bound, as in the paper,
   since it carries the gated passes' floor).
 

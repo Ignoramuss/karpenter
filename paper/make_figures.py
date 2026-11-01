@@ -46,6 +46,7 @@ MODULES = (
     "timeseries_figures",  # Exp 2 (figures 1, 2 and 6)
     "latency_optimality",  # Exp 7, 8, the B6 lower bound (figures 4 and 7)
     "tier_b",  # Tier B: rank agreement between KWOK and the simulator on WB (experiments/TIERB.md)
+    "exp9",  # Exp 9: biased selection, guided shifts and early stopping vs the generation references (EXP9.md)
     "summary",  # every verdict and its key effects, from the headlines above (experiments/RESULTS.md quotes it)
 )
 PACKAGE = "paper.analysis"
