@@ -46,10 +46,13 @@ var configs = []struct {
 }{
 	{name: "random-merge"},
 	{name: "random-merge", params: pipeline.Params{"maxSources": 1, "launch": false, "maxMoves": 5}},
+	{name: "random-merge", params: pipeline.Params{"confirm": true, "idleAttempts": 100}},
 	{name: "random-shift"},
 	{name: "random-shift", params: pipeline.Params{"maxPodsPerMove": 1, "full": true}},
+	{name: "random-shift", params: pipeline.Params{"idleAttempts": 100}},
 	{name: "greedy-shift"},
 	{name: "greedy-shift", params: pipeline.Params{"maxPodsPerMove": 1}},
+	{name: "greedy-shift", params: pipeline.Params{"idleAttempts": 100}},
 	// Random states rarely strand a node by the default gap, so finding nothing is allowed; TestSwapFindsExchange
 	// shows the swap on a stranded state.
 	{name: "swap", opts: conformance.GeneratorOptions{AllowEmpty: true}},
@@ -110,10 +113,14 @@ func TestParams(t *testing.T) {
 	}{
 		{"random-merge", nil},
 		{"random-merge", pipeline.Params{"maxSources": 1, "launch": false, "maxMoves": 1}},
+		{"random-merge", pipeline.Params{"confirm": true, "idleAttempts": 0}},
+		{"random-merge", pipeline.Params{"idleAttempts": 50}},
 		{"random-shift", nil},
 		{"random-shift", pipeline.Params{"maxPodsPerMove": 10, "full": true}},
+		{"random-shift", pipeline.Params{"idleAttempts": 0}},
 		{"greedy-shift", nil},
 		{"greedy-shift", pipeline.Params{"maxPodsPerMove": 1}},
+		{"greedy-shift", pipeline.Params{"idleAttempts": 1}},
 		{"swap", nil},
 		{"swap", pipeline.Params{"strandingGap": 0}},
 		{"swap", pipeline.Params{"strandingGap": 0.99}},
@@ -133,11 +140,16 @@ func TestParams(t *testing.T) {
 		{"random-merge", pipeline.Params{"maxMoves": 0}},
 		{"random-merge", pipeline.Params{"launch": "yes"}},
 		{"random-merge", pipeline.Params{"maxSource": 3}},
+		{"random-merge", pipeline.Params{"idleAttempts": -1}},
+		{"random-merge", pipeline.Params{"idleAttempts": 1.5}},
 		{"random-shift", pipeline.Params{"maxPodsPerMove": 0}},
 		{"random-shift", pipeline.Params{"full": 1}},
 		{"random-shift", pipeline.Params{"maxPods": 4}},
+		{"random-shift", pipeline.Params{"idleAttempts": -5}},
 		{"greedy-shift", pipeline.Params{"maxPodsPerMove": 0}},
 		{"greedy-shift", pipeline.Params{"full": true}},
+		{"greedy-shift", pipeline.Params{"idleAttempts": -1}},
+		{"swap", pipeline.Params{"idleAttempts": 10}},
 		{"swap", pipeline.Params{"strandingGap": -0.1}},
 		{"swap", pipeline.Params{"strandingGap": 1}},
 		{"swap", pipeline.Params{"strandingGap": 1.5}},
@@ -723,6 +735,50 @@ func checkStops(t *testing.T, g pipeline.MoveGenerator, s pipeline.Snapshot, see
 	if ms, err := g.Generate(ctx, s, src, dst, rng(), pipeline.NewSearchBudget(10, 0, time.Time{}, nil)); len(ms) != 0 || (err != nil && !errors.Is(err, context.Canceled)) {
 		t.Errorf("seed %d: with a canceled context got %d moves, %v", seed, len(ms), err)
 	}
+}
+
+// TestIdleAttempts checks the early stop: with idleAttempts N a call's output is a prefix of the same call without
+// it (the rng sequence is unchanged, so only the stopping point moves), its attempts never exceed what N consecutive
+// idle attempts after each produced move allow, and across the seeds some call does stop before the budget it would
+// otherwise have spent, so the parameter has an effect.
+//
+//nolint:gocyclo
+func TestIdleAttempts(t *testing.T) {
+	const idle = 5
+	for _, name := range []string{"random-merge", "random-shift", "greedy-shift"} {
+		t.Run(name, func(t *testing.T) {
+			stopped := 0
+			for seed := int64(1); seed <= 30; seed++ {
+				s := randomState(seed)
+				env := pipeline.SyntheticEnv(nil)
+				free, fb := generate(t, newGenerator(t, env, name, nil), s, seed, runOptions{maxAttempts: 300, maxFull: 20})
+				capped, cb := generate(t, newGenerator(t, env, name, pipeline.Params{"idleAttempts": idle}), s, seed, runOptions{maxAttempts: 300, maxFull: 20})
+				freeAttempts, _, _, _ := fb.Stats()
+				attempts, _, _, _ := cb.Stats()
+				if len(capped) > len(free) || !slices.EqualFunc(capped, free[:len(capped)], sameMove) {
+					t.Errorf("seed %d: %d moves with idleAttempts are not a prefix of the %d without", seed, len(capped), len(free))
+				}
+				if attempts > freeAttempts {
+					t.Errorf("seed %d: idleAttempts ran %d attempts, more than the %d without", seed, attempts, freeAttempts)
+				}
+				if limit := len(capped) + idle*(len(capped)+1); attempts > limit {
+					t.Errorf("seed %d: %d attempts for %d moves exceeds the %d that %d idle attempts per move allow", seed, attempts, len(capped), limit, idle)
+				}
+				if attempts < freeAttempts {
+					stopped++
+				}
+			}
+			if stopped == 0 {
+				t.Error("idleAttempts never stopped a call early")
+			}
+		})
+	}
+}
+
+// sameMove compares moves by what they do, ignoring the IDs their generators issue.
+func sameMove(a, b pipeline.Move) bool {
+	a.ID, b.ID = "", ""
+	return fmt.Sprint(a) == fmt.Sprint(b)
 }
 
 // TestDeterminism checks the same seed and input give byte-identical output, IDs included, and that one instance

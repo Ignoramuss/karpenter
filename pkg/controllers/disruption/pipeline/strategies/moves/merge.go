@@ -41,6 +41,8 @@ type randomMergeParams struct {
 	// Karpenter's scheduler confirms reach the planner, each at the cost of one Full simulation. Default false: a
 	// first-fit merge is emitted on Fast alone and the executor confirms it if it runs.
 	Confirm *bool `json:"confirm"`
+	// IdleAttempts stops a Generate call after that many consecutive attempts emitted no merge. Default 0: never.
+	IdleAttempts *int `json:"idleAttempts"`
 }
 
 func newRandomMerge(_ *pipeline.Env, p pipeline.Params) (pipeline.MoveGenerator, error) {
@@ -62,6 +64,9 @@ func newRandomMerge(_ *pipeline.Env, p pipeline.Params) (pipeline.MoveGenerator,
 	if g.maxMoves, err = positiveInt(randomMergeName, "maxMoves", raw.MaxMoves, 50); err != nil {
 		return nil, err
 	}
+	if g.idleAttempts, err = nonNegativeInt(randomMergeName, "idleAttempts", raw.IdleAttempts, 0); err != nil {
+		return nil, err
+	}
 	return g, nil
 }
 
@@ -70,12 +75,13 @@ func newRandomMerge(_ *pipeline.Env, p pipeline.Params) (pipeline.MoveGenerator,
 // all fit becomes a delete-only merge; one that does not may still merge onto a replacement node, which only the live
 // scheduler can choose, so that path costs one Full simulation.
 type randomMerge struct {
-	maxSources int
-	launch     bool
-	confirm    bool
-	maxMoves   int
-	own        *pipeline.FastChecker
-	ids        ids
+	maxSources   int
+	launch       bool
+	confirm      bool
+	maxMoves     int
+	idleAttempts int
+	own          *pipeline.FastChecker
+	ids          ids
 }
 
 func (g *randomMerge) Name() string { return randomMergeName }
@@ -121,12 +127,14 @@ func (g *randomMerge) Generate(ctx context.Context, s pipeline.Snapshot, sources
 	emitted := map[string]bool{}
 	simulated := map[string]bool{}
 	var out []pipeline.Move
+	a := newAttempts(b, g.idleAttempts)
 	emit := func(m pipeline.Move, key string) {
 		m.ID, m.Generator = g.ids.next(), g.Name()
 		out = append(out, m)
 		emitted[key] = true
+		a.produced()
 	}
-	for a := newAttempts(b); len(out) < g.maxMoves && a.next(); {
+	for len(out) < g.maxMoves && a.next() {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}

@@ -22,9 +22,12 @@ limitations under the License.
 //	G4  greedy-shift  per sampled (source, fuller destination) pair, the pod set that most lowers the potential
 //	G5  swap          exchange a CPU-heavy pod of a CPU-stranded node for a memory-heavy pod of a memory-stranded one
 //
-// Params, with defaults: random-merge {maxSources: 3, launch: true, maxMoves: 50}, random-shift {maxPodsPerMove: 4,
-// full: false}, greedy-shift {maxPodsPerMove: 4}, swap {strandingGap: 0.3}. Unknown keys and out-of-range values fail
-// construction. Binaries that run these strategies import this package for its registrations.
+// Params, with defaults: random-merge {maxSources: 3, launch: true, maxMoves: 50, confirm: false, idleAttempts: 0},
+// random-shift {maxPodsPerMove: 4, full: false, idleAttempts: 0}, greedy-shift {maxPodsPerMove: 4, idleAttempts: 0},
+// swap {strandingGap: 0.3}. idleAttempts stops a Generate call after that many consecutive attempts emitted nothing
+// (0 never stops early), so a search that has run dry returns its budget instead of spending it blind. Unknown keys
+// and out-of-range values fail construction. Binaries that run these strategies import this package for its
+// registrations.
 //
 // They are deliberately simple and random, so experiments can compare them with the upstream heuristics at equal
 // search budget. Every emitted move passes the budget's Fast feasibility, which enforces do-not-disrupt and PDB
@@ -56,33 +59,43 @@ func init() {
 	pipeline.RegisterMoveGenerator(swapName, newSwap)
 }
 
-// attempts spends the search budget one generation attempt at a time.
+// attempts spends the search budget one generation attempt at a time, and stops early once maxIdle attempts in a
+// row produced nothing.
 type attempts struct {
 	b     *pipeline.SearchBudget
 	n     int
 	limit int
+	// idle counts the attempts since the last produced move; maxIdle 0 disables the early stop.
+	idle, maxIdle int
 }
 
-func newAttempts(b *pipeline.SearchBudget) *attempts {
-	a := &attempts{b: b}
+func newAttempts(b *pipeline.SearchBudget, maxIdle int) *attempts {
+	a := &attempts{b: b, maxIdle: maxIdle}
 	if b.MaxAttempts == 0 {
 		a.limit = DefaultMaxAttempts
 	}
 	return a
 }
 
-// next reports whether another attempt may run. The cap is checked first so a capped call does not spend an attempt
-// it will not use.
+// next reports whether another attempt may run. The caps are checked first so a capped call does not spend an
+// attempt it will not use; an attempt counts as idle until produced says otherwise.
 func (a *attempts) next() bool {
 	if a.limit > 0 && a.n >= a.limit {
+		return false
+	}
+	if a.maxIdle > 0 && a.idle >= a.maxIdle {
 		return false
 	}
 	if !a.b.Next() {
 		return false
 	}
 	a.n++
+	a.idle++
 	return true
 }
+
+// produced records that the current attempt emitted a move, restarting the idle count.
+func (a *attempts) produced() { a.idle = 0 }
 
 // budgetOf tolerates a nil budget, which callers outside the pipeline method may pass; it then bounds work by
 // DefaultMaxAttempts alone.
@@ -253,6 +266,18 @@ func positiveInt(strategy, name string, v *int, def int) (int, error) {
 	}
 	if *v < 1 {
 		return 0, fmt.Errorf("%s %s %d, want at least 1", strategy, name, *v)
+	}
+	return *v, nil
+}
+
+// nonNegativeInt applies a default to an optional count parameter whose zero is meaningful (an idle limit of 0 is
+// "never stop early").
+func nonNegativeInt(strategy, name string, v *int, def int) (int, error) {
+	if v == nil {
+		return def, nil
+	}
+	if *v < 0 {
+		return 0, fmt.Errorf("%s %s %d, want at least 0", strategy, name, *v)
 	}
 	return *v, nil
 }

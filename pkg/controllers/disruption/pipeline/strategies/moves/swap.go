@@ -80,7 +80,7 @@ func (g *swap) Generate(ctx context.Context, s pipeline.Snapshot, sources, desti
 	pairs := len(cpuSide) * len(memSide)
 	evaluated := map[[2]int]bool{}
 	var out []pipeline.Move
-	for a := newAttempts(b); len(evaluated) < pairs && a.next(); {
+	for a := newAttempts(b, 0); len(evaluated) < pairs && a.next(); {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}

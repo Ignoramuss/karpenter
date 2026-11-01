@@ -1,0 +1,65 @@
+# Exp 9 (experiments/EXP9.md): biased candidate selection, potential-guided shifts and early stopping, against the
+# session's two generation references, all under the entropy-greedy planner at the session's search budget.
+# Post-session, not preregistered: the protocol and this file were committed before any cell ran.
+#
+#   for g in exp9-n200 exp9-n1000; do
+#     until bin/csim-exp9 matrix --matrix experiments/matrix/exp9.yaml --only $g --workers 4 --max-wall 60m \
+#         | grep -q ' 0 pending'; do :; done
+#   done   # bin/csim-exp9: built from a clean clone at the commit in experiments/exp9-binary.txt
+name: exp9
+outDir: experiments/runs/exp9
+definitions:
+  seeds: &seeds {from: 101, to: 110}
+  search: &search
+    movesMode: pooled
+    search: {maxFullSimulations: 16, maxAttempts: 500}
+  std: &std
+    executor: {name: shift-evict}
+    potential: {name: util-entropy}
+    planner: {name: entropy-greedy, params: {lambda: 0.1}}
+  common: &common {<<: [*search, *std]}
+  # Candidate selectors. uniform-random and potential-weighted draw the same number of sources (a quarter of the
+  # eligible ones); util-band takes every source below the fleet's mean utilization and every destination above it
+  # (and below 95% full), emptiest sources first.
+  heuristic: &heuristic
+    candidates: {name: upstream}
+    moves: [{name: upstream-multi, params: {mode: fine}}, {name: upstream-single, params: {mode: fine}}]
+  uniform: &uniform {candidates: {name: uniform-random, params: {sourceFraction: 0.25}}}
+  weighted: &weighted {candidates: {name: potential-weighted, params: {sourceFraction: 0.25}}}
+  band: &band {candidates: {name: util-band}}
+  # Move generators. idleAttempts 50 is a tenth of maxAttempts (EXP9.md, "The early-stop level").
+  random-moves: &random-moves
+    moves: [{name: random-merge, params: {confirm: true}}, {name: random-shift}]
+  random-moves-idle: &random-moves-idle
+    moves: [{name: random-merge, params: {confirm: true, idleAttempts: 50}}, {name: random-shift, params: {idleAttempts: 50}}]
+  greedy-moves: &greedy-moves
+    moves: [{name: random-merge, params: {confirm: true}}, {name: greedy-shift}]
+  greedy-moves-idle: &greedy-moves-idle
+    moves: [{name: random-merge, params: {confirm: true, idleAttempts: 50}}, {name: greedy-shift, params: {idleAttempts: 50}}]
+  # The two references, re-run under this binary so every comparison is same-binary and same-machine.
+  ref-heuristic: &ref-heuristic {name: pipeline, label: heuristic/entropy-greedy, pipeline: {<<: [*common, *heuristic]}}
+  ref-random: &ref-random {name: pipeline, label: random/entropy-greedy, pipeline: {<<: [*common, *uniform, *random-moves]}}
+  # Treatments: one mechanism at a time, then the combinations.
+  weighted-arm: &weighted-arm {name: pipeline, label: weighted/entropy-greedy, pipeline: {<<: [*common, *weighted, *random-moves]}}
+  band-arm: &band-arm {name: pipeline, label: band/entropy-greedy, pipeline: {<<: [*common, *band, *random-moves]}}
+  greedy-arm: &greedy-arm {name: pipeline, label: weighted+greedy-shift/entropy-greedy, pipeline: {<<: [*common, *weighted, *greedy-moves]}}
+  random-idle-arm: &random-idle-arm {name: pipeline, label: random/idle-50, pipeline: {<<: [*common, *uniform, *random-moves-idle]}}
+  weighted-idle-arm: &weighted-idle-arm {name: pipeline, label: weighted/idle-50, pipeline: {<<: [*common, *weighted, *random-moves-idle]}}
+  all-arm: &all-arm {name: pipeline, label: weighted+greedy-shift/idle-50, pipeline: {<<: [*common, *weighted, *greedy-moves-idle]}}
+base:
+  duration: 3h
+  maxWall: 0s
+  scenario: {nodes: 200}
+groups:
+  - name: exp9-n200
+    vary:
+      scenario.name: [W1, W2, W4]
+      arm: [*ref-heuristic, *ref-random, *weighted-arm, *band-arm, *greedy-arm, *random-idle-arm, *weighted-idle-arm, *all-arm]
+      seed: *seeds
+  # At 1,000 nodes, where the session found random generation's per-pass cost highest: the references, early stop
+  # alone, biased selection with early stop, and everything combined.
+  - name: exp9-n1000
+    set: {scenario: {name: W1, nodes: 1000}}
+    vary:
+      arm: [*ref-heuristic, *ref-random, *random-idle-arm, *weighted-idle-arm, *all-arm]
+      seed: *seeds

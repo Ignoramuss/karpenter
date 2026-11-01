@@ -40,6 +40,8 @@ type randomShiftParams struct {
 	MaxPodsPerMove *int `json:"maxPodsPerMove"`
 	// Full confirms each Fast-feasible shift with a Full simulation while the budget allows one. Default false.
 	Full bool `json:"full"`
+	// IdleAttempts stops a Generate call after that many consecutive attempts emitted no shift. Default 0: never.
+	IdleAttempts *int `json:"idleAttempts"`
 }
 
 func newRandomShift(_ *pipeline.Env, p pipeline.Params) (pipeline.MoveGenerator, error) {
@@ -51,17 +53,23 @@ func newRandomShift(_ *pipeline.Env, p pipeline.Params) (pipeline.MoveGenerator,
 	if err != nil {
 		return nil, err
 	}
-	return &randomShift{maxPods: maxPods, full: raw.Full, own: &pipeline.FastChecker{}, ids: ids{prefix: randomShiftName}}, nil
+	idle, err := nonNegativeInt(randomShiftName, "idleAttempts", raw.IdleAttempts, 0)
+	if err != nil {
+		return nil, err
+	}
+	return &randomShift{maxPods: maxPods, full: raw.Full, idleAttempts: idle, own: &pipeline.FastChecker{},
+		ids: ids{prefix: randomShiftName}}, nil
 }
 
 // randomShift is G3: move a random handful of pods from a random source to a random fuller destination. Moving load
 // uphill is what pushes nodes toward empty or full, so the destination must already be more utilized than the source;
 // beyond that the move is unguided, leaving all judgment to the planner.
 type randomShift struct {
-	maxPods int
-	full    bool
-	own     *pipeline.FastChecker
-	ids     ids
+	maxPods      int
+	full         bool
+	idleAttempts int
+	own          *pipeline.FastChecker
+	ids          ids
 }
 
 func (g *randomShift) Name() string { return randomShiftName }
@@ -79,7 +87,7 @@ func (g *randomShift) Generate(ctx context.Context, s pipeline.Snapshot, sources
 	fast := gate(b, g.own)
 	seen := map[string]bool{}
 	var out []pipeline.Move
-	for a := newAttempts(b); a.next(); {
+	for a := newAttempts(b, g.idleAttempts); a.next(); {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
@@ -108,6 +116,7 @@ func (g *randomShift) Generate(ctx context.Context, s pipeline.Snapshot, sources
 		}
 		m.ID, m.Generator = g.ids.next(), g.Name()
 		out = append(out, m)
+		a.produced()
 	}
 	return out, nil
 }
@@ -116,6 +125,8 @@ func (g *randomShift) Generate(ctx context.Context, s pipeline.Snapshot, sources
 type greedyShiftParams struct {
 	// MaxPodsPerMove caps the greedy fill. Default 4.
 	MaxPodsPerMove *int `json:"maxPodsPerMove"`
+	// IdleAttempts stops a Generate call after that many consecutive attempts emitted no shift. Default 0: never.
+	IdleAttempts *int `json:"idleAttempts"`
 }
 
 func newGreedyShift(_ *pipeline.Env, p pipeline.Params) (pipeline.MoveGenerator, error) {
@@ -127,22 +138,27 @@ func newGreedyShift(_ *pipeline.Env, p pipeline.Params) (pipeline.MoveGenerator,
 	if err != nil {
 		return nil, err
 	}
+	idle, err := nonNegativeInt(greedyShiftName, "idleAttempts", raw.IdleAttempts, 0)
+	if err != nil {
+		return nil, err
+	}
 	pot, err := pipeline.NewUtilEntropy(pipeline.PotentialParams{})
 	if err != nil {
 		return nil, fmt.Errorf("%s fallback potential, %w", greedyShiftName, err)
 	}
-	return &greedyShift{maxPods: maxPods, fallback: pipeline.DefaultScorer{Potential: pot}, own: &pipeline.FastChecker{},
-		ids: ids{prefix: greedyShiftName}}, nil
+	return &greedyShift{maxPods: maxPods, idleAttempts: idle, fallback: pipeline.DefaultScorer{Potential: pot},
+		own: &pipeline.FastChecker{}, ids: ids{prefix: greedyShiftName}}, nil
 }
 
 // greedyShift is G4: sample (source, fuller destination) pairs as random-shift does, but spend each attempt finding
 // the pair's best pod set by the run's own potential, and emit it only if it lowers the potential. It is the guided
 // contrast to random-shift at equal attempts: same pairs, judgment moved from the planner into generation.
 type greedyShift struct {
-	maxPods  int
-	fallback pipeline.Scorer
-	own      *pipeline.FastChecker
-	ids      ids
+	maxPods      int
+	idleAttempts int
+	fallback     pipeline.Scorer
+	own          *pipeline.FastChecker
+	ids          ids
 }
 
 func (g *greedyShift) Name() string { return greedyShiftName }
@@ -163,7 +179,7 @@ func (g *greedyShift) Generate(ctx context.Context, s pipeline.Snapshot, sources
 	fast := gate(b, g.own)
 	evaluated := map[[2]string]bool{}
 	var out []pipeline.Move
-	for a := newAttempts(b); len(evaluated) < pairs.pairs && a.next(); {
+	for a := newAttempts(b, g.idleAttempts); len(evaluated) < pairs.pairs && a.next(); {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
@@ -179,6 +195,7 @@ func (g *greedyShift) Generate(ctx context.Context, s pipeline.Snapshot, sources
 		m := best.move
 		m.ID, m.Generator = g.ids.next(), g.Name()
 		out = append(out, m)
+		a.produced()
 	}
 	return out, nil
 }
