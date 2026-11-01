@@ -21,3 +21,6 @@ bin/
 *.swp
 *.swo
 *~
+
+# Transient progress output of experiments/run_exp9.sh; the record is each run directory and experiments/exp9-machine-log.txt
+experiments/runs/exp9-driver.log
