@@ -984,3 +984,12 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   that includes zero, since a 3% equivalence margin on evictions is unreachable at 30 seeds (Tier B's five-seed
   half-widths were ±13% and ±59%); and the `SearchProbe` conversion happens in the pipeline's observer, not in
   `Method.record`.
+- **RFC fourth review round (Nov 1, 21:40-22:00 UTC).** The applied-fix checker found one leftover inconsistency
+  (Alternative 1 still named the two deadlines as the only bounds) and the fresh maintainer read five more, all
+  confirmed and applied: the resume cursor must be set on a `Next()` refusal as well as a `UseFull()` one, since
+  the observer adds an attempts check the fine adapter never had; `energy` is 0 because no shipped planner
+  computes it, not because of the `none` potential; a round summary under the per-pass budget reports its own
+  fork's counts, not the pass total; a remaining-simulations gauge at 0 means the cap was spent, not necessarily
+  that a probe was refused; and a NodePool budget can be zero at the start of a pass through an active `nodes: 0`
+  schedule, not only through in-flight disruptions. The rounds found 88, 31, 18 and 6 problems; the RFC is left
+  there, with its Exp 9 note to be updated when the 1,000-node group finishes.
