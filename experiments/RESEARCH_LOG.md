@@ -924,3 +924,21 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   same 4-vCPU VM as Tier B (boot time in `experiments/exp9-machine-log.txt`). Order: `exp9-n200` (240 cells), then
   `exp9-n1000` (50 cells). Expected wall time from the session's cell times: about two hours for the first group
   and three for the second.
+- **Upstream RFC drafted and reviewed (Nov 1, 19:40-20:20 UTC).** `designs/consolidation-bounded-search-and-decision-log.md`
+  was drafted (`dd85fde`) as the upstream-facing subset of the pipeline design: counted search budgets, a decision
+  log through a recorder, and the stage seams with the coarse upstream adapters only, behind the gate. A four-lens
+  review (a disruption maintainer, an operator who has not seen the branch, a numbers checker and a code checker,
+  each followed by a verifier) returned 89 findings, 88 confirmed. The blocking ones: the draft said the budget
+  binds under the coarse adapters, but on the branch the budget is built per round and the coarse adapters never
+  consult it, and upstream's one- and three-minute limits remain; it cited B4's whole-run and KWOK evidence as if
+  it covered the coarse adapters (B4 ran the fine ones; only the parity test covers both); it used the 52.3 s W5
+  pass as evidence that the one-minute deadline is close (that pass is a simulator cost, paper section 3.4); and
+  it reversed which tier resolved more cost differences. Decisions for the revision: propose one budget per pass
+  forked per round as a listed code change; keep upstream's deadlines and claim machine-independence only when
+  the budget binds first; specify the observer in the two upstream loops as a proposal (interface, option,
+  what one attempt is, validation outside the budget); a budget stop does not mark the cluster consolidated;
+  an allowlist of strategies validated at startup, since package `pipeline`'s own init registers the fine modes
+  and the potentials; recorder `none` by default with `log` at V(1)/V(2) and a synchronous `file` sink; the
+  fidelity metric moved to an open question; beta's soak criterion as an equivalence test at a 3% margin rather
+  than a failure to reject. The 85 vs 56 ms figure is the planner continuing past the first acceptable move, not
+  the gating rule. The revision is in progress; a second review round follows it.

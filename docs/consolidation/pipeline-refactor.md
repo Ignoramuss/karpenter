@@ -159,7 +159,8 @@ two instance catalogs, both consolidation policies), it runs upstream's methods 
 each adapter configuration, and requires identical decisions: the kind, the candidates in order, the replacement
 instance-type options in order, the budget consumed per NodePool. Results: 1,000 of 1,000 states matched per
 policy and catalog, and then 10,000 of 10,000 in every configuration, on states where upstream itself decided to
-act in 83 to 91% of cases (`docs/research/parity.md`). The test handles one wrinkle:
+act in 83 to 91% of cases (`upstream_decided` 8,347 to 9,141 of 10,000 per chunk in
+`experiments/parity/chunks/*.summary.txt`). The test handles one wrinkle:
 upstream's single-node scan interleaves NodePools in Go map order, so with more than one NodePool upstream itself is
 nondeterministic; the test compares against the set of decisions upstream makes over repeated runs. A 40-state
 version runs in `make test`.
