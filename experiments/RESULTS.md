@@ -640,7 +640,7 @@ above it), guided shifts (`weighted+greedy-shift/entropy-greedy`: per sampled no
 the potential), early stopping alone (`random/idle-50`: each generator stops after 50 consecutive attempts that
 emitted nothing), and the combinations (`weighted/idle-50`, `weighted+greedy-shift/idle-50`). W1, W2 and W4 at 200
 nodes, seeds 101-110, 3 simulated hours: 240 cells, all valid, none failed. W1 at 1,000 nodes for five arms, seeds
-101-110: 50 cells (below). Binary `5aff11e`, built from a clean clone; one 4-vCPU VM, four cells at a time
+101-110: 50 cells, all valid, none failed. Binary `5aff11e`, built from a clean clone; one 4-vCPU VM, four cells at a time
 (`experiments/exp9-machine-log.txt`).
 
 Tables: `paper/tables/exp9_arms.md` (every arm and metric, mean and median with 95% bootstrap intervals),
@@ -727,9 +727,44 @@ of a random search on the dense W2 fleet comes from the size of each simulation,
 what early stopping removes is enough to bring the mean per pass level with the heuristic because the random arms
 search on a fifth of their passes.
 
-### 1,000 nodes (W1)
+### 1,000 nodes (W1): early stopping saves more, and biased selection starts to pay
 
-Pending: the 50 cells of `exp9-n1000` are running (this paragraph is replaced when they finish).
+Five arms, seeds 101-110, all 50 cells valid. Against `random/entropy-greedy`:
+
+| | `random/idle-50` | `weighted/idle-50` | `weighted+greedy-shift/idle-50` |
+| --- | --- | --- | --- |
+| Attempts per searching pass (reference 1,000) | 213 (-78.7% [-79.1, -78.2]) | 212 (-78.8% [-79.3, -78.3]) | 223 (-77.7% [-78.4, -77.1]) |
+| Mean CPU per pass (reference 860 ms) | 545 ms (-36.6% [-41.0, -31.5]) | 657 ms (-23.6% [-29.0, -17.6]) | 749 ms (-12.9% [-17.4, -7.6]) |
+| p95 CPU per pass (reference 2,737 ms) | -34.0% [-35.7, -32.0] | -25.3% [-27.3, -23.1] | -23.6% [-25.2, -21.8] |
+| CPU per searching pass (reference 1,845 ms) | -12.8% [-16.0, -8.6] | -7.3% [-9.8, -5.2] | -3.9% [-8.1, +0.0] |
+| Share of passes that search (reference 0.47) | -27.4% [-34.4, -19.4] | -17.7% [-24.1, -9.5] | -8.9% [-15.9, -0.6] |
+| Steady-state cost (reference $240.4/h) | -0.1% [-1.0, +1.0] | -2.8% [-3.4, -2.2] | -2.5% [-3.1, -1.8] |
+| Cost after warmup | -0.0% [-0.5, +0.5] | -1.7% [-2.1, -1.3] | -2.5% [-2.9, -2.2] |
+| Evictions (reference 7,296) | -8.5% [-11.4, -5.4] | -13.3% [-15.7, -10.3] | -15.2% [-18.5, -11.7] |
+| Final nodes (reference 335) | +3.5% [+1.3, +6.1] | +27.6% [+25.1, +30.2] | +34.1% [+31.0, +38.7] |
+
+Early stopping saves more at 1,000 nodes than at 200: mean CPU per pass falls by 37% against 17% on W1 at 200
+nodes. The per-search saving is similar at both sizes (13% against 15%); the difference is that at 1,000 nodes the
+early-stop arm also searches on fewer of its passes. Its runs make 14% more passes in the three hours (824 against
+725; a cheaper pass lets the next one start sooner), search on 17% fewer cycles (280 against 336 per run), execute on
+28% fewer (190 against 264) and find nothing on more of their searches (71 against 60 per run), so the pipeline's
+gate, which skips a pass while the cluster is unchanged since a search that executed nothing, closes more often.
+Evictions fall by 8.5% here, where they rose by 7 to 9% at 200 nodes, with cost unresolved at both sizes.
+
+Biased selection pays at this size where it did not at 200 nodes: `weighted/idle-50` ends 2.8% cheaper than the
+random reference [-3.4, -2.2] with 13% fewer evictions, and `weighted+greedy-shift/idle-50` 2.5% cheaper with 15%
+fewer, both leaving a third more (smaller) nodes; the price is a smaller CPU saving than early stopping alone (-24%
+and -13% against -37%), because the biased arms search on more of their passes. E2 is supported on cost and
+evictions at 1,000 nodes and not supported at 200, where the same arms were unresolved on cost.
+
+Against `heuristic/entropy-greedy` at 1,000 nodes the picture changes from the 200-node one: every early-stop arm is
+cheaper on steady-state cost (-2.5% [-3.3, -1.7], -5.2% [-5.8, -4.5], -4.8% [-5.3, -4.3]), about equal or cheaper
+after warmup (+0.3% [-0.4, +1.1], -1.4% [-2.1, -0.7], -2.2% [-3.0, -1.4]), spends 37 to 54% less mean CPU per pass
+(the heuristic's mean is 1,192 ms, its searching pass 1,198 ms at 11 simulations), and evicts about twice as many
+pods (+95% to +110%). The gap per searching pass narrows from 3 to 6 times at 200 nodes to 1.3 to 1.5 times here
+(+34% [+31, +37] to +48% [+41, +55]), because the heuristic's own search grows with the candidate list while the
+random arms' is capped by the budget; p95 CPU per pass is within -5% to +10% of the heuristic's. E4 holds at 200
+nodes and only partly at 1,000: the per-searching-pass gap is not closed, but it is no longer the multiple it was.
 
 ## Deviations from the preregistration
 

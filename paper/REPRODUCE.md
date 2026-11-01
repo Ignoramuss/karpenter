@@ -197,3 +197,12 @@ n = 50 and in three at n = 200. That is not true of every seed: in `tierb-a` the
 "Tier B"). The Tier A side is deterministic, as above. `make figures` builds the Tier B tables
 (`paper/analysis/tier_b.py`).
 
+
+## Exp 9 (after the paper)
+
+Runs are under `experiments/runs/exp9` (290 cells, all valid, none failed, no set-aside attempts). Rebuild the binary
+from a clean clone at the commit in `experiments/exp9-binary.txt`, run `experiments/run_exp9.sh <binary>`, and
+analyse with `make figures` or `python -m paper.analysis.exp9`; `docs/research/runbook.md`, section 6, has the
+steps. Every cell ran on one VM: boot `1ea588ea`, Intel Xeon @ 2.10 GHz, 4 vCPUs, four cells at a time
+(`experiments/exp9-machine-log.txt`); CPU per pass is process CPU time, so the co-running cells affect wall time, not
+the CPU figures the write-up compares, and every comparison is between arms of the same run set.

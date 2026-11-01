@@ -993,3 +993,12 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   that a probe was refused; and a NodePool budget can be zero at the start of a pass through an active `nodes: 0`
   schedule, not only through in-flight disruptions. The rounds found 88, 31, 18 and 6 problems; the RFC is left
   there, with its Exp 9 note to be updated when the 1,000-node group finishes.
+- **Exp 9 complete (Nov 1, 23:30 UTC).** 290 of 290 cells valid, none failed, one VM throughout. The 1,000-node
+  results differ from the 200-node ones in two ways the write-up states: early stopping saves more (37% of mean
+  CPU per pass on W1, against 17% at 200 nodes) because the early-stop arm also searches on fewer passes (checked
+  in the decision logs: 14% more passes, 17% fewer searching cycles, 28% fewer executing cycles per run), and
+  biased selection ends 2.8% cheaper than uniform selection with 13% fewer evictions where at 200 nodes it was
+  unresolved on cost. Against the heuristic at 1,000 nodes the early-stop arms are 2.5 to 5.2% cheaper and spend
+  37 to 54% less mean CPU per pass for about twice the evictions, and the per-searching-pass gap narrows to 1.3 to
+  1.5 times. `experiments/RESULTS.md`, "Exp 9", holds every number; the paper's sections 7 and 9, the refactor
+  document's findings section and the RFC's open question 6 were updated from it.
