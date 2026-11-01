@@ -709,6 +709,18 @@ the ten-seed means above by up to 11%.) Four mechanisms, each visible in the cod
    each of its simulations copies twice the nodes and its single-node scan has twice the candidates. Some of its
    higher per-pass cost there is the fleet, not the algorithm.
 
+Exp 9 (`experiments/RESULTS.md`, "Exp 9"; run after this section was first written) tested the second mechanism
+directly by letting each random generator stop after 50 consecutive attempts that produced nothing. Attempts per
+searching pass fell by 75 to 85% at 200 nodes and by 79% at 1,000, but the CPU of a searching pass fell by only 13 to
+27% at 200 nodes and 13% at 1,000: the 16 simulations, the scoring and the planning, not the blind attempts, are most
+of a random search's cost, which is the third mechanism's point. The mean per pass fell more, by 13 to 31% at 200
+nodes and 37% at 1,000, because at 1,000 nodes the early-stop arm also searched on 27% fewer of its passes (the first
+mechanism, now working in its favor), with steady-state cost unresolved within about 2% at both sizes. On the diurnal
+workload at 200 nodes that brings the mean per pass level with the heuristic's (-2.2%, interval -5.9% to +2.8%) while
+the searching pass still costs five times as much. Weighting the candidate draw by the potential drop from emptying
+each node added no CPU saving on top of early stopping; at 1,000 nodes it ended 2.8% cheaper than the uniform draw
+with 13% fewer evictions, and at 200 nodes it was unresolved on cost.
+
 The tail follows from the first two points: a random pass is either skipped or costs its full budget, so its
 distribution is bimodal, with a 95th percentile three to six times its mean against 1.6 to 3.4 for the heuristic,
 and a fixed per-pass time limit binds on that tail even where the mean is low. On the cluster the same shape shows
@@ -727,7 +739,8 @@ shifts and once by the removal.
 The lesson generalizes. "Random" saves the cost of *ordering* candidates, which is small, and gives up the
 *information* the ordering carries, which is what lets a search stop early and spend its simulations on prefixes
 that are likely to work. A smarter search is cheaper when its smartness prunes work. The savings-ratio order and
-the prefix binary search do exactly that; a fixed budget of blind attempts cannot.
+the prefix binary search do exactly that; a fixed budget of blind attempts cannot, and stopping the attempts once they
+run dry (Exp 9) removes the waste but not the gap, because the simulations, not the attempts, are the cost.
 
 ## 8. Discussion
 
@@ -797,6 +810,12 @@ nothing about them without one.
 - **Fix and run the constrained workload.** Serve label-selector pod lists from the simulator's index so W5 costs
   what it should, then run it for every configuration. Section 3.4's one run suggests the result will dwarf the
   other experiments' effects.
+- **Spend fewer simulations, not fewer attempts.** Exp 9 settled the attempts question: stopping a random generator
+  after 50 idle attempts removes three quarters of its attempts and 13 to 37% of its mean CPU per pass at no cost,
+  and it is already in the generators (`idleAttempts`). What is left of the gap is the 16 simulations a random
+  search spends on every searching pass. The next experiment caps simulations per generator, confirms merges with
+  the fast check and simulates only the planner's choice, and runs the potential-weighted draw at 1,000 nodes on
+  the other workloads, where it was the one selector that ended cheaper.
 - **Test steering as a product feature.** Section 6.5's lever is a small change (a preferred node affinity on
   replacement pods, or a documented `MostAllocated` profile) with a measured 29 to 72% effect on plan fidelity.
 - **Value shifts over time, not at once.** A shift's energy should price the delay until its source is removed,
