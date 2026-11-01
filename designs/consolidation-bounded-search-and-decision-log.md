@@ -90,8 +90,8 @@ controller cannot answer today. That instrument is what this RFC proposes to car
    hour. The decision log shows every probe that touched X in each pass, its predicted savings, and the reason it
    lost: `no-op` (the simulation found no cheaper placement), `replacement not cheaper` (`filterOutSameInstanceType`
    left no instance type), `evaluator rejected` (Balanced), `nodepool budget` (skipped by its NodePool's budget),
-   `validation: churn`, or an `unreached` count in the round summary, the candidates the budget cut off before the
-   scan got to them.
+   `below threshold` (skipped by Balanced's `CanPassThreshold` pre-filter), `validation: churn`, or an `unreached`
+   count in the round summary, the candidates the budget cut off before the scan got to them.
 4. **Measuring plan fidelity in the field.** A consolidation command is a bet that evicted pods will land where the
    simulation put them. The research branch measured that bet in the simulator: under default kube-scheduler scoring,
    upstream's own commands landed on plan for 45% of evicted pods (paper.md, section 6.5). Nothing in the controller
@@ -142,8 +142,9 @@ RFC ships the coarse form only; the fine form is Alternative 5 and Open Question
    `maxFullSimulations` default to 0 and `timeout` to empty; each means no pipeline-level bound, leaving the adapters'
    own one- and three-minute limits as today. When set, the search stops at the budget or at today's one- and
    three-minute deadlines, whichever comes first; the observer described in How It Works adds a `UseFull()` check to
-   upstream's loops and removes neither limit. Whenever the budget binds first, the same cluster state gives the same
-   decision on any machine, and a strategy's cost is counted, not only timed;
+   upstream's loops and removes neither limit. Whenever the budget binds first, what a pass finds no longer depends on
+   the machine's speed: the same cluster state gives the same decision on any machine, up to upstream's own NodePool
+   interleaving (Edge Cases, A multi-NodePool cluster), and a strategy's cost is counted, not only timed;
    `consolidation_timeouts_total{consolidation_type="multi"|"single"}` shows the passes where a deadline bound
    instead. `maxFullSimulations` counts the search's simulations only. The validation simulation that follows an
    accepted command (at most one per method per pass) is not counted and is never refused, so a pass runs at most
@@ -169,7 +170,7 @@ RFC ships the coarse form only; the fine form is Alternative 5 and Open Question
 | Flag | `--consolidation-pipeline-config`, env `CONSOLIDATION_PIPELINE_CONFIG`, default empty |
 | Flag value | A file path, or the configuration inline. A value that starts with `{` or `pipeline:`, or spans more than one line, is parsed inline as YAML or JSON; any other value is read as a file path (`LoadConfig`). A one-line bare form such as `search: {maxFullSimulations: 16}` is therefore read as a path and fails at startup; wrap it in `pipeline:` or write it on more than one line |
 | Empty value | The upstream adapters, no budget, no-op recorder: today's decisions |
-| Invalid value | Karpenter fails at startup with the parse or validation error |
+| Invalid value | Karpenter fails at startup: with the parse or validation error for inline or file content, or with the file-read error when the value is read as a path that cannot be read (the one-line bare form above included) |
 
 **Configuration schema** (complete for this RFC):
 
@@ -321,7 +322,7 @@ Decision log):
 | `disruption`, `savings_per_hour` | float | The move's scores |
 | `accepted` | bool | The stage's verdict |
 | `reason` | string | Why not. With the observer of How It Works: `no-op`, `replacement not cheaper`, `evaluator rejected`, `nodepool budget`, `below threshold`, `validation: budget|scheduling|churn`. From the pipeline's own stages under the upstream adapters: `not accepted`, `not selected`, `node budget for default: 2 > 1`. The branch's `not downhill` and `conflicts with m4` come from planners that do not ship |
-| `budget_remaining` | int | Simulations left in the pass after this event. Reserved on the branch today and never set (consolidation-pipeline.md, Open Question 10); this RFC makes it required, -1 when `maxFullSimulations` is 0 |
+| `budget_remaining` | int | Simulations left in the pass after this event. Reserved on the branch today and never set (consolidation-pipeline.md, Open Question 10), so version 1 always carries 0; from schema version 2 (the version that adds `bindings`) this RFC sets it on every event: the count, or -1 when `maxFullSimulations` is 0 |
 | `detail` | map[string]float | Stage-specific numbers. Candidates summary: `sources`, `destinations`, `candidates`. Round summary: `moves`, `attempts`, `full_simulations`, `timed_out`, `exhausted`, and with the observer `unreached`, `budget_skipped` and `threshold_skipped`. Per move: `launch`, `remove`, `energy` (0 under the `none` potential), `norm_disruption`, `norm_savings` |
 
 A move's `bindings` (pod, from, planned destination) are not in the version 1 schema; a per-pod planned destination is
@@ -424,24 +425,29 @@ search skips are not attempts, but each is one `Record()` call with no command: 
 `firstNConsolidationOption` runs; the round summary counts them as `budget_skipped` and `threshold_skipped`. The
 validators' own `SimulateScheduling` is outside the budget, so whatever the search accepted is always validated;
 `ComputeCommands` calls `Record()` once more with the validation verdict (`validation: budget|scheduling|churn`). A
-budget stop does not increment `consolidation_timeouts_total`; `consolidation_search_stopped_total` counts it.
-`Record()` goes through `Method.record`, which converts a `SearchProbe` into a `DecisionEvent`, so every event carries
-`run_id`, `cycle` and `t`; the adapters reach it through a new `Env.Record func(DecisionEvent)` that `newMethod` sets
-to `m.record`, since `Env` today carries only the raw `Recorder` sink and no handle on the `Method`. The header of
-`pipeline_hooks.go`, which today says nothing in the file changes behavior, changes to say that with a nil observer
-nothing does.
+budget stop does not increment `consolidation_timeouts_total`; `consolidation_search_stopped_total` counts it. The
+pipeline's `SearchObserver` implementation converts each `SearchProbe` into a `DecisionEvent` and passes it to
+`Method.record`, which stamps `schema_version`, `run_id`, `cycle` and `t` on it as it does for the round's own events;
+the adapters reach it through a new `Env.Record func(DecisionEvent)` that `newMethod` sets to `m.record`, since `Env`
+today carries only the raw `Recorder` sink and no handle on the `Method`. The header of `pipeline_hooks.go`, which
+today says nothing in the file changes behavior, changes to say that with a nil observer nothing does.
 
 Two further changes in the loops go with the observer. A search stopped by the budget before any accepted prefix sets
 `constrainedByBudgets`, in both methods, so neither marks the cluster consolidated and the next pass searches again
-with a fresh budget; today a multi-node deadline expiry with no accepted prefix does mark it, through the no-op path,
-and `IsConsolidated` then skips multi-node until the cluster state changes. And the single-node scan under a budget
-resumes after the last candidate it reached, wrapping around (a cursor on `SingleNodeConsolidation`, as the fine
-adapter's `resumeAfter` does: set only when `UseFull()` is refused, to the candidate before the refused one whether
-that one was simulated or skipped, kept at its old value when the refusal comes before any candidate, cleared when the
-next scan starts, not set on a deadline stop, and ignored when the named candidate is no longer a candidate), so a
-capped scan covers every candidate over successive passes; without it a binding budget would re-simulate the same
-leading candidates every pass and leave the tail of the savings-ratio order unreachable, because the scan restarts
-from the top each pass and `PreviouslyUnseenNodePools` reorders NodePools only, not candidates within a pool.
+with a fresh budget; today a multi-node deadline expiry with no accepted prefix goes through the no-op path, which
+marks it whenever no NodePool budget held a candidate back (`if !constrainedByBudgets { m.markConsolidated() }`; rare
+under a 10% budget, usual under a permissive one), and `IsConsolidated` then skips multi-node until the cluster state
+changes. And the single-node scan under a budget resumes after the last candidate it reached, wrapping around (a
+cursor on `SingleNodeConsolidation`, as the fine adapter's `resumeAfter` does: set only when `UseFull()` is refused,
+to the candidate before the refused one whether that one was simulated or skipped, kept at its old value when the
+refusal comes before any candidate, cleared when the next scan starts, not set on a deadline stop, and ignored when
+the named candidate is no longer a candidate; a budget stop sets `PreviouslyUnseenNodePools` as a completed scan does,
+again as the fine adapter does), so consecutive capped scans that find nothing walk on through the candidate order
+instead of restarting at its head. This is a progress rule, not a coverage guarantee: a scan that executes a command
+or stops on the deadline leaves no cursor, and with several NodePools the interleaving can change between passes.
+Without it a binding budget would re-simulate the same leading candidates every pass and leave the tail of the
+savings-ratio order unreachable, because the scan restarts from the top each pass and `PreviouslyUnseenNodePools`
+reorders NodePools only, not candidates within a pool.
 
 This is the one change on the hot path of both searches, and none of it exists on the branch yet: the risk is new code
 inside the two loops that every consolidation pass runs. The mitigations are the nil observer with the gate off, which
@@ -455,8 +461,9 @@ budget without touching the loops.
 candidates until a probe is refused, then keeps the best prefix found so far; if that is nothing, the pass moves to
 the single-node round with whatever budget is left. The single-node scan stops at the candidate it has reached and
 records its cursor. In both cases the pass emits whatever was accepted before the budget ran out, validated, and the
-round summary records `exhausted: 1` with the attempts and simulations spent and `unreached` with the candidates not
-simulated.
+round summary records `exhausted: 1` with the attempts and simulations spent and `unreached` with the candidates the
+budget cut off before the search reached them (candidates the search skipped on the way are counted under
+`budget_skipped` and `threshold_skipped` instead).
 
 **The recorder.** `Recorder.Record(DecisionEvent)` is called synchronously at each stage. On the branch today the
 controller always installs `LogRecorder`, a logr logger named `consolidation-pipeline` that writes every event at
@@ -469,8 +476,11 @@ buffered, with size rotation; under load it slows the pass rather than dropping 
 events would be incomplete for the pass it describes; a write error disables the recorder for the rest of the process
 with one log line, and is never returned to the method. A recorder can never fail a pass: the method does not look at
 anything the recorder returns. No Go map iteration order reaches a logged list and the JSON encoder sorts `detail`'s
-keys, so the same cluster state, configuration and commit produce byte-identical event sequences; the simulator's
-`TestDeterminism` checks this on `JSONLRecorder` (consolidation-pipeline.md, Decision log).
+keys, so in the simulator, where the clock is fake, there is one NodePool and `UpstreamOptions.OrderCandidates` fixes
+candidate order, the same seed, configuration and commit produce byte-identical logs; the simulator's
+`TestDeterminism` checks this on `JSONLRecorder` (consolidation-pipeline.md, Decision log). In the controller `t` is
+real time and `cycle` counts passes, and with more than one NodePool the single-node scan order is Go map order (Edge
+Cases), so two passes on the same state log the same decisions, not the same bytes.
 
 **Code changes this RFC asks for**, beyond carrying the core `pipeline` package: (1) `SearchBudget` built once per
 pass in `Method.ComputeCommands` and forked per round; (2) the `SearchObserver` hook in `firstNConsolidationOption`
@@ -637,8 +647,8 @@ The search budget is the one new interaction. With `maxFullSimulations` set, the
 before its window closes and the single-node scan before its candidates run out, so a pass under a budget may
 consolidate less than an unbounded pass would. Without the resume cursor a binding budget would re-simulate the same
 leading candidates every pass and leave the tail of the candidate list unreachable. That is the point of the budget,
-and it is the same behavior as today's deadlines, except that it is counted, and deterministic whenever the budget
-binds before a deadline; when a deadline binds first it is today's behavior.
+and it is the same behavior as today's deadlines, except that it is counted, and machine-independent up to the
+NodePool interleaving whenever the budget binds before a deadline; when a deadline binds first it is today's behavior.
 
 ### Observability
 
@@ -651,7 +661,7 @@ exists on the branch (`pkg/controllers/disruption/metrics.go`). All are in the `
 | `consolidation_search_attempts_total` | counter | `consolidation_type`, `strategy` | Generation attempts (`SearchBudget.Next` calls: with the observer, one per multi-node probe and one per single-node candidate simulated) |
 | `consolidation_full_simulations_total` | counter | `consolidation_type`, `strategy` | Scheduling simulations the search ran; validation simulations are not counted |
 | `consolidation_search_stopped_total` | counter | `consolidation_type`, `limit` (`attempts`, `full_simulations`, `timeout`) | Passes whose search stopped at a budget. `timeout` is the pipeline's own `search.timeout`; upstream's one- and three-minute deadlines keep incrementing `consolidation_timeouts_total`. This is the metric for pipeline search timeouts the pipeline RFC's beta criteria ask for (consolidation-pipeline.md, Graduation Criteria, item 4); today timeouts and exhaustion are recorded only in the decision log (consolidation-pipeline.md, Observability) |
-| `consolidation_moves_considered_total` | counter | `consolidation_type`, `stage`, `outcome` (`accepted`, `no_op`, `not_cheaper`, `evaluator`, `budget`, `validation`, `other`) | Probes and moves by the verdict each stage gave them. `outcome` buckets the decision log's `reason`; `not_downhill` and `conflict` are reserved for planners that do not ship in this RFC |
+| `consolidation_moves_considered_total` | counter | `consolidation_type`, `stage`, `outcome` (`accepted`, `no_op`, `not_cheaper`, `evaluator`, `budget`, `threshold`, `validation`, `other`) | Probes and moves by the verdict each stage gave them. `outcome` buckets the decision log's `reason` (`threshold` is `below threshold`, kept apart from `evaluator` as `threshold_skipped` is in the round summary); `not_downhill` and `conflict` are reserved for planners that do not ship in this RFC |
 | `consolidation_search_budget_remaining` | gauge | `consolidation_type` | Simulations left when the last pass ended; 0 means the budget bound. Not set when `maxFullSimulations` is 0 |
 
 `stage` and `strategy` are new labels with values `candidates`, `moves`, `plan`, `execute` and the registered adapter
@@ -662,27 +672,34 @@ its `multi` and `single` labels, because the wrapped upstream methods emit it.
 scheduling simulation is one `moves` event: at most 7 for the multi-node binary search plus one per single-node
 candidate simulated, 3.5 to 11.1 per searching pass on the research branch's heuristic arm (paper.md, section 7,
 second table), bounded by `maxFullSimulations` when it is set and by the candidate count (hundreds at 1,000 nodes)
-when it is not; a random generator emitted up to 149 moves per searching pass at 200 nodes. Neither belongs at V(1).
-The `log` recorder therefore writes the round summary (one line per generator per pass: attempts, simulations, moves,
-stopped-at) at V(1) and per-move events at V(2), and the `file` recorder is the sink for anyone who wants every event
-without raising the log level. The research branch's decision logs are in `experiments/runs/*/*/decisions.jsonl.gz`
-(group, then run); the simulator and Karpenter write the same schema.
+when it is not. Each candidate the search skips is one more `moves` event, with reason `nodepool budget` or `below
+threshold`, and `maxFullSimulations` does not bound those: the multi-node filter records one for every candidate past
+its NodePool's budget, so under a 10% budget they alone run to hundreds per pass at 1,000 nodes (864 candidates there;
+Motivation), whatever the cap. A random generator emitted up to 149 moves per searching pass at 200 nodes. None of it
+belongs at V(1). The `log` recorder therefore writes the round summary (one line per generator per pass: attempts,
+simulations, moves, stopped-at) at V(1) and per-move events at V(2), and the `file` recorder is the sink for anyone
+who wants every event without raising the log level. The research branch's decision logs are in
+`experiments/runs/*/*/decisions.jsonl.gz` (group, then run); the simulator and Karpenter write the same schema.
 
 **Events.** Upstream's `Unconsolidatable`, `ConsolidationApproved` and `ConsolidationRejected` events are emitted by
-the code the adapters call. One addition: `BuildSnapshot` calls `podutils.IsDisruptable` with the event recorder, so a
-malformed `karpenter.sh/do-not-disrupt` annotation value is reported once more per pass than today
-(consolidation-pipeline.md, Edge Cases, Gate on flag empty). The snapshot's cost under the coarse adapters is Open
-Question 7.
+the code the adapters call. One addition: `BuildSnapshot` calls `podutils.IsDisruptable` with the event recorder for
+every pod on every node, so a malformed `karpenter.sh/do-not-disrupt` annotation value is published once more per
+round than today: once more in a pass whose multi-node round executes, twice more in a pass that goes on to the
+single-node round (Open Question 7; consolidation-pipeline.md, Edge Cases, Gate on flag empty). The candidate re-fetch
+before that round publishes it too, but so does today's per-method `GetCandidatesWithTotals` in `disrupt()`, so it
+adds nothing over today; and the recorder dedupes the event per pod and message for two minutes, so the extra
+publishes seldom become extra Kubernetes events. The snapshot's cost under the coarse adapters is Open Question 7.
 
 ### Edge Cases
 
 - **The budget runs out mid-pass.** The multi-node search keeps its best accepted prefix and stops; if no prefix was
   accepted the pass moves to the single-node round with the budget that is left. A search stopped by the budget sets
   `constrainedByBudgets` in both methods, so neither marks the cluster consolidated and the next pass searches again
-  with a fresh budget (today a multi-node deadline expiry with no accepted prefix does mark it, through the no-op
-  path). The single-node scan stops at the current candidate and records its cursor. Whatever was accepted is
-  validated and emitted; nothing is emitted unvalidated. The round summary records `exhausted: 1` and the metric
-  `consolidation_search_stopped_total{limit="full_simulations"}` increments.
+  with a fresh budget (today a multi-node deadline expiry with no accepted prefix goes through the no-op path, which
+  marks it unless a NodePool budget held a candidate back). The single-node scan stops at the current candidate and
+  records its cursor. Whatever was accepted is validated and emitted; nothing is emitted unvalidated. The round
+  summary records `exhausted: 1` and the metric `consolidation_search_stopped_total{limit="full_simulations"}`
+  increments.
 - **The budget is smaller than one probe.** Under the per-pass budget this RFC introduces, `maxFullSimulations: 1`
   lets the multi-node search run exactly one simulation (its first prefix) and the single-node scan none; on the
   branch today, where each sequential round builds its own budget, the fine adapters would let the single-node round
@@ -691,10 +708,10 @@ Question 7.
   not counted and is never refused, so a pass runs at most `maxFullSimulations` plus one validation simulation per
   method. The configuration is accepted; the decision log shows what it cost. A value below 0 is a startup error.
 - **The recorder blocks or errors.** `Record` is synchronous, so a slow sink slows the pass. The `file` recorder is a
-  buffered synchronous append, so under load it slows the pass rather than dropping events, and its output stays
-  byte-identical for the same decisions. A write error disables the recorder for the rest of the process, with one log
-  line, and is never returned to the method. A recorder can never fail a pass: the method does not look at anything
-  the recorder returns.
+  buffered synchronous append, so under load it slows the pass rather than dropping events, and buffering changes when
+  bytes reach the file, not which. A write error disables the recorder for the rest of the process, with one log line,
+  and is never returned to the method. A recorder can never fail a pass: the method does not look at anything the
+  recorder returns.
 - **The gate is flipped at runtime.** Feature gates are read at startup. Changing the gate or the configuration
   requires a restart, as every Karpenter feature gate does. Because this RFC ships no shift executor, nothing is left
   on nodes when the gate is turned off (the shift-source taint problem of consolidation-pipeline.md, Open Question 2,
@@ -714,19 +731,21 @@ Question 7.
 ### Alternative 1: Keep the time deadline only
 
 Leave `MultiNodeConsolidationTimeoutDuration` and `SingleNodeConsolidationTimeoutDuration` as the only bounds. This is
-today. It has no cost and no benefit: decisions keep depending on the machine, the one-minute limit stays the only
-bound on constrained clusters (whether it binds there stays unmeasured; no session pass reached it, and the slowest,
-52.3 s, was a simulator-inflated pass on the constrained workload W5; RESULTS.md, H7, Scaling; paper.md, section 3.4),
-and there is still no way to say how much work a pass did. Rejected because the budget is a strict addition: with the
-budget unset the deadline is all there is, exactly as today.
+today. It has no cost and no benefit: decisions keep depending on the machine, the two time limits and the
+100-candidate window stay the only bounds on constrained clusters (whether either time limit binds there stays
+unmeasured; no session pass reached one, and the slowest, 52.3 s, was a simulator-inflated pass on the constrained
+workload W5; RESULTS.md, H7, Scaling; paper.md, section 3.4), and there is still no way to say how much work a pass
+did. Rejected because the budget is a strict addition: with the budget unset the deadline is all there is, exactly as
+today.
 
 ### Alternative 2: Keep one log line per command (today's logging)
 
 Add fields to `Queue.StartCommand`'s existing "disrupting node(s)" log line and the `Unconsolidatable` events instead
 of a structured per-move record. This cannot answer "why not" for a node the search never probed, cannot show the
-probes a search made before it accepted a command, and cannot carry per-pod planned destinations. The paper's section
-7 analysis, which needed per-pass attempts, simulations and moves, is not possible from it. Rejected; the decision log
-subsumes it and its default recorder is a no-op.
+multi-node prefixes a search tried before it accepted a command or any probe's predicted savings (the
+`Unconsolidatable` events already name single-node candidates that lost, as the Motivation says), and cannot carry
+per-pod planned destinations. The paper's section 7 analysis, which needed per-pass attempts, simulations and moves,
+is not possible from it. Rejected; the decision log subsumes it and its default recorder is a no-op.
 
 ### Alternative 3: A full strategy plugin API now
 
@@ -784,7 +803,8 @@ the alternative with the evidence behind it.
 - **Rollback.** Turning the gate off restores today's methods at the next start. Nothing is left on cluster objects.
 - **Configuration.** The flag is new, so existing deployments are unaffected. There is no CRD, NodePool or annotation
   change. Configuration errors fail at startup, never silently.
-- **The decision log schema** is versioned from 1; version 2 adds `bindings`. Consumers read `schema_version` first.
+- **The decision log schema** is versioned from 1; version 2 adds `bindings` and gives `budget_remaining` its meaning.
+  Consumers read `schema_version` first.
 
 ## Graduation Criteria
 
@@ -804,14 +824,16 @@ log volume at V(2) is unmeasured on large clusters.
    controller that the RFC author triages until beta, with no unexplained mismatch, including the budget-capped states
    added for the observer.
 2. An equivalence check on KWOK: the gate on with the default configuration against the gate off, on the Tier B
-   harness (`experiments/tierb/`), for at least 30 seeds, with two one-sided paired tests at a 3% margin (the margin
-   B4's simulator check used; RESULTS.md, B4) passing on end cost and on evictions, and, for every gate-on pass that
-   executed, the `execute` event's command equal to the command `Queue.StartCommand` logged for that pass (the log and
-   the controller agree on what ran, through the adapter's conversion and back); decision-level parity against
-   upstream remains `TestParity`'s job, since a live run cannot replay one state under both methods. Thirty is the
-   seed count paper.md, section 9, estimates for resolving a 2% difference in end cost at 200 nodes, from the ±4.7%
-   median interval at five seeds; at five seeds the B4-versus-upstream interval on end cost was ±2.9% at 200 nodes
-   (RESULTS.md, Tier B). Thirty is derived from that estimate, not a measured requirement.
+   harness (`experiments/tierb/`), for at least 30 seeds, with two one-sided paired tests at a 3% margin on end cost
+   (the margin B4's simulator check used; RESULTS.md, B4) passing, and on evictions a paired 95% interval that
+   includes zero (Tier B's five-seed B4-versus-upstream evictions half-width was ±13% at 200 nodes and ±59% at 50,
+   paper/tables/tierb_paired.md, so no 3% equivalence margin on evictions is reachable at 30 seeds), and, for every
+   gate-on pass that executed, the `execute` event's command equal to the command `Queue.StartCommand` logged for that
+   pass (the log and the controller agree on what ran, through the adapter's conversion and back); decision-level
+   parity against upstream remains `TestParity`'s job, since a live run cannot replay one state under both methods.
+   Thirty is the seed count paper.md, section 9, estimates for resolving a 2% difference in end cost at 200 nodes,
+   from the ±4.7% median interval at five seeds; at five seeds the B4-versus-upstream interval on end cost was ±2.9%
+   at 200 nodes (RESULTS.md, Tier B). Thirty is derived from that estimate, not a measured requirement.
 3. The decision log schema is documented in `designs/` with its version, and a change to it bumps the version in the
    same PR.
 4. The metrics above reviewed by the SIG, with `consolidation_search_stopped_total` and
@@ -906,4 +928,5 @@ takes up.
   test), `pkg/controllers/disruption/pipeline_hooks.go`, `pkg/controllers/disruption/multinodeconsolidation.go` and
   `singlenodeconsolidation.go` (the loops the observer would enter), `pkg/controllers/controllers.go`
   (`disruptionMethods`), `pkg/operator/options/options.go`, `hack/consolidation-sim`, `test/suites/performance/`.
+
 

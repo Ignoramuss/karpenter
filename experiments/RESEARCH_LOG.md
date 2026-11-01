@@ -971,3 +971,16 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   an owner and a cadence; the snapshot is built once per round, not per pass; the `cycle` field is the pass
   counter; the config flag's path-versus-inline rule is stated. Rejected findings were matters of taste, already
   marked proposals, or wrong on the code; they are in the workflow transcript.
+- **RFC third review round (Nov 1, 21:20-21:40 UTC).** One checker read the 31 applied fixes against the rest of
+  the document and one maintainer read it fresh, each verified: 19 findings, 18 confirmed, all applied. They were
+  mostly consequences of the second round: the log-volume estimate now counts the skip events the observer records
+  (which the simulation cap does not bound); today's no-op path marks the cluster consolidated only when no NodePool
+  budget held a candidate back, so the benefit of the budget-stop rule is stated against that; the single-node
+  resume cursor is a progress rule, not a coverage guarantee, and a budget stop sets `PreviouslyUnseenNodePools`
+  as a completed scan does; machine-independence under a binding budget holds up to upstream's NodePool
+  interleaving; byte-identical logs are the simulator's property (fake clock, one NodePool, fixed candidate
+  order), the controller logs the same decisions, not the same bytes; `budget_remaining` gets its meaning in
+  schema version 2 rather than silently changing version 1; the beta soak's evictions criterion is an interval
+  that includes zero, since a 3% equivalence margin on evictions is unreachable at 30 seeds (Tier B's five-seed
+  half-widths were ±13% and ±59%); and the `SearchProbe` conversion happens in the pipeline's observer, not in
+  `Method.record`.
