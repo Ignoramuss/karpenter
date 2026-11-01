@@ -696,9 +696,14 @@ not supported.
 W4; evictions -36.6% [-41.7, -30.9], -21.0% [-29.5, -13.2], -35.3% [-44.6, -24.8]; mean CPU per pass -42.0% [-46.5,
 -37.2], -59.2% [-60.9, -57.5], -33.1% [-37.5, -26.8]; share of passes that search -38.4% [-46.5, -28.2], -22.4%
 [-28.5, -15.2], -32.8% [-42.4, -19.6]; moves emitted per searching pass +97% [+79, +117], +197% [+146, +258], +80%
-[+57, +103]. It finds more per search (its sources are listed emptiest first) and searches less often (a deterministic
-selector that finds nothing leaves the pipeline's gate closed until the cluster changes), spends a third fewer
-evictions, and ends 6 to 8% dearer on the two workloads where the random reference ends cheaper than the heuristic.
+[+57, +103]. The decision logs show why it is a different point: a destination for `util-band` is a node above the
+fleet's mean utilization and below 95% full, and on a consolidated fleet there often is none. Over the ten seeds it
+had sources but no destination on 69% of its searching passes on W1 (885 of 1,283), 64% on W2 and 31% on W4. On those
+passes `random-shift` has nowhere to move pods and `random-merge` can only merge onto replacement nodes through a
+full simulation, so the pass emits one or two moves from about 490 attempts; on the passes with destinations it
+emits 114 (W1), 221 (W2) and 35 (W4) moves per search, its sources listed emptiest first. The net is a third fewer
+evictions, less CPU, and 6 to 8% more cost on the two workloads where the random reference ends cheaper than the
+heuristic. A threshold above 95%, or a destination rule that admits full nodes for merges, is the obvious follow-up.
 
 ### Guided shifts (E3): mixed
 
