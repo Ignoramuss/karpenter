@@ -684,8 +684,9 @@ per search: a shorter search finds a less complete set of moves, and the planner
 [-5.0, +21.2], -1.7% [-4.5, +1.2], +1.2% [-3.8, +7.2]), p95 CPU per pass lower on W2 only (-12.4% [-16.7, -8.4]).
 It emits fewer moves per searching pass (-20.1% [-29.2, -10.8], -24.6% [-32.3, -16.5], -13.1% [-19.3, -6.8]) and
 leaves more nodes at the end (+19.4% [+11.6, +26.5], +15.0% [+9.9, +20.5], +24.3% [+13.7, +36.4]) at the same cost,
-so smaller ones: weighting sources by the potential drop from emptying them steers the merges toward the nodes whose
-removal lowers the potential most, which are not the ones whose removal saves most. Combined with early stopping,
+so smaller ones. A plausible reading, not traced in the logs: weighting sources by the potential drop from emptying
+them favors the nodes whose removal lowers the potential most, which need not be the ones whose removal saves most.
+Combined with early stopping,
 `weighted/idle-50` against `random/entropy-greedy` cuts mean CPU per pass by -14.7% [-21.3, -8.2], -32.1% [-35.8,
 -27.8] and -7.7% [-15.1, +0.1], against -17.2%, -31.1% and -13.3% for early stopping alone: the bias adds nothing to
 the saving, and its attempts per searching pass (157, 234, 147) are the same as the unbiased early-stop arm's. E2 is

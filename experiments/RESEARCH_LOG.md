@@ -942,3 +942,20 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   fidelity metric moved to an open question; beta's soak criterion as an equivalence test at a 3% margin rather
   than a failure to reject. The 85 vs 56 ms figure is the planner continuing past the first acceptable move, not
   the gating rule. The revision is in progress; a second review round follows it.
+- **Exp 9, 200-node group complete (Nov 1, 20:51 UTC).** 240 of 240 cells, none failed, none invalid; the
+  1,000-node group started at once. The 200-node stratum was analysed on its own (`paper/analysis/exp9.py`, run
+  to a scratch directory) because it is complete and the protocol's rules do not depend on the other stratum;
+  `experiments/RESULTS.md`, "Exp 9", holds the write-up with a pending paragraph for 1,000 nodes. Headline:
+  early stopping cut attempts per searching pass by 75 to 85% and mean CPU per pass by 13 to 31% against the
+  random reference with cost unresolved within about 2% and evictions up 7 to 9% on W1 and W2; biased selection
+  added nothing on top of it (E2 not supported); the band selector is a different operating point (a third fewer
+  evictions, 6 to 8% dearer on W1 and W4); guided shifts helped on W1 only (E3 mixed); the per-searching-pass gap
+  to the heuristic stayed at 3 to 6 times (E4 holds), though early stopping brought the mean per pass on W2 level
+  with the heuristic.
+- **Post hoc: why `util-band` behaves as it does (Nov 1, 21:00 UTC).** The first draft of the band paragraph
+  guessed a gating mechanism. Checked against the decision logs before committing further: the real reason is
+  that a `util-band` destination must be above the fleet's mean utilization and below 95% full, and on a
+  consolidated fleet there often is none (no destination on 69% of its searching passes on W1, 64% on W2, 31% on
+  W4). The paragraph now states that and nothing about the gate. The interpretation of the weighted selector's
+  extra small nodes ("steers merges toward the nodes whose removal lowers the potential most") is an
+  interpretation of the measured final-node counts, not a traced mechanism, and is worded as such in the results.
