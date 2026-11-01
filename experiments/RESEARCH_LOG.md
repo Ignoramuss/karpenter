@@ -959,3 +959,15 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   W4). The paragraph now states that and nothing about the gate. The interpretation of the weighted selector's
   extra small nodes ("steers merges toward the nodes whose removal lowers the potential most") is an
   interpretation of the measured final-node counts, not a traced mechanism, and is worded as such in the results.
+- **RFC second review round (Nov 1, 20:25-21:25 UTC).** The revised draft (`afb6542`) went through the same four
+  lenses with a stricter verifier: 57 findings, 31 confirmed, all applied. The important ones: single-node
+  consolidation marks the cluster consolidated after a completed scan (it never decrements the budget mapping), so
+  "both methods skip `markConsolidated` nearly always" was wrong and is now stated per method; skipped candidates
+  under the proposed observer are recorded with a reason (`nodepool budget`, `below threshold`) rather than only
+  counted, so the use case and the schema agree; `nonePotential` and the `Potential` interface stay (the scorer
+  holds one), so `potential.go` is not dropped whole; the subset's size is about 5,800 lines once the parity
+  harness, catalog, conformance and synthetic helpers the kept tests need are counted; the beta soak's log check
+  is against what the queue logged, not against upstream (a live run has no upstream twin); the parity CI job gets
+  an owner and a cadence; the snapshot is built once per round, not per pass; the `cycle` field is the pass
+  counter; the config flag's path-versus-inline rule is stated. Rejected findings were matters of taste, already
+  marked proposals, or wrong on the code; they are in the workflow transcript.
