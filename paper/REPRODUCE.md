@@ -23,6 +23,9 @@ the session driver's records (`experiments/session-driver/`).
 | Tier B: WB scenario, Tier A binary and controller image (after the session) | `eff89a17bb3a7c22ac2db77621d72d96f2843215` |
 | Tier B: protocol as run (`experiments/TIERB.md`; first version in `eff89a1`, revised after the harness review and the smokes) | `8ef3481` |
 | Tier B: KWOK spec and driver as they ran (`tierb_test.go`, `run_tierb.py`) | `bd2619e` |
+| Exp 9: protocol (`experiments/EXP9.md`), matrix (`experiments/matrix/exp9.yaml`) and the `idleAttempts` generator parameter | `5aff11e` |
+| Exp 9: simulator binary (`experiments/exp9-binary.txt`; each manifest's `binary_revision`; built from a clean clone with Go 1.26.10) | `5aff11eade9e9ed5d71eee8a251c8be2897e5d0f` |
+| Exp 9: run driver (`experiments/run_exp9.sh`) and analysis module (`paper/analysis/exp9.py`) | `97c1a92`, `b1ad08c` |
 
 ## Hardware and software of the session
 

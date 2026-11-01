@@ -124,9 +124,9 @@ Registered strategies (every one is selectable by name; the defaults when the fl
 | 1 | `util-band` | sources below the fleet's mean utilization, destinations above it |
 | 1 | `potential-weighted` | sources sampled in proportion to the potential drop from emptying them |
 | 2 | `upstream-multi`, `upstream-single` (default, `mode: coarse`) | the upstream searches. Coarse mode wraps upstream's own `ComputeCommands`; fine mode re-implements the search in stages so the planner can be swapped |
-| 2 | `random-merge` | pick 1 to 3 random sources, first-fit their pods into a random order of destinations, optionally confirm with a full simulation |
-| 2 | `random-shift` | move 1 to 4 random pods from a source to a fuller destination |
-| 2 | `greedy-shift` | per sampled node pair, the pod set that most lowers the potential |
+| 2 | `random-merge` | pick 1 to 3 random sources, first-fit their pods into a random order of destinations, optionally confirm with a full simulation; `idleAttempts` stops the search after that many attempts in a row found nothing (added for Exp 9; off by default) |
+| 2 | `random-shift` | move 1 to 4 random pods from a source to a fuller destination; `idleAttempts` as above |
+| 2 | `greedy-shift` | per sampled node pair, the pod set that most lowers the potential; `idleAttempts` as above |
 | 2 | `swap` | exchange pods between a CPU-stranded and a memory-stranded node |
 | 3 | `upstream` (default), `savings-only` | the first acceptable move within budgets; Balanced scoring where a NodePool asks for it |
 | 3 | `balanced` | the same, scoring every NodePool as Balanced |

@@ -266,3 +266,23 @@ Only in a sandbox account with a hard spend cap; never a shared or production cl
    with the gate off (B2) and once on.
 4. Collect cost (from `karpenter_cluster_cost` or the instance price list), evictions, PDB events and the decision
    log as above; tear the cluster down and confirm no instances remain.
+
+## 6. Exp 9: biased selection, guided shifts and early stopping (after the paper)
+
+The protocol is `experiments/EXP9.md`; the matrix is `experiments/matrix/exp9.yaml` (240 cells at 200 nodes, 50
+at 1,000). It needs no cluster: it runs in the simulator like the session profile (section 1).
+
+1. Build the binary from a clean clone at the commit in `experiments/exp9-binary.txt`, so the VCS stamp is clean:
+   `git clone . /tmp/exp9-clone && (cd /tmp/exp9-clone && git checkout $(cat experiments/exp9-binary.txt) &&
+   go build -o /tmp/csim-exp9 ./hack/consolidation-sim)`.
+2. Run `experiments/run_exp9.sh /tmp/csim-exp9`. It runs the two groups in order with the runner's resume loop,
+   four cells at a time, and appends the start time, the VM's boot time and the binary's commit to
+   `experiments/exp9-machine-log.txt`. The runner's progress goes to `experiments/runs/exp9-driver.log`. A
+   killed run resumes from the next pending cell when the script is started again.
+3. Analyse with `make figures` (the `exp9` module) or alone with
+   `/opt/research-venv/bin/python -m paper.analysis.exp9`. Tables land in `paper/tables/exp9_*.md` and
+   `exp9.json`. The paired table is the one the write-up reads: treatment minus reference, per seed, with 95%
+   bootstrap intervals; a row is resolved when its interval excludes zero.
+
+The first run was on the Tier B virtual machine (boot `1ea588ea`, Intel Xeon @ 2.10 GHz, 4 vCPUs); `cpu_pass_*`
+are process CPU times and robust to the other three cells, but compare arms within a run, not across machines.
