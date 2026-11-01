@@ -119,3 +119,31 @@ file before the next action. Decisions and fallbacks are logged in `experiments/
       (`docs/consolidation/pipeline-refactor.md`), and the KWOK experiments with an EKS plan
       (`docs/consolidation/kwok-experiments-and-eks-plan.md`). Each was claim-checked against the code, tables and
       raw runs by a checker-and-verifier workflow before its final commit.
+
+## After the paper: Exp 9 and the upstream RFC (Nov 1)
+
+Two follow-ups to the questions the paper raised: why the random generators spend a fixed budget on blind
+passes rather than selecting candidates by their utilization, and what of this work is worth proposing upstream.
+
+- [x] `idleAttempts` on `random-merge`, `random-shift` and `greedy-shift` (`5aff11e`): a generator stops after
+      that many consecutive attempts that emitted nothing; the default never stops. Tests cover the parameter, the
+      prefix property against the uncapped call, and the budget and conformance checks.
+- [x] Exp 9 protocol (`experiments/EXP9.md`) and matrix (`experiments/matrix/exp9.yaml`), committed before any
+      cell ran: eight arms under the entropy-greedy planner (both generation references re-run, biased selection
+      by potential drop and by utilization band, guided shifts, early stopping, and their combinations) on W1, W2
+      and W4 at 200 nodes, seeds 101-110, and five arms on W1 at 1,000 nodes. Binary built from a clean clone
+      (`experiments/exp9-binary.txt`), driver `experiments/run_exp9.sh`, machine log
+      `experiments/exp9-machine-log.txt`.
+- [x] Analysis module `paper/analysis/exp9.py` (registered in `make figures`, with tests): per-arm and paired
+      tables with bootstrap intervals, and the search statistics from each decision log.
+- [x] 200-node group: 240 of 240 cells valid. Write-up in `experiments/RESULTS.md`, "Exp 9". Early stopping cut
+      attempts per searching pass by 75 to 85% and mean CPU per pass by 13 to 31% against the random reference with
+      cost unresolved; biased selection added nothing on top of it; the band selector is a different operating
+      point because it often has no destination on a consolidated fleet; guided shifts helped on W1 only.
+- [ ] 1,000-node group (50 cells, W1): running; the pending paragraph in RESULTS.md is replaced when it finishes,
+      and the paper's sections 7 and 9 are updated from it.
+- [x] Upstream RFC `designs/consolidation-bounded-search-and-decision-log.md`: counted search budgets, a decision
+      log through a recorder, and the stage seams with the coarse upstream adapters only, behind the gate, with the
+      evidence scoped to what covers that configuration. Four review rounds (a disruption maintainer, an operator
+      reader, a numbers checker and a code checker, each verified) found 88, 31, 18 and 6 problems, all applied;
+      the entries in `experiments/RESEARCH_LOG.md` list the substantive ones.
