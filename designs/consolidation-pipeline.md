@@ -65,7 +65,7 @@ pipeline:
     - {name: upstream-single, params: {mode: coarse}}
   movesMode: sequential
   planner:   {name: upstream}
-    executor:  {name: upstream-queue}
+  executor:  {name: upstream-queue}
   potential: {name: none}
 ```
 
