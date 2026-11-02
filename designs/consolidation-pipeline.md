@@ -1,184 +1,61 @@
 # Pluggable Consolidation Pipeline
 
-Consolidation becomes four pluggable stages (candidate selection, move generation, planning within budgets, and
-execution) with shared models for potential, feasibility, disruption and savings. The work sits behind a new alpha
-feature gate, `ConsolidationPipeline`, which is off by default. With the gate on and no configuration, the pipeline's
-upstream adapters make the same decisions as today's multi-node and single-node consolidation. A differential parity
-test checks this.
+Split consolidation into four pluggable stages — candidate selection, move generation, planning within budgets, and execution — behind an off-by-default feature gate, with upstream adapters that reproduce today's decisions exactly and a differential parity test that proves it.
 
-**Status: draft.** The interfaces, adapters, parity test and simulator exist on the research branch. The
-session-profile results (Tier A only, with four groups cut) are in
-[`experiments/RESULTS.md`](../experiments/RESULTS.md). This document quotes no experimental numbers. The figures it
-does quote are parity results and timing measurements recorded in
-[`experiments/RESEARCH_LOG.md`](../experiments/RESEARCH_LOG.md).
+[Bounded search budgets and a decision log](consolidation-bounded-search-and-decision-log.md) proposes the subset of this design that ships first: counted search budgets, the decision log, and the stage seams with upstream's own search behind the gate. This document is the full design those seams come from.
 
 ## Motivation
 
-Consolidation runs as two disruption methods, `MultiNodeConsolidation` and `SingleNodeConsolidation`. Each one
-orders candidates, generates moves, decides whether to accept them and validates them inside a single
-`ComputeCommands` call. The steps are interleaved, so none of them can be changed or measured on its own.
+Karpenter's consolidation runs as two disruption methods, `MultiNodeConsolidation` and `SingleNodeConsolidation`. Each one orders candidates, generates moves, decides whether to accept them, and validates them inside a single `ComputeCommands` call:
 
-- **Multi-node.** `ComputeCommands` sorts candidates with `sortCandidates` (savings ratio, descending), drops those
-  their NodePool's budget cannot cover, and runs `firstNConsolidationOption`. That function binary-searches over
-  prefixes of the sorted list, using windows of up to 101 nodes. Each step calls `computeConsolidation` (which runs
-  `SimulateScheduling`), then `filterOutSameInstanceType`, then `Evaluator.ApproveCommand`. Whether the window grows
-  or shrinks depends on the acceptance test, so search and acceptance cannot be separated. The search stops at
-  `MultiNodeConsolidationTimeoutDuration` (1 minute). That limit uses a wall-clock `context.WithTimeout`, so the
-  decision can depend on machine speed. Validation, which includes a 15 s wait (`commandValidationDelay`), runs inside
-  the same call.
-- **Single-node.** `ComputeCommands` walks candidates interleaved by NodePool (`shuffleCandidates`). For each one it
-  checks the budget, then `CanPassThreshold`, simulates, calls `ApproveCommand`, and stops at the first acceptable
-  command, which it then validates. `SingleNodeConsolidationTimeoutDuration` (3 minutes, on the injected clock) bounds
-  the scan. `PreviouslyUnseenNodePools` carries scan order from one pass to the next.
+- **Multi-node** sorts candidates by savings ratio, drops those their NodePool budget cannot cover, and binary-searches over prefixes of the sorted list (windows of up to 101 nodes). Every step runs a scheduling simulation, filters out same-instance-type replacements, and asks the Balanced evaluator for approval. The search stops after one minute of wall-clock time (`MultiNodeConsolidationTimeoutDuration`, a `context.WithTimeout`).
+- **Single-node** walks candidates interleaved by NodePool, checks the budget and the Balanced threshold, simulates, and stops at the first acceptable command. The scan stops after three minutes on the injected clock.
 
-This structure has four consequences.
+Four things follow from that structure.
 
-1. **Stages cannot vary independently.** Changing how candidates are ordered, which moves are tried, or how they are
-   accepted means editing the search loop. Balanced's acceptance test (the `Evaluator` seam in `balanced.go`) is
-   called from inside both loops, so it cannot be replaced without touching them.
-2. **Work is bounded by time, not by explicit compute.** A full single-node scan costs one scheduling simulation per
-   candidate, and each simulation deep-copies every `StateNode`. In the simulator's design spike on the 4 vCPU
-   research VM, one `SimulateScheduling` at 1,000 nodes took 67 ms. A full scan at that size is estimated at about
-   58 s (864 candidates × 67 ms), a third of the 3-minute limit. The multi-node limit is wall clock. There is no way
-   to compare two strategies at equal compute.
-3. **Every move deletes a node.** Delete and Replace both remove their sources, and Balanced scores only those moves.
-   A move that improves packing without removing a node (moving some pods from a sparse node to a fuller one) cannot
-   be expressed, so it has no value to score.
-4. **Rejected alternatives are invisible.** Upstream logs and emits events for the command it starts, emits
-   Unconsolidatable events for candidates, and records metrics for scored moves. It keeps no structured record of
-   every move it considered and why each one lost.
+1. **Stages cannot vary independently.** Changing how candidates are ordered, which moves are tried, or how they are accepted means editing the search loop. The Balanced evaluator is called from inside both loops.
+2. **Work is bounded by time, not by compute.** A full single-node scan costs one scheduling simulation per candidate. On a 4-vCPU machine one simulation of a 1,000-node fleet took 67 ms, so a full scan at that size is about 58 s (864 candidates × 67 ms). The multi-node limit is wall clock, so what a pass finds depends on the machine it runs on, and two search strategies cannot be compared at equal compute.
+3. **Every move deletes a node.** Delete and Replace both remove their sources, and Balanced scores only those moves. A move that improves packing without removing a node — moving a few pods from a sparse node to a fuller one — cannot be expressed, so it has no value to score.
+4. **Rejected alternatives are invisible.** The controller logs the command it starts, emits `Unconsolidatable` events for single-node candidates that lost, and records metrics for scored moves. It keeps no structured record of every move it considered and why each one lost.
 
-### The Balanced RFC's open question
+The reports behind [Balanced consolidation](balanced-consolidation.md) are the user-visible side of this: nodes at 93-99% utilization disrupted instead of lightly utilized ones ([aws#8868](https://github.com/aws/karpenter-provider-aws/issues/8868), [kubernetes-sigs#2319](https://github.com/kubernetes-sigs/karpenter/issues/2319)), multi-hour consolidation loops ([aws#8536](https://github.com/aws/karpenter-provider-aws/issues/8536), [aws#6642](https://github.com/aws/karpenter-provider-aws/issues/6642), [aws#7146](https://github.com/aws/karpenter-provider-aws/issues/7146)), and churn where deleted nodes are immediately re-provisioned ([kubernetes-sigs#1019](https://github.com/kubernetes-sigs/karpenter/issues/1019), [kubernetes-sigs#735](https://github.com/kubernetes-sigs/karpenter/issues/735), [kubernetes-sigs#1851](https://github.com/kubernetes-sigs/karpenter/issues/1851)). Each is a question about what consolidation considered and why it chose what it did, and none can be answered from today's logs.
 
-[Balanced consolidation](balanced-consolidation.md) lists asynchronous move generation as an open question:
-"Scoring enables a shift from synchronous per-cycle consolidation to a continuous pipeline: generate, score, enqueue by
-priority, execute as budget allows. This eliminates the per-cycle timeout problem."
+The Balanced RFC leaves asynchronous move generation as an open question: "generate, score, enqueue by priority, execute as budget allows." That needs generation, scoring, planning and execution to be separate stages with explicit inputs and outputs. The [pod deletion cost controller RFC](pod-deletion-cost-controller.md) describes the fragmentation case that needs a new kind of move: ReplicaSet scale-down spreads deletions across nodes, every node ends up partly full, and each remaining merge must evict every pod on its source, which Balanced rightly rejects.
 
-This RFC builds the structure that question needs. Generation, scoring, planning and execution become separate stages
-with explicit inputs and outputs. Work per cycle is capped by a search budget instead of a timeout. Every decision is
-logged. This RFC does **not** make generation asynchronous: all four stages still run inside one `ComputeCommands`
-call per disruption pass. A background generator that feeds a priority queue is listed as future work (Open Question
-8).
-
-### Why moves that delete no node need a value
-
-The [pod-deletion-cost controller RFC](pod-deletion-cost-controller.md) describes a common way clusters fragment.
-ReplicaSet scale-down spreads deletions across nodes, so every node ends up partly full and none becomes empty. Each
-remaining merge must evict every pod on its source. Under Balanced, such merges can fail the threshold because
-disruption is large relative to savings.
-
-A **shift** moves a few pods from a sparse node to a fuller one and removes nothing. It saves nothing immediately, so
-any savings-based score rates it at zero or below. Its value is deferred: once a sparse node has been emptied over
-several shifts, Emptiness removes it, and the last step evicts no pods at all.
-
-To rank shifts, the planner needs a **potential** Φ: a function of the cluster state that falls as nodes move toward
-packed or empty. With such a potential, a shift has a measurable ΔΦ < 0 now, and its disruption can be weighed against
-that drop. The potentials used here are concave in node load. A concave function over the feasible load polytope is
-minimized at a vertex, where every node is empty or full except at most one, which is the fleet shape consolidation is
-after. [`docs/research/PLAN.md`](../docs/research/PLAN.md) ("Formal model") gives the derivation.
-
-### Pluggability for experimentation
-
-Several questions about consolidation can only be answered empirically. Is random move generation as good as the
-upstream heuristics when the planner is good? Does annealing at plan time beat greedy acceptance? How much of a
-planned packing does kube-scheduler undo? Answering them needs stages that can be swapped one at a time while the
-others stay fixed, equal compute budgets, seeded reproducibility, and one decision-log format shared by an in-process
-simulator and a KWOK cluster. The research plan in [`docs/research/PLAN.md`](../docs/research/PLAN.md) defines these
-experiments. The pipeline is the substrate they run on.
+We propose to build consolidation as a pipeline of four stages over shared models of cluster state, feasibility, savings and disruption, behind a feature gate. With the gate on and no configuration, upstream adapters make exactly today's decisions. With configuration, any stage can be replaced, including moves that delete no node.
 
 ### Use Cases
 
-1. **Evaluating an acceptance rule.** A maintainer wants to try Balanced with a different `k`, or a rule that also
-   values the potential. Only the planner changes. Candidate selection, generation and execution stay on the upstream
-   adapters, so the parity test still pins those stages to upstream behavior.
-2. **Large clusters.** At 1,000 nodes or more, a full single-node scan costs tens of seconds of simulation per
-   pass. An operator, or an experiment, caps full simulations per cycle (`search.maxFullSimulations`) and samples
-   candidates instead of scanning all of them.
-3. **Fragmentation after scale-down.** Every node is 30-60% utilized and no merge clears the Balanced threshold. A
-   planner that accepts shifts with ΔΦ < 0, under a pod-eviction budget, empties nodes over several cycles, and
-   Emptiness then removes them.
-4. **Explaining a decision.** An operator asks why node X was not consolidated. The decision log records every move
-   considered in the cycle, its scores, and the reason it was rejected (budget, threshold, conflict, validation churn).
-
-### Goals
-
-- Four stage interfaces and shared services, with every stage chosen by name from configuration.
-- Upstream adapters that reproduce today's multi-node and single-node decisions exactly, in two forms: a coarse form
-  that wraps `ComputeCommands`, and a fine form that splits generation, acceptance and validation across stages.
-- No behavior change with the gate off. With the gate on and no configuration, the same decisions as today.
-- Explicit per-cycle search budgets (generation attempts, full simulations, a deadline on the injected clock), so that
-  strategies are compared at equal compute.
-- Shift moves with an execution path that respects PodDisruptionBudgets and `karpenter.sh/do-not-disrupt`, plus
-  pod-eviction budgets that node-count budgets cannot provide.
-- Reproducibility: one seeded `*rand.Rand` passed through every stage, time read only from the injected clock, and a
-  versioned decision log.
-- A small diff to upstream files. New code lives in new packages.
+1. **Evaluating an acceptance rule.** A maintainer wants to try Balanced with a different `k`, or a rule that also values packing. Only the planner changes; candidate selection, generation and execution stay on the upstream adapters, and the parity test still pins those stages to today's behavior.
+2. **Large clusters.** At 1,000 nodes or more, a full single-node scan costs tens of seconds of simulation per pass. An operator caps full simulations per cycle (`search.maxFullSimulations`) and samples candidates instead of scanning all of them.
+3. **Fragmentation after scale-down.** Every node is 30-60% utilized and no merge clears the Balanced threshold. A planner that accepts shifts (moves that empty a node over several cycles) under a pod-eviction budget lets Emptiness remove the drained nodes.
+4. **Explaining a decision.** An operator asks why node X was not consolidated. The decision log records every move considered in the cycle, its scores, and the reason it was rejected: budget, threshold, conflict, or validation churn.
 
 ### Non-Goals
 
 - No CRD, NodePool or NodeClaim API changes, and no new user-facing annotation.
 - No change to any default. Neither Balanced nor any new strategy becomes a default policy.
-- No asynchronous or continuous generation in this RFC. That is future work built on these interfaces.
+- No asynchronous or continuous generation. All four stages still run inside one `ComputeCommands` call per pass; a background generator is future work built on these interfaces (Open Question 8).
 - No change to Emptiness, Drift, StaticDrift, Repair, the orchestration queue or termination.
 - No changes to kube-scheduler or the ReplicaSet controller. Plan fidelity is measured, not enforced.
-- Not a descheduler. The pipeline only acts on consolidation candidates, within Karpenter's budgets.
-- No production recommendation for any experimental strategy until the experiments report.
+- Not a descheduler. The pipeline acts only on consolidation candidates, within Karpenter's budgets.
+- No production recommendation for any experimental strategy (see [Evidence](#evidence)).
 
 ## Proposal
 
-With `--feature-gates ConsolidationPipeline=true`, the disruption controller runs one method,
-`PipelineConsolidation`, where multi-node and single-node consolidation used to run. The method composes four stages
-and shared services named in a configuration file passed by `--consolidation-pipeline-config`. An empty value selects
-the upstream adapters.
+With `--feature-gates ConsolidationPipeline=true`, the disruption controller runs one method, `PipelineConsolidation`, where multi-node and single-node consolidation used to run. The method composes four stages and shared services named in a configuration passed by `--consolidation-pipeline-config`. An empty value selects the upstream adapters.
 
 ### Proposed Spec
 
-**Feature gate and flag** (`pkg/operator/options/options.go`)
-
 | Item | Value |
-| --- | --- |
-| Feature gate | `ConsolidationPipeline` (`ConsolidationPipelineFeatureGate`), alpha, default `false`, listed in `KarpenterFeatureGates` |
+|---|---|
+| Feature gate | `ConsolidationPipeline`, alpha, default `false`, listed in `KarpenterFeatureGates` |
 | Flag | `--consolidation-pipeline-config`, env `CONSOLIDATION_PIPELINE_CONFIG`, default empty |
-| Flag value | A file path, or the config itself as YAML or JSON. A value that starts with `{` or `pipeline:`, or spans lines, is parsed inline (`LoadConfig`). |
-| Empty value | `DefaultConfig()`: the upstream adapters |
-| Invalid value | The operator panics at startup with the parse or validation error (`disruptionMethods` in `pkg/controllers/controllers.go`) |
+| Flag value | A file path, or the config itself as YAML or JSON. A value that starts with `{` or `pipeline:`, or spans more than one line, is parsed inline; anything else is read as a path. |
+| Empty value | The default configuration below: the upstream adapters |
+| Invalid value | Karpenter fails at startup with the parse or validation error. Unknown keys are rejected at every level. |
 
-**Config schema** (abridged from `pkg/controllers/disruption/pipeline/config.go`, comments condensed)
-
-```go
-type StageConfig struct {
-	Name   string `json:"name"`
-	Params Params `json:"params,omitempty"`
-}
-
-type Config struct {
-	Candidates StageConfig  `json:"candidates"`
-	Moves      StageList    `json:"moves"` // one object or a list
-	MovesMode  MovesMode    `json:"movesMode,omitempty"` // "sequential" (default) or "pooled"
-	Planner    StageConfig  `json:"planner"`
-	Executor   StageConfig  `json:"executor"`
-	Potential  StageConfig  `json:"potential"`
-	Seed       int64        `json:"seed"`
-	Search     SearchConfig `json:"search,omitzero"`
-	Budgets    BudgetConfig `json:"budgets,omitzero"`
-}
-
-type SearchConfig struct {
-	MaxAttempts        int    `json:"maxAttempts,omitempty"`        // generation attempts per generator; 0 = unlimited
-	MaxFullSimulations int    `json:"maxFullSimulations,omitempty"` // full simulations per cycle; 0 = unlimited
-	Timeout            string `json:"timeout,omitempty"`            // deadline on the injected clock, e.g. "1m"
-}
-
-type BudgetConfig struct {
-	PodEvictionsPerMinute      int `json:"podEvictionsPerMinute,omitempty"`      // per NodePool; 0 = unlimited
-	WorkloadEvictionsPerMinute int `json:"workloadEvictionsPerMinute,omitempty"` // per controlling owner; 0 = unlimited
-}
-```
-
-Each strategy's factory decodes its `params` strictly with `Params.Decode`, so an unknown key or an out-of-range
-value fails construction. The top-level keys are strict only in the unwrapped form today (Open Question 10).
-
-**The default configuration.** This is equivalent to an empty flag:
+**Default configuration.** Equivalent to an empty flag:
 
 ```yaml
 pipeline:
@@ -192,7 +69,7 @@ pipeline:
   potential: {name: none}
 ```
 
-**An experimental configuration.** The values are illustrative and uncalibrated; the Phase 4 pilot calibrates them:
+**An experimental configuration.** Random generation, an annealing planner, shifts executed through the Eviction API, a packing potential, and explicit compute and eviction budgets:
 
 ```yaml
 pipeline:
@@ -209,42 +86,70 @@ pipeline:
   budgets:   {podEvictionsPerMinute: 20, workloadEvictionsPerMinute: 2}
 ```
 
-Both examples pass `ParseConfig`, and every strategy and potential they name builds with these params.
+**Config schema** (abridged):
 
-**Registered strategies.** `Registered()` lists them. The upstream adapters and potentials register in package
-`pipeline`. The others register in `pipeline/strategies/{candidates,moves,planners,executors}`, which
-`pipeline/strategies/all` imports. `pkg/controllers/controllers.go` imports `strategies/all`, so the operator binary
-contains every strategy (Open Question 9).
+```go
+type Config struct {
+	Candidates StageConfig  `json:"candidates"`
+	Moves      StageList    `json:"moves"`               // one object or a list
+	MovesMode  MovesMode    `json:"movesMode,omitempty"` // "sequential" (default) or "pooled"
+	Planner    StageConfig  `json:"planner"`
+	Executor   StageConfig  `json:"executor"`
+	Potential  StageConfig  `json:"potential"`
+	Seed       int64        `json:"seed"`
+	Search     SearchConfig `json:"search,omitzero"`
+	Budgets    BudgetConfig `json:"budgets,omitzero"`
+}
+
+type StageConfig struct {
+	Name   string `json:"name"`
+	Params Params `json:"params,omitempty"` // decoded strictly by the strategy; unknown keys fail construction
+}
+
+type SearchConfig struct {
+	MaxAttempts        int    `json:"maxAttempts,omitempty"`        // generation attempts per generator; 0 = unlimited
+	MaxFullSimulations int    `json:"maxFullSimulations,omitempty"` // scheduling simulations per round; 0 = unlimited
+	Timeout            string `json:"timeout,omitempty"`            // deadline on the injected clock, e.g. "1m"
+}
+
+type BudgetConfig struct {
+	PodEvictionsPerMinute      int `json:"podEvictionsPerMinute,omitempty"`      // per NodePool; 0 = unlimited
+	WorkloadEvictionsPerMinute int `json:"workloadEvictionsPerMinute,omitempty"` // per controlling owner; 0 = unlimited
+}
+```
+
+**Registered strategies.** Every stage is chosen by name. The upstream adapters and the potentials register in the `pipeline` package; the experimental strategies register in `pipeline/strategies/{candidates,moves,planners,executors}`.
 
 | Stage | Name | Params (defaults) | Role |
-| --- | --- | --- | --- |
-| 1 | `upstream` | none | Upstream candidates in savings-ratio order |
-| 1 | `uniform-random` | `sourceFraction` (0.25), `destinationFraction` (1.0) | Uniform sample of eligible nodes |
-| 1 | `util-band` | `resource` (dominant), `fullThreshold` (0.95) | Sources below mean utilization; destinations above it |
-| 1 | `potential-weighted` | `sourceFraction` (0.25) | Sources sampled in proportion to the potential drop from emptying them |
-| 2 | `upstream-multi`, `upstream-single` | `mode`: `coarse` (default) or `fine` | Parity adapters |
-| 2 | `random-merge` | `maxSources` (3), `launch` (true), `maxMoves` (50), `confirm` (false) | Empty k random sources first-fit, optionally confirmed by Full |
-| 2 | `random-shift` | `maxPodsPerMove` (4), `full` (false) | Move 1 to m pods to a fuller destination |
-| 2 | `greedy-shift` | `maxPodsPerMove` (4) | Per sampled pair, the pod set that most lowers Φ |
-| 2 | `swap` | `strandingGap` (0.3) | Exchange pods between CPU-stranded and memory-stranded nodes |
-| 3 | `upstream`, `savings-only` | none | First acceptable move within budgets; Balanced scoring where a NodePool asks for it |
-| 3 | `balanced` | none | The same, with Balanced (k = 2) applied to every NodePool |
-| 3 | `entropy-greedy` | `alpha` (1), `lambda` (0.5), `mu` (1) | Every downhill move, best ratio first, no two touching a node |
-| 3 | `anneal-plan` | energy weights, `t0` (0.05), `cooling` (0.97), `temperatureUnit` (absolute), `steps` (400), `maxLength` (8) | Metropolis search over move sequences on the snapshot; runs only a net-downhill sequence |
-| 3 | `anneal-online` | energy weights, `t0`, `cooling`, `temperatureUnit` | One Metropolis move per cycle on the cluster. Experiment-only. |
-| 3 | `sequence` | energy weights, `horizon` (4) | Chains shifts that empty a node and scores the chain with its final delete |
-| 4 | `upstream-queue` | none | Validate merges, return them as `Command`s for the orchestration queue |
-| 4 | `shift-evict` | `validate` (true), `taint` (true), `taintTTL` ("10m") | Merges to the queue; shifts by the Eviction API with a `PreferNoSchedule` source taint |
-| 4 | `steered` | `shift-evict` params, `mode` (affinity or most-allocated) | `shift-evict`, plus a request that each replacement pod prefer its planned node |
-| 4 | `make-before-break` | `shift-evict` params | `steered` in affinity mode, evicting only into initialized destinations |
-| - | potentials `none`, `load-entropy`, `util-entropy`, `util-quadratic` | `weight` (price), `resource` (dominant), `stranding` (0) | P1 to P3 from the plan; `none` for savings-only planners |
+|---|---|---|---|
+| candidates | `upstream` | — | Upstream's candidates in savings-ratio order |
+| candidates | `uniform-random` | `sourceFraction` (0.25), `destinationFraction` (1.0) | A uniform sample of eligible nodes |
+| candidates | `util-band` | `resource` (dominant), `fullThreshold` (0.95) | Sources below the fleet's mean utilization; destinations above it |
+| candidates | `potential-weighted` | `sourceFraction` (0.25) | Sources sampled in proportion to the potential drop from emptying them |
+| moves | `upstream-multi`, `upstream-single` | `mode`: `coarse` (default) or `fine` | The parity adapters (see [below](#the-upstream-adapters-coarse-and-fine)) |
+| moves | `random-merge` | `maxSources` (3), `launch` (true), `maxMoves` (50), `confirm` (false), `idleAttempts` (0) | Empty 1 to k random sources first-fit into random destinations, optionally confirmed by a full simulation |
+| moves | `random-shift` | `maxPodsPerMove` (4), `full` (false), `idleAttempts` (0) | Move 1 to m random pods from a source to a fuller destination |
+| moves | `greedy-shift` | `maxPodsPerMove` (4), `idleAttempts` (0) | Per sampled node pair, the pod set that most lowers the potential |
+| moves | `swap` | `strandingGap` (0.3) | Exchange pods between a CPU-stranded and a memory-stranded node |
+| planner | `upstream`, `savings-only` | — | First acceptable move within budgets; Balanced scoring where a NodePool asks for it |
+| planner | `balanced` | — | The same, with Balanced (k=2) applied to every NodePool |
+| planner | `entropy-greedy` | `alpha` (1), `lambda` (0.5), `mu` (1) | Every move whose energy falls, best ratio first, no two touching a node |
+| planner | `anneal-plan` | energy weights, `t0` (0.05), `cooling` (0.97), `temperatureUnit` (absolute), `steps` (400), `maxLength` (8) | Simulated annealing over move sequences on the snapshot; runs only a net-downhill sequence |
+| planner | `anneal-online` | energy weights, `t0`, `cooling`, `temperatureUnit` | One annealing step per cycle, executed on the cluster (experiment only) |
+| planner | `sequence` | energy weights, `horizon` (4) | Chains shifts that empty a node and scores the chain with its final delete |
+| executor | `upstream-queue` | — | Validate merges and hand them to the orchestration queue |
+| executor | `shift-evict` | `validate` (true), `taint` (true), `taintTTL` (10m) | Merges to the queue; shifts through the Eviction API with a `PreferNoSchedule` taint on the source |
+| executor | `steered` | `shift-evict` params, `mode` (`affinity` or `most-allocated`) | `shift-evict`, plus a preference for each replacement pod to land on its planned node |
+| executor | `make-before-break` | `shift-evict` params | `steered` in affinity mode, evicting only into initialized destinations |
+| potential | `none`, `load-entropy`, `util-entropy`, `util-quadratic` | `weight` (price), `resource` (dominant), `stranding` (0) | The packing potentials (see [Scoring](#moves-scoring-and-potentials)); `none` for savings-only planners |
+
+`idleAttempts` stops a random generator after that many consecutive attempts that produced nothing; 0 never stops early.
 
 ### How It Works
 
 #### Stages and shared services
 
 Stages 1 and 2 only propose. Stage 3 decides what runs, using the shared scoring models. Stage 4 carries the plan out.
-The declarations below are quoted from `pkg/controllers/disruption/pipeline/interfaces.go`, with comments shortened.
 
 ```go
 // Snapshot is an immutable, cheaply forkable view of cluster state used for planning.
@@ -274,7 +179,7 @@ type Planner interface { // stage 3
 	Plan(ctx context.Context, s Snapshot, moves []Scored, budgets Budgets, rng *rand.Rand) (Plan, error)
 }
 
-// Guide is implemented by planners whose acceptance test search-guided generators consult while they search.
+// Guide is the planner's acceptance test, consulted by search-guided generators while they search.
 type Guide interface {
 	Accept(ctx context.Context, s Snapshot, m Scored) bool
 	CanPass(ctx context.Context, s Snapshot, sources []string) bool
@@ -285,15 +190,10 @@ type Executor interface { // stage 4
 	Execute(ctx context.Context, p Plan) (Report, error)
 }
 
-// IdleExecutor is implemented by executors with housekeeping to do on cycles that execute nothing.
-type IdleExecutor interface {
-	Idle(ctx context.Context)
-}
-
 type Potential interface {
 	Name() string
 	Value(s Snapshot) float64
-	Delta(s Snapshot, m Move) float64 // must equal Value(s.Apply(m)) - Value(s)
+	Delta(s Snapshot, m Move) float64 // equals Value(s.Apply(m)) - Value(s)
 }
 
 type Feasibility interface {
@@ -301,550 +201,291 @@ type Feasibility interface {
 	Full(ctx context.Context, s Snapshot, m Move) (Move, error) // Karpenter's scheduling simulation
 }
 
-type Scorer interface {
-	Score(s Snapshot, m Move) Scored
-}
-
+type Scorer interface{ Score(s Snapshot, m Move) Scored }
 type Recorder interface{ Record(e DecisionEvent) }
 ```
 
-`Guide` mirrors the `Evaluator` seam: `Accept` corresponds to `ApproveCommand` and `CanPass` to `CanPassThreshold`. It
-exists because upstream's multi-node search consults acceptance at every step. A fine-mode generator asks the
-configured planner through `Guide`, so swapping the planner also changes what the search finds, exactly as swapping the
-evaluator does upstream.
+`Guide` mirrors the Balanced `Evaluator` seam: `Accept` corresponds to `ApproveCommand` and `CanPass` to `CanPassThreshold`. It exists because upstream's multi-node search consults acceptance at every step. A fine-mode generator asks the configured planner through `Guide`, so swapping the planner also changes what the search finds, exactly as swapping the evaluator does today.
 
-**Moves** (abridged from `types.go`). A `Move` is a composition of actions that ends in a feasible state:
+**Feasibility** has two levels. `Fast` uses only the snapshot: capacity, taints, node requirements, bound-volume zones, hostname anti-affinity, `karpenter.sh/do-not-disrupt` on pods and nodes, and PDB allowances; it does not check topology spread. `Full` runs Karpenter's scheduling simulation against the live cluster: a merge is re-simulated through `ComputeConsolidation` (with `FilterOutSameInstanceType` applied to multi-source replaces) and comes back carrying the upstream `Command`; a shift is solved against its destinations only, with no new NodeClaims allowed.
 
-```go
-type Move struct {
-	ID        string
-	Kind      MoveKind     // "merge", "shift", "rightsize"
-	Sources   []string     // nodes losing pods
-	Bindings  []Binding    // per pod: unbind from From, planned bind to Target (existing node or Launch index); sorted by pod key
-	Launch    []LaunchSpec // add-node
-	Remove    []string     // remove-node
-	Generator string
-	Upstream  any          // the upstream Command a merge corresponds to, for the queue
-}
-```
-
-- **Merge.** Empty the sources into existing destinations plus at most one launched node, then remove the sources.
-  Upstream Delete and Replace both convert to merges (`MoveFromCommand`).
-- **Shift.** Move some pods to another node and remove nothing.
-- **Right-size.** Replace one node with a cheaper one holding the same pods. The kind is defined, but no generator
-  emits it yet; upstream single-node replaces arrive as merges.
-
-**Scoring** (`score.go`, `DefaultScorer`). Every move gets:
-
-- `DeltaPotential`: the configured `Potential.Delta`.
-- `Disruption`: the sum of `max(0, EvictionCost)` over the pods the move binds, plus `PerNodeBaseDisruptionCost` (1.0)
-  for each removed node. For a merge that binds every reschedulable pod of its sources, this equals the sum of the
-  sources' `RescheduleDisruptionCost`, the numerator Balanced scores.
-- `SavingsPerHour`: removed node prices minus launched node prices.
-- `NormalizedDisruption` and `NormalizedSavings` (D̂, Ŝ): these divide by the NodePool totals Balanced uses (summed
-  over the move's pools), so the planner weights are scale-free.
-
-**Potentials** (`potential.go`). Each potential is normalized by constants of the root snapshot (`Normalizer`), never
-by those of the fork being valued. This makes `Delta` exact, and removing an empty node is never penalized by a
-shrinking denominator.
-
-| Name | Definition | Note |
-| --- | --- | --- |
-| `load-entropy` (P1) | H(p) = −Σ pᵢ ln pᵢ, pᵢ = Lᵢ / Σ L, divided by ln N₀ | Blind to right-sizing |
-| `util-entropy` (P2) | Φ = Σ wᵢ h(uᵢ), h(u) = −u ln u − (1−u) ln(1−u), wᵢ = price, divided by Σ w at the root | 0 for empty and full nodes, largest at 50% |
-| `util-quadratic` (P3) | Σ wᵢ uᵢ (1 − uᵢ) | Cheaper smooth variant of P2 |
-| `none` | 0 | Savings-only planners |
-
-For P2 and P3, utilization is the dominant share by default (CPU, memory and accelerators; pod count is excluded).
-They can instead use one resource, or combine resources by max or mean, and can add a stranding term
-`stranding · |u_cpu − u_mem|`. P1 uses CPU requests by default. For nodes of equal price and capacity, moving load from the less utilized node to the more utilized one
-always lowers P2 and P3, because h is concave. With price weights, the outcome also depends on prices and capacities,
-which is why the weights exist.
-
-**Feasibility** (`feasibility.go`, `upstream.go`).
-
-- `FastChecker.Fast` uses only the snapshot. It checks that each source is a source, that each target is a
-  destination, capacity, taints, node requirements (selectors and required node affinity), bound-volume zones and
-  hostname anti-affinity. It also enforces `karpenter.sh/do-not-disrupt` on pods and nodes, PDB allowances, and that
-  removed nodes are empty of reschedulable pods. It does not check topology spread, and it counts moves that carry
-  such constraints (`TopologyUnchecked`).
-- `UpstreamFeasibility.Full` runs Karpenter's scheduler against the live cluster. A merge is re-simulated through
-  `ComputeConsolidation`, with `FilterOutSameInstanceType` applied to multi-source replaces, and comes back carrying
-  the upstream `Command`. A shift is solved against its destinations only, with no new NodeClaims allowed.
-
-**Search budget** (`SearchBudget`). This holds `MaxAttempts`, `MaxFull`, a `Deadline` on the injected `Clock`, the
-planner's `Guide`, `StopAtFirst` (set for first-valid planners), and the `Feasibility` and `Scorer` that generators may
-consult. Generators call `Next()` once per attempt and `UseFull()` before each `Full`. The method gives every
-generator its own `Fork()`. Attempts are counted per fork, while full simulations, the deadline and the stop flags are
-shared for the cycle. A generator that uses up its attempts therefore cannot starve the generators after it, and the
-cycle stays under one full-simulation cap. `Stats()` reports usage for the decision log.
+**Search budget.** A `SearchBudget` holds `MaxAttempts`, `MaxFull`, a `Deadline` on the injected clock, the planner's `Guide`, and `StopAtFirst` (set for first-valid planners, so a search stops at the first acceptable move as upstream does). Generators call `Next()` once per attempt and `UseFull()` before each full simulation. Each generator gets its own `Fork()`: attempts are counted per fork, while full simulations and the deadline are shared. Today the method builds a budget per round, so with the two upstream generators in sequence each round gets its own `maxFullSimulations`; the bounded-search RFC proposes one budget per pass, forked per round. The coarse upstream adapters hand the whole search to upstream's `ComputeCommands` and do not consult the budget; only the fine adapters and the experimental generators do.
 
 #### One cycle
 
 ```
 disrupt() ─► Method.ComputeCommands(budgets, candidates)
-               │  SetCycle(candidates, totals, budgets); skip if ConsolidationState unchanged (when no generator self-gates)
-               ├─ BuildSnapshot ─► State (nodes sorted by name, pods, PDB allowances, totals)
-               ├─ stage 1  selector.Select(snapshot, rng)                ─► sources, destinations
-               ├─ for each round (sequential: one generator per round; pooled: all in one round)
-               │    ├─ stage 2  g.Generate(..., rng, budget.Fork())     ─► moves
-               │    ├─ Scorer.Score each move                           ─► Scored
-               │    ├─ stage 3  planner.Plan(snapshot, scored, budgets) ─► Plan   (or IdleExecutor.Idle if empty)
-               │    ├─ stage 4  executor.Execute(plan)                  ─► Report (merges come back as Commands)
+               │  skip if the cluster's consolidation state is unchanged since a cycle that executed nothing
+               ├─ BuildSnapshot                                        ─► nodes, pods, PDB allowances, totals
+               ├─ stage 1  selector.Select(snapshot, rng)              ─► sources, destinations
+               ├─ for each round (sequential: one generator per round; pooled: all in one)
+               │    ├─ (rounds after the first) refresh candidates, totals, budgets and the snapshot if the clock moved
+               │    ├─ stage 2  g.Generate(..., rng, budget.Fork())    ─► moves
+               │    ├─ Scorer.Score each move                          ─► Scored
+               │    ├─ stage 3  planner.Plan(snapshot, scored, budgets) ─► Plan
+               │    ├─ stage 4  executor.Execute(plan)                 ─► Report (merges come back as Commands)
                │    └─ a round that executes anything ends the cycle
                └─ record a DecisionEvent at every stage
 disrupt() ─► Queue.StartCommand for each returned merge (unchanged)
 ```
 
-In sequential mode the method reproduces how the controller runs multi-node and then single-node consolidation. Each
-generator is its own round. The next round runs only if the previous one executed nothing. If the clock moved during
-a round, for example during a validation wait, the method recomputes candidates, totals and budgets the way
-`disrupt()` does before each method (`GetCandidatesWithTotals`, `BuildDisruptionBudgetMapping`).
-
-When no generator tracks consolidated state itself (`SelfGating`), the method skips cycles while
-`cluster.ConsolidationState()` is unchanged since a cycle that found nothing and was not constrained by budgets. This
-is the same short-circuit upstream methods apply.
+In sequential mode the method reproduces how the controller runs multi-node and then single-node consolidation: each generator is its own round, and the next round runs only if the previous one executed nothing. The pipeline's own skip rule is the same short-circuit upstream applies — skip while the cluster's consolidation state is unchanged since a cycle that found nothing and was not held back by a disruption budget. With the upstream adapters, which track consolidated state themselves, the method defers to upstream's per-method `IsConsolidated` instead.
 
 #### Where it plugs in
 
-The disruption package does not import the pipeline. The pipeline imports the disruption package, so the switch lives
-at the wiring layer:
+The disruption package does not import the pipeline; the pipeline imports the disruption package. `disruptionMethods` in `pkg/controllers/controllers.go` returns no options when the gate is off. With the gate on, `pipeline.Methods` loads the config, builds the method, and puts it where multi-node consolidation was, dropping single-node consolidation. The method order becomes Repair (when gated), Emptiness, StaticDrift, Drift, Pipeline. The method reports `DisruptionReasonUnderutilized`, so today's budgets apply; its `ConsolidationType()` is `pipeline`.
 
-- `disruptionMethods` in `pkg/controllers/controllers.go` returns no options when the gate is off. With the gate on,
-  it returns `disruption.WithMethods(pipeline.Methods(...)...)`.
-- `pipeline.Methods` loads the config, builds the method with `NewMethod`, and calls `ReplaceConsolidation` on
-  `disruption.NewMethods(...)`.
-- `ReplaceConsolidation` identifies `*MultiNodeConsolidation` and `*SingleNodeConsolidation` by type, puts the
-  pipeline where multi-node was, and drops single-node. The order becomes Repair (when gated), Emptiness, StaticDrift,
-  Drift, Pipeline.
+The only upstream-owned files that change are `controllers.go` (the wiring), `options.go` (the gate and flag), `pkg/test/options.go`, `disruption/metrics.go` (the documented `pipeline` label value), `pkg/apis/v1/labels.go` (two well-known annotations) and a new additive `disruption/pipeline_hooks.go` that exports existing unexported building blocks (`ComputeConsolidation`, `SortBySavingsRatio`, `MarkConsolidated`, `FilterOutSameInstanceType`, candidate accessors) without changing behavior.
 
-| Method identity | Value |
-| --- | --- |
-| `Reason()` | `DisruptionReasonUnderutilized`, so today's budgets apply. A new reason would need a CRD enum change. |
-| `Class()` | `GracefulDisruptionClass` |
-| `ShouldDisrupt` | Consolidation's own (empty nodes, WhenEmpty pools and static pools are excluded, as today) |
-| `ConsolidationType()` | `"pipeline"` (`PipelineConsolidationType`) |
-| `SetNodePoolTotals` | Receives the cycle's Balanced totals and forwards them to the wrapped upstream methods |
-
-The only changes to upstream-owned files are:
-
-- `pkg/controllers/controllers.go`: `disruptionMethods` and its call site.
-- `pkg/operator/options/options.go`: the gate and the flag.
-- `pkg/test/options.go`: the test options.
-- `pkg/controllers/disruption/metrics.go`: the documented `pipeline` value.
-- `pkg/controllers/disruption/pipeline_hooks.go`: a new additive file of exports that change no behavior
-  (`ReschedulablePods`, `InstanceType`, `Zone`, `CapacityType`, `ComputeConsolidation`, `SortBySavingsRatio`,
-  `MarkConsolidated`, `FilterOutSameInstanceType`).
-
-#### Upstream adapters: the coarse and fine split
+#### The upstream adapters: coarse and fine
 
 | Stage | Adapter | Coarse (`mode: coarse`, default) | Fine (`mode: fine`) |
-| --- | --- | --- | --- |
-| 1 | `upstream` | This cycle's candidates as sources; the coarse generators hand them to upstream in the controller's order, and upstream sorts them itself | Sources in `SortBySavingsRatio` order; destinations are every node the snapshot marks as one |
-| 2 | `upstream-multi` | Calls `MultiNodeConsolidation.ComputeCommands`, which includes budgets, the evaluator, validation and the wall-clock 1-minute limit, and converts the returned `Command` | Re-implements `firstNConsolidationOption`: budget pre-filter, prefix binary search over `ComputeConsolidation` and `FilterOutSameInstanceType`, `Guide.Accept` where upstream calls the evaluator, one `UseFull` per step, and the 1-minute limit on the injected clock |
-| 2 | `upstream-single` | Calls `SingleNodeConsolidation.ComputeCommands` | Re-implements the scan: `SortCandidates`, the 3-minute limit, budgets, `Guide.CanPass`, `ComputeConsolidation`, `Guide.Accept`, stop at first, `PreviouslyUnseenNodePools`, `MarkConsolidated` |
-| 3 | `upstream` | Re-checks the command with `EvaluateBalancedMove` and the budgets; a command upstream already approved passes both | `Accept` is `EvaluateBalancedMove`'s decision (without its metrics and events) for Balanced pools; first valid move within budgets |
-| 3 | `balanced` | - | The same, scoring every NodePool as Balanced (`ScoreMove`, `BalancedK`) |
-| 4 | `upstream-queue` | Returns the already-validated command | Validates with the method's validator after `ValidationDelay`, emits rejection events on failure, returns the `Command` |
+|---|---|---|---|
+| candidates | `upstream` | This cycle's candidates; upstream sorts them itself | Sources in `SortBySavingsRatio` order; destinations are every node the snapshot marks as one |
+| moves | `upstream-multi` | Calls `MultiNodeConsolidation.ComputeCommands` — budgets, evaluator, validation and the one-minute wall-clock limit included — and converts the returned `Command` | Re-implements the prefix binary search: budget pre-filter, `ComputeConsolidation` and `FilterOutSameInstanceType`, `Guide.Accept` where upstream calls the evaluator, one `UseFull` per step, the one-minute limit on the injected clock |
+| moves | `upstream-single` | Calls `SingleNodeConsolidation.ComputeCommands` | Re-implements the scan: `SortCandidates`, the three-minute limit, budgets, `Guide.CanPass`, `ComputeConsolidation`, `Guide.Accept`, stop at first, `PreviouslyUnseenNodePools`, `MarkConsolidated`, plus a resume cursor when the budget stops the scan |
+| planner | `upstream` | Re-checks the command with `EvaluateBalancedMove` and the budgets; a command upstream approved passes both | `Accept` is `EvaluateBalancedMove`'s decision for Balanced pools (without its metrics and events); first valid move within budgets |
+| planner | `balanced` | — | The same, scoring every NodePool as Balanced |
+| executor | `upstream-queue` | Returns the already-validated command | Validates after the validation delay, emits rejection events on failure, returns the `Command` |
 
-The coarse form is upstream by construction. It is the default because it carries no reimplementation risk. The fine
-form is what makes stages swappable: with `mode: fine`, a different planner changes acceptance without touching
-search. Both forms pass the parity test.
+The coarse form is upstream by construction and is the default because it carries no reimplementation risk. The fine form is what makes stages swappable: with `mode: fine`, a different planner changes acceptance without touching the search. Both forms pass the parity test. The fine planner mirrors the Balanced evaluator rather than calling it, so Balanced's score metrics and `ConsolidationApproved` events are not emitted in fine mode. The adapters build their own `MultiNodeConsolidation` and `SingleNodeConsolidation` with the constructor `NewMethods` uses, so `lastConsolidationState`, `PreviouslyUnseenNodePools` and the validators behave the same.
 
-Every adapter keeps upstream state where upstream keeps it. `Upstream` builds its own `MultiNodeConsolidation` and
-`SingleNodeConsolidation` with `MakeConsolidation`, as `NewMethods` does, so `lastConsolidationState`,
-`PreviouslyUnseenNodePools` and the validators behave the same. `upstream-queue` returns merges to `disrupt()` rather
-than starting them, so `Queue.StartCommand` runs exactly once.
+#### Moves, scoring and potentials
 
-#### Execution paths
+A `Move` is a composition of actions that ends in a feasible state: `Sources` (nodes losing pods), `Bindings` (per pod: unbind from a source, planned bind to an existing node or to a launched node), `Launch` (new nodes) and `Remove` (deleted nodes). There are three kinds:
 
-- **Merges** carry their upstream `Command` (`UpstreamCommand`, `CommandOf`). An executor validates them, or
-  confirms them with `Full` when no generator did, and returns them in `Report.Commands`. `disrupt()` hands them to
-  the orchestration queue: taint, launch replacements, wait, delete, drain. That path is unchanged.
-- **Shifts** cannot go to the queue, because `StartCommand` taints and deletes every candidate. The `shift-evict`
-  family runs them itself:
-  1. Optionally wait out the validation delay, then re-check each shift with `Fast` on a fresh snapshot. A shift that
-     no longer passes is aborted with a `churn:` reason.
-  2. Taint each source `PreferNoSchedule` under `ShiftSourceTaintKey`
-     (`consolidation.experimental.karpenter.sh/shift-source`), recording the time in
-     `consolidation.experimental.karpenter.sh/shift-source-since`. The taint is deliberately not
-     `karpenter.sh/disrupted`, because the node is not being removed yet.
-  3. Evict the pods through the Eviction API in binding order. A 429 from a PDB stops the move.
+- **Merge.** Empty the sources into existing destinations plus at most one launched node, then remove the sources. Upstream Delete and Replace both convert to merges.
+- **Shift.** Move some pods to another node and remove nothing.
+- **Right-size.** Replace one node with a cheaper one holding the same pods. Defined; no generator emits it yet.
 
-  Taints older than `taintTTL` are lifted on later `Execute` and `Idle` calls. A merge whose source a shift in the
-  same plan is emptying is deferred.
+Every move is scored: `DeltaPotential` (the configured potential's change), `Disruption` (the sum of `max(0, EvictionCost)` over the pods it binds, plus 1.0 per removed node — for a merge, exactly the numerator Balanced scores), `SavingsPerHour` (removed node prices minus launched node prices), and their normalized forms `D̂` and `Ŝ`, divided by the NodePool totals Balanced uses so that planner weights are scale-free.
 
-Termination already evicts pods and the queue already taints nodes, so Karpenter's ClusterRole has `create` on
-`pods/eviction` and `patch` on nodes (see `kwok/charts/templates/clusterrole.yaml`). Shifts need no RBAC change.
+A **potential** Φ is a function of the cluster state that falls as nodes move toward packed or empty. A concave function of node load is minimized at a vertex of the feasible region, where every node is empty or full except at most one, which is the fleet shape consolidation is after. Each potential is normalized by constants of the root snapshot, never by those of the fork being valued, so `Delta` is exact and removing an empty node is never penalized by a shrinking denominator.
+
+| Name | Definition | Note |
+|---|---|---|
+| `load-entropy` | H(p) = −Σ pᵢ ln pᵢ, pᵢ = Lᵢ / Σ L, divided by ln N₀ | Blind to right-sizing |
+| `util-entropy` | Φ = Σ wᵢ h(uᵢ), h(u) = −u ln u − (1−u) ln(1−u), wᵢ = price, divided by Σ w at the root | 0 for empty and full nodes, largest at 50% |
+| `util-quadratic` | Σ wᵢ uᵢ (1 − uᵢ) | Cheaper smooth variant |
+| `none` | 0 | Savings-only planners |
+
+Utilization is the dominant share by default (CPU, memory and accelerators); a single resource, or a max or mean over resources, can be chosen instead, and a stranding term `stranding · |u_cpu − u_mem|` can be added.
+
+**Balanced as a planning energy.** Planners that score with an energy use
+
+```
+ΔE(m) = α ΔΦ(m) + λ D̂(m) − μ Ŝ(m)
+```
+
+Balanced's acceptance rule is the case α = 0, λ = 1, μ = k of ΔE ≤ 0: Balanced approves when Ŝ / D̂ ≥ 1/k, which is kŜ ≥ D̂, which is 1·D̂ − k·Ŝ ≤ 0. `WhenEmptyOrUnderutilized` is the limit k → ∞ (α = 0, λ = 0, μ = 1, strict ΔE < 0: any positive savings). With α > 0 the energy also values moves that delete no node: a shift has Ŝ = 0 and is accepted when α |ΔΦ| > λ D̂, the trade-off Balanced cannot express.
+
+The equivalence has limits. Balanced scores each source pool independently and requires every pool to approve, while the scorer normalizes a cross-pool move by the summed totals of its pools, so cross-pool moves are not equivalent. The energy planners use a strict ΔE < 0 where Balanced approves a score exactly equal to 1/k (the Balanced RFC's "Uniform Pool Replace", score 0.50, is approved by Balanced and declined by `entropy-greedy`). And the `balanced` planner itself calls `ScoreMove` directly rather than going through the energy; it is what the parity test covers.
+
+#### Shifts and execution paths
+
+**Merges** carry their upstream `Command`. An executor validates them, or confirms them with `Full` when no generator did, and returns them in `Report.Commands`; `disrupt()` hands them to the orchestration queue (taint, launch replacements, wait, delete, drain), unchanged.
+
+**Shifts** cannot go to the queue, because `StartCommand` taints and deletes every candidate. The `shift-evict` family runs them itself:
+
+1. Wait out the validation delay, then re-check each shift with `Fast` on a fresh snapshot. A shift that no longer passes is aborted with a `churn:` reason.
+2. Taint each source `PreferNoSchedule` with `consolidation.experimental.karpenter.sh/shift-source` and record the time in the `consolidation.experimental.karpenter.sh/shift-source-since` annotation. The taint is deliberately not `karpenter.sh/disrupted`, because the node is not being removed yet.
+3. Evict the pods through the Eviction API in binding order. A 429 from a PDB stops the move.
+
+Taints older than `taintTTL` are lifted on later `Execute` and `Idle` calls. A merge whose source a shift in the same plan is emptying is deferred. Termination already evicts pods and the queue already taints nodes, so shifts need no RBAC change.
+
+A shift saves nothing immediately: its value is deferred until the source has been emptied over several shifts and Emptiness removes it, at which point the last step evicts no pods at all. That is why shifts need a potential to be valued.
 
 #### Budgets
 
-A plan must fit every one of these, and each is enforced at the stage named:
+A plan must fit every one of these:
 
 | Budget | Source | Enforced by |
-| --- | --- | --- |
-| Node disruption budget per NodePool | `BuildDisruptionBudgetMapping` for `Underutilized`, passed by `disrupt()` | `ExceedsBudgets` in every planner; `SpendBudgets` in the planners that pick several moves |
-| Pod evictions per NodePool per minute | `budgets.podEvictionsPerMinute`, over a trailing minute on the injected clock | the same |
-| Pod evictions per workload (controlling owner) per minute | `budgets.workloadEvictionsPerMinute` | the same |
-| PodDisruptionBudget allowance | `Snapshot.PDBAllowed` (from `status.disruptionsAllowed`) | `Fast` per move; energy planners across the whole plan; executors per plan and through the Eviction API |
-| `karpenter.sh/do-not-disrupt` | `NodeView.DoNotDisrupt`, `PodView.DoNotDisrupt` | `Fast`; energy planners again (including removed nodes); executors on the fresh snapshot |
+|---|---|---|
+| Node disruption budget per NodePool | `BuildDisruptionBudgetMapping` for `Underutilized`, passed by `disrupt()` | Every planner; the planners that pick several moves spend it move by move |
+| Pod evictions per NodePool per minute | `budgets.podEvictionsPerMinute`, over a trailing minute on the injected clock | Every planner |
+| Pod evictions per workload (controlling owner) per minute | `budgets.workloadEvictionsPerMinute` | Every planner |
+| PodDisruptionBudget allowance | `Snapshot.PDBAllowed` (from `status.disruptionsAllowed`) | `Fast` per move; the energy planners across the whole plan; executors per plan and through the Eviction API |
+| `karpenter.sh/do-not-disrupt` | `NodeView.DoNotDisrupt`, `PodView.DoNotDisrupt` | `Fast`; the energy planners; executors on the fresh snapshot |
 | Search compute | `search.maxAttempts`, `search.maxFullSimulations`, `search.timeout` | `SearchBudget` |
 
-Node-count budgets cannot see shifts, because shifts remove no node. The pod-eviction budgets close that gap. They are
-charged with the bindings an executor actually evicted (`Report.Evicted`) when that is fewer than planned, for example
-when a PDB stopped a shift. Otherwise they are charged with every planned binding, since a merge handed to the queue
-eventually evicts all of its pods.
-
-#### Balanced as a planning energy
-
-Planners that score with an energy use:
-
-```
-ΔE(m) = α ΔΦ(m) + λ D̂(m) − μ Ŝ(m)          (pipeline.Weights{Alpha, Lambda, Mu}.Energy)
-```
-
-Balanced's acceptance rule is the case α = 0, λ = 1, μ = k of ΔE ≤ 0. With Ŝ = savings_fraction and
-D̂ = disruption_fraction, as `ScoreMove` computes them:
-
-```
-Balanced approves      Ŝ / D̂ ≥ 1/k
-⇔                      k Ŝ ≥ D̂             (D̂ > 0 for every node-deleting move: 1.0 base cost per removed node)
-⇔                      1·D̂ − k·Ŝ ≤ 0
-⇔                      ΔE ≤ 0   with α = 0, λ = 1, μ = k   (k = BalancedK = 2)
-```
-
-When Ŝ ≤ 0, Balanced rejects (`Score()` returns 0), and ΔE ≥ D̂ > 0 rejects too, so the two agree there as well.
-`WhenEmptyOrUnderutilized` is the limit k → ∞. In energy terms that is α = 0, λ = 0, μ = 1 with a strict ΔE < 0,
-meaning any positive savings. These equivalences cover acceptance only. Generation, the price filters and the
-spot-to-spot rules stay in `computeConsolidation`.
-
-The equivalence has four limits. Reviewers should keep them in mind:
-
-1. **One NodePool.** Balanced scores each Balanced source pool independently, attributes savings to each pool by its
-   share of source cost, and requires every pool to approve. `DefaultScorer` normalizes a cross-pool move by the summed
-   totals of its pools, so cross-pool moves are not equivalent.
-2. **The boundary.** `entropy-greedy`, `sequence` and `anneal-plan`'s final net-downhill test use a strict ΔE < 0, but
-   Balanced approves a score exactly equal to 1/k. For example, take the Balanced RFC's "Uniform Pool Replace" (savings
-   2.42 of 48.40, disruption 8 of 80, score 0.50). Balanced approves it. `entropy-greedy` with α = 0, λ = 1, μ = 2
-   computes ΔE = 0 and declines it.
-3. **The `balanced` planner is separate.** It does not go through the energy. It calls `ScoreMove` directly, and it is
-   what the parity test covers. The energy form is for planners that add α ΔΦ.
-4. **No metrics or events.** Balanced's `karpenter_consolidation_score` and `karpenter_consolidation_moves_total`
-   metrics and its `ConsolidationApproved` events come from the evaluator. Only the coarse adapters still go through
-   it (Observability).
-
-With α > 0 the energy also values moves that delete no node. A shift has Ŝ = 0 and is accepted when
-α |ΔΦ| > λ D̂, which is exactly the trade-off Balanced cannot express.
+Node-count budgets cannot see shifts, because shifts remove no node. The pod-eviction budgets close that gap. They are charged with the bindings an executor actually evicted when that is fewer than planned (a PDB stopped a shift), and otherwise with every planned binding, since a merge handed to the queue eventually evicts all of its pods.
 
 #### Decision log
 
-Every stage decision produces one `DecisionEvent` (schema version `DecisionLogSchemaVersion = 1`; bump it on any field
-change). The controller writes events through `LogRecorder`: the message `"consolidation decision"` at V(1) on the
-`consolidation-pipeline` logger. The simulator writes them through `JSONLRecorder` to
-`experiments/runs/<run-id>/decisions.jsonl`, next to `manifest.json`, `timeseries.csv` and `summary.json`.
+Every stage decision produces one `DecisionEvent` (schema version 1; bump it on any field change). The controller writes events through `LogRecorder` at debug verbosity on the `consolidation-pipeline` logger with the message `consolidation decision`; the simulator writes JSON lines.
 
 | Field | Type | Meaning |
-| --- | --- | --- |
+|---|---|---|
 | `schema_version` | int | 1 |
-| `run_id` | string | `"controller"` in the operator; the run ID in the simulator |
-| `cycle` | int | Pipeline cycle counter |
+| `run_id` | string | `controller` in Karpenter; the run ID in the simulator |
+| `cycle` | int | Pass counter, incremented once per `ComputeCommands` call |
 | `t` | float | Seconds since the method started, from the injected clock |
 | `stage` | string | `candidates`, `moves`, `plan`, `execute` |
 | `strategy` | string | Strategy name (generators joined with `+` on a round summary) |
-| `move_id` | string | Unique per strategy instance, for example `multi-3`; empty on summaries |
-| `kind` | string | `merge`, `shift` or `rightsize`. The simulator's baseline arms log upstream's decision (`delete`, `replace`) here. |
-| `sources`, `destinations` | []string | Sources in the move's order (upstream's candidate order for adapter moves); destinations sorted |
+| `move_id` | string | Unique per strategy instance, e.g. `multi-3`; empty on summaries |
+| `kind` | string | `merge`, `shift` or `rightsize` |
+| `sources`, `destinations` | []string | Sources in the move's order; destinations sorted |
 | `pods` | int | Bindings (on the candidates summary: candidate count) |
-| `delta_potential`, `disruption`, `savings_per_hour` | float | `Scored` fields |
+| `delta_potential`, `disruption`, `savings_per_hour` | float | The move's scores |
 | `accepted` | bool | The stage's verdict |
-| `reason` | string | Why not, for example `not downhill`, `node budget for default: 2 > 1`, `conflicts with m4`, `validation: churn` |
-| `budget_remaining` | int | Reserved. No code sets it yet, so it is always 0 (Open Question 10). |
-| `detail` | map[string]float | Stage-specific numbers. Candidates: `sources`, `destinations`, `candidates`. Round summary: `moves`, `attempts`, `full_simulations`, `timed_out`, `exhausted`. Per move: `launch`, `remove`, `energy`, `norm_disruption`, `norm_savings`. |
+| `reason` | string | Why not: `not downhill`, `node budget for default: 2 > 1`, `conflicts with m4`, `validation: churn` |
+| `budget_remaining` | int | Reserved; never set today (the bounded-search RFC gives it meaning in schema version 2) |
+| `detail` | map[string]float | Candidates summary: `sources`, `destinations`, `candidates`. Round summary: `moves`, `attempts`, `full_simulations`, `timed_out`, `exhausted`. Per move: `launch`, `remove`, `energy`, `norm_disruption`, `norm_savings` |
 
-No Go map iteration order reaches a logged list, and `encoding/json` sorts the keys of `detail`, so the same seed,
-config and commit produce byte-identical logs. `TestDeterminism` in `hack/consolidation-sim/sim` checks this.
+No Go map iteration order reaches a logged list, and the JSON encoder sorts the keys of `detail`, so in the simulator — a fake clock, one NodePool, a fixed candidate order — the same seed, config and commit produce byte-identical logs. In the controller `t` is real time and the single-node scan order is Go map order with several NodePools, so two passes on the same state log the same decisions, not the same bytes.
 
 ### Interaction with Existing Features
 
-**What stays unchanged**
-
 | Component | With the gate on |
-| --- | --- |
+|---|---|
 | Emptiness, StaticDrift, Drift, Repair | Unchanged, in the same order, with the same reasons and budgets |
-| Orchestration queue (`queue.go`) | Unchanged. Merges arrive as `Command`s through `disrupt()`, as today. |
-| Termination and drain | Unchanged |
-| Validation | Merges use the same validators and the same 15 s delay. Shifts are re-checked on a fresh snapshot after the same delay (with `validate: true`, the default). |
+| Orchestration queue, termination, drain | Unchanged. Merges arrive as `Command`s through `disrupt()`, as today |
+| Validation | Merges use the same validators and the same 15 s delay. Shifts are re-checked on a fresh snapshot after the same delay |
 | NodePool disruption budgets | Unchanged; the pipeline uses the `Underutilized` reason |
-| Metrics | Unchanged except for the new `consolidation_type` value `"pipeline"`, and Balanced's metrics in fine mode (Observability) |
+| Balanced | Unchanged, one policy among several. In coarse mode Balanced pools are scored exactly as today; in fine mode the `upstream` planner applies the same decision without the evaluator's metrics and events |
+| PDBs and `karpenter.sh/do-not-disrupt` | Hard constraints for every strategy, at `Fast`, in the planners and in the executors |
+| `SpotToSpotConsolidation` | Unchanged: the rule lives in `computeConsolidation`, which every adapter and `Full` call |
 | APIs, CRDs, annotations users set | Unchanged |
 
-- **`consolidateAfter`.** Candidacy is unchanged: sources are this cycle's consolidation candidates, which upstream
-  filters by the `Consolidatable` condition. Shifts interact with it in two ways (Open Question 1):
-  - Pods leaving a shift source are pod events, which restart the source's `consolidateAfter` window.
-  - A source that a shift empties is excluded from consolidation (`ShouldDisrupt` drops empty nodes). Emptiness
-    removes it after `consolidateAfter`, under the `Empty` reason and its budgets. A shift's savings are therefore
-    realized through Emptiness, at least one `consolidateAfter` after the last shift.
-- **Balanced.** It is unchanged and stays one policy among several. In coarse mode, Balanced pools are scored
-  exactly as today. In fine mode, the `upstream` planner applies the same decision.
-- **PDBs and `karpenter.sh/do-not-disrupt`.** These are hard constraints for every strategy (Budgets). In the
-  simulator, a run that violates either is invalid, and its summary counts violations.
-- **PodDeletionCostManagement.** The pipeline is independent of it. The simulator models deletion-cost scale-down as a
-  placement input. Feeding the planner's next merge targets into the ranking is future work (Open Question 7).
-- **kube-scheduler.** Karpenter only simulates bind-pod. Shifts depend on where kube-scheduler puts each evicted pod's
-  replacement (Open Question 3). The regression suite's scheduler config adds an opt-in `most-allocated` profile for
-  experiments (`test/suites/regression/testdata/kube-scheduler-config.yaml`).
+**`consolidateAfter`.** Candidacy is unchanged: sources are this cycle's consolidation candidates, which upstream filters by the `Consolidatable` condition. Shifts interact with it in two ways (Open Question 1). Pods leaving a shift source are pod events, which restart the source's `consolidateAfter` window; and a source that a shift empties is excluded from consolidation (empty nodes are not candidates), so Emptiness removes it after `consolidateAfter`, under the `Empty` reason and its budgets. A shift's savings are therefore realized at least one `consolidateAfter` after the last shift.
+
+**kube-scheduler.** Karpenter only simulates where pods would go; kube-scheduler places the replacement pods. Shifts depend on that placement more than merges do (Open Question 3). The `steered` executor expresses a preference for the planned node, and the regression suite carries an opt-in `most-allocated` scheduler profile for experiments.
+
+**PodDeletionCostManagement.** Independent. Feeding the planner's next merge targets into that controller's ranking is future work (Open Question 7).
 
 ### Observability
 
-- **`consolidation_type="pipeline"`** appears on `decision_evaluation_duration_seconds`, with one sample per pass
-  where upstream recorded one sample for each consolidation method it ran. It also appears on `decisions_total`,
-  `decisions_by_nodepool_total` and `queue_failures_total`, because `disrupt()` sets `cmd.Method` to the pipeline.
-- **Labels that stay `multi` and `single`.** `consolidation_timeouts_total` and `failed_validations_total` keep these
-  labels, because the wrapped upstream methods and validators emit them.
-- **Balanced metrics and events.** `karpenter_consolidation_score`, `karpenter_consolidation_moves_total` and the
-  `ConsolidationApproved` events are emitted only in coarse mode, which calls upstream's evaluator. Fine mode and the
-  energy planners decide without them. Validation rejections still emit `ConsolidationRejected` events through
-  `EmitRejectedEvents`.
-- **Pipeline search timeouts and budget exhaustion** are recorded only in the decision log (`timed_out`,
-  `exhausted`). They are not exported as metrics yet.
-- **The decision log** is the primary tool. At V(1), each cycle logs the candidate summary, every generated move, the
-  planner's verdict and reason for each move, and the executor's outcome.
+- **`consolidation_type="pipeline"`** appears on `decision_evaluation_duration_seconds` (one sample per pass, where upstream recorded one per method), `decisions_total`, `decisions_by_nodepool_total` and `queue_failures_total`.
+- **`consolidation_timeouts_total` and `failed_validations_total`** keep their `multi` and `single` labels, because the wrapped upstream methods and validators emit them.
+- **Balanced's `karpenter_consolidation_score` and `karpenter_consolidation_moves_total`** and its `ConsolidationApproved` events are emitted only in coarse mode. Validation rejections still emit `ConsolidationRejected`.
+- **Search timeouts and budget exhaustion** are recorded in the decision log's round summary (`timed_out`, `exhausted`); the bounded-search RFC adds metrics for them.
+- **The decision log** is the primary tool: every cycle logs the candidate summary, every generated move, the planner's verdict and reason, and the executor's outcome.
+
+### Observability of a non-decision
+
+How to use the log: an operator asking why node `ip-10-0-1-7` was not consolidated filters the `consolidation decision` lines for that node in `sources`. If it never appears, the candidate selector never offered it (check `consolidateAfter` and the `Consolidatable` condition). If it appears at stage `moves` but not `plan`, the generator found no feasible placement. If it appears at `plan` with `accepted: false`, the `reason` says why: a NodePool budget, a threshold, or a conflict with another move. If it appears at `execute`, validation rejected it.
 
 ### Edge Cases
 
-- **Gate on, flag empty.** The coarse adapters run the upstream methods' own `ComputeCommands`. Decisions, Balanced
-  metrics and consolidation events match today's. The visible differences are the `pipeline` label on the metrics
-  listed above, and that building the snapshot can republish upstream's events about invalid `do-not-disrupt`
-  annotations (`podutils.IsDisruptable` takes the event recorder).
-- **A PDB refuses mid-shift.** The Eviction API returns 429. The executor stops that move with reason `pdb`, pods
-  already evicted stay evicted, and `Report.Evicted` lists only those pods, so the eviction budgets charge only those.
-- **A shift source is never emptied.** Its `PreferNoSchedule` taint lapses after `taintTTL` (10 minutes by default),
-  so the node does not repel pods indefinitely. A `PreferNoSchedule` taint never makes a pod unschedulable.
-- **A cycle that executes only shifts.** Shifts run inside `ComputeCommands` and return no `Command`, so `disrupt()`
-  reports no action. The controller then goes through its remaining methods (none follow the pipeline) and requeues
-  after its 10 s polling period, not immediately as it does after starting a command.
-- **A merge and a shift share a source.** The executor defers the merge (`deferred: source draining`). A later
-  cycle, or Emptiness, removes the node once it is empty.
-- **Validation finds churn.** Merges are rejected as today. Shifts that no longer pass `Fast` on the fresh snapshot
-  are aborted with a `churn:` reason, and the decision log counts the aborts.
-- **A multi-NodePool cluster under the default config.** The upstream adapters inherit upstream's candidate order,
-  including its nondeterminism (Graduation Criteria). Seeded runs fix candidate order through
-  `UpstreamOptions.OrderCandidates`. Production leaves it unset.
-- **Generators on a frozen clock.** The simulator's clock does not advance during generation, so a deadline alone
-  cannot stop a random generator. The generators in `strategies/moves` cap a `Generate` call at `DefaultMaxAttempts`
-  (1,000) when `search.maxAttempts` is 0.
+- **Gate on, flag empty.** The coarse adapters run the upstream methods' own `ComputeCommands`. Decisions, Balanced metrics and events match today's. The visible differences are the `pipeline` label on the metrics above, and that building the snapshot republishes upstream's event about a malformed `karpenter.sh/do-not-disrupt` annotation once more per round.
+- **A PDB refuses mid-shift.** The Eviction API returns 429. The executor stops that move with reason `pdb`; pods already evicted stay evicted, and the eviction budgets are charged only for those.
+- **A shift source is never emptied.** Its `PreferNoSchedule` taint lapses after `taintTTL` (10 minutes by default). A `PreferNoSchedule` taint never makes a pod unschedulable.
+- **A cycle that executes only shifts.** Shifts return no `Command`, so `disrupt()` reports no action and requeues after its 10 s polling period rather than immediately.
+- **A merge and a shift share a source.** The executor defers the merge (`deferred: source draining`). A later cycle, or Emptiness, removes the node once it is empty.
+- **Validation finds churn.** Merges are rejected as today. Shifts that no longer pass `Fast` on the fresh snapshot are aborted with a `churn:` reason.
+- **Several NodePools under the default config.** The adapters inherit upstream's candidate order, including its nondeterminism (see [Parity](#parity-as-the-compatibility-guarantee)).
+- **A generator on a frozen clock.** The simulator's clock does not advance during generation, so a deadline alone cannot stop a random generator; the random generators cap one `Generate` call at 1,000 attempts when `search.maxAttempts` is 0.
+
+## Examples
+
+**The default configuration, one pass.** A 100-node fleet, two candidates below the Balanced threshold. `disrupt()` calls the pipeline with the candidates and budgets. Round 1 runs `upstream-multi`, which calls `MultiNodeConsolidation.ComputeCommands`: the binary search probes prefixes, the evaluator rejects both, and the round summary logs `moves: 0`. Round 2 runs `upstream-single`, which calls `SingleNodeConsolidation.ComputeCommands`: the scan finds a replace for the first candidate, validates it after 15 s, and the adapter converts it to a merge. The `upstream` planner re-checks it (`accepted: true`), `upstream-queue` returns it, and `disrupt()` starts it on the queue, exactly as today. The log holds four lines: the candidates summary, two round summaries, and the merge at `plan` and `execute`.
+
+**An experimental configuration, one pass.** The same fleet after a scale-down: every node 40% utilized, no merge clears the threshold. `uniform-random` draws a quarter of the sources. `random-shift` proposes moving two pods from node A (35%) to node B (70%); the potential falls by 0.003 and the move evicts two default-cost pods, so with λ = 0.5 its energy is negative. `anneal-plan` keeps it with three other shifts, no two touching a node, within 20 pod evictions per minute. `shift-evict` waits 15 s, re-checks each shift, taints the four sources `PreferNoSchedule`, and evicts eight pods through the Eviction API. Nothing is deleted; `disrupt()` reports no command. Over the next cycles the four sources drain, and Emptiness removes them.
+
+## Evidence
+
+The pipeline was built and run in an in-process simulator (3-hour runs of synthetic fleets at 50 to 1,000 nodes, ten runs per configuration) and replayed on a KWOK cluster at 50 and 200 nodes. Full write-ups: the [simulator study](../experiments/RESULTS.md), the [KWOK replay](../experiments/TIERB.md), and the [parity record](../docs/research/parity.md).
+
+- **The pipeline configured as upstream is equivalent to upstream.** In the simulator its steady-state cost was within -0.75% to +0.34% of upstream's over three workloads at 200 nodes, and 7 of 60 runs matched upstream exactly. On the KWOK cluster the pair's end cost differed by +1.7% at 50 nodes and +0.3% at 200, with no resolved difference. Both measurements used the fine adapters; the coarse adapters are covered by the parity test.
+- **Random generation did not beat upstream's search.** With the same planner and simulation budget it was within 3% of the heuristic search in 3 of 12 comparisons: 1.5 to 5.1% cheaper on fleets that start fragmented and 1.4 to 4.3% dearer after a diurnal scale-down. On the KWOK cluster at 200 nodes it ended 10.6% dearer and used 52% more controller CPU.
+- **Shifts cost more than they saved at equal eviction budgets.** Merge plus shift had 1.7 to 7.0% higher cost than merge only over 3-hour runs with the same pod-eviction budget.
+- **Annealing at plan time** lowered steady-state cost by 3.0% on one workload and 1.0% on another, for 38% and 21% more evictions.
+- **Plans mostly did not survive placement.** Under default kube-scheduler scoring about one in four pods evicted by the pipeline landed on its planned node (fidelity 0.25), against about one in two for upstream's commands (0.45). The `steered` executor raised the pipeline's fidelity to 0.43; `MostAllocated` scheduler scoring raised it by 29%.
+- **Early stopping is free.** Stopping a random generator after 50 idle attempts removed 75 to 85% of its attempts and 13 to 31% of mean decision CPU per pass at 200 nodes (37% at 1,000), with no change in cost beyond 3%.
+
+The design's value is as an instrument: parity-checked stage boundaries, equal-compute comparison, a decision log, and one code path from simulator to cluster. No new strategy is a candidate default.
 
 ## Alternatives Considered
 
 ### Alternative 1: Add knobs to the two existing methods
 
-Expose ordering, acceptance and limits as options on `MultiNodeConsolidation` and `SingleNodeConsolidation`. This
-keeps one code path, but the interleaving remains. Each new knob is another branch inside the binary search or the
-scan, and new move kinds (shifts) do not fit a loop whose output is a node-deleting `Command`. Rejected because it
-makes the methods harder to reason about without making any stage swappable.
+Expose ordering, acceptance and limits as options on `MultiNodeConsolidation` and `SingleNodeConsolidation`. One code path, but the interleaving remains: each knob is another branch inside the binary search or the scan, and shifts do not fit a loop whose output is a node-deleting `Command`. Rejected because it makes the methods harder to reason about without making any stage swappable.
 
 ### Alternative 2: Make the Balanced `Evaluator` the only seam
 
-Swap scorers through `Evaluator` (`ApproveCommand`, `CanPassThreshold`) and leave generation alone. This is a smaller
-change and covers Use Case 1. It cannot vary candidate selection or generation, cannot express shifts, and does not
-cap compute. The pipeline keeps this seam's semantics in `Guide`, so this alternative is a strict subset of the
-proposal.
+Swap scorers through `Evaluator` and leave generation alone. Smaller, and it covers Use Case 1. It cannot vary candidate selection or generation, cannot express shifts, and does not cap compute. The pipeline keeps this seam's semantics in `Guide`, so this is a strict subset of the proposal.
 
 ### Alternative 3: An external compaction controller (descheduler-style)
 
-Evict pods from nodes below a utilization threshold and let kube-scheduler with `MostAllocated` repack them, the
-descheduler's `HighNodeUtilization` pattern. It needs no Karpenter change. It does not see Karpenter's budgets,
-prices, `consolidateAfter` or in-flight commands, and it competes with consolidation over the same nodes. The
-experiments include it as a baseline (B5 in the plan) rather than as the design.
+Evict pods from nodes below a utilization threshold and let kube-scheduler with `MostAllocated` repack them. No Karpenter change, but it does not see Karpenter's budgets, prices, `consolidateAfter` or in-flight commands, and it competes with consolidation over the same nodes. The simulator study ran it as a baseline, not as the design.
 
 ### Alternative 4: Asynchronous generation now
 
-Run generators continuously in the background, score moves into a priority queue, and execute as budgets allow, as
-the Balanced RFC's open question describes. This needs move invalidation when cluster state changes, a staleness
-policy for queued moves, and a new interaction with validation and `consolidateAfter`. Doing it first would make
-parity impossible to establish. The stage boundaries proposed here are the prerequisite, so it is deferred (Open
-Question 8).
+Run generators continuously, score moves into a priority queue, and execute as budgets allow. This needs move invalidation when cluster state changes, a staleness policy, and a new interaction with validation and `consolidateAfter`. Doing it first would make parity impossible to establish. The stage boundaries are its prerequisite, so it is deferred (Open Question 8).
 
 ### Alternative 5: An offline optimizer per cycle
 
-Solve the packing exactly (ILP or CP-SAT) on the snapshot each cycle. The result is optimal for the snapshot but
-costly at scale, and it ignores disruption ordering and kube-scheduler placement. The experiments use it as a lower
-bound on small scenarios (B6), not as a strategy.
+Solve the packing exactly (ILP or CP-SAT) on the snapshot each cycle. Optimal for the snapshot but costly at scale, and blind to disruption ordering and kube-scheduler placement. The simulator study used it as a lower bound on small fleets, not as a strategy.
 
-### Alternative 6: A research fork without a gate
+### Alternative 6: Ship without a feature gate, or out of tree
 
-Change the consolidation methods directly on a fork. That is the fastest way to experiment, but it gives no
-compatibility story, no path upstream, and no parity guarantee for the parts not under study. Rejected.
+Replace the two methods outright, or ship the pipeline as a separate controller. The first gives no compatibility story and no rollback; the second cannot reuse the disruption controller's candidates, budgets, validators and queue without duplicating them, and competes with in-tree consolidation over the same nodes. Rejected: the gate plus the parity test is what makes the change reviewable.
 
 ## Backward Compatibility
 
-- **Gate off (the default).** `disruptionMethods` returns no options, so `NewController` builds exactly today's
-  methods. The pipeline packages are compiled in but never constructed. No behavior, metric or event changes.
-- **Gate on, flag empty.** The decisions are today's, as the parity test checks. Some metric series move from `multi`
-  and `single` to `pipeline` (Observability). Dashboards that filter on `consolidation_type` need the new value.
-- **Gate on with a custom config.** This is experimental by definition. Shift executors add
-  `consolidation.experimental.karpenter.sh/shift-source` taints and `.../shift-source-since` annotations to nodes.
-- **Rollback.** Turning the gate off restores today's methods immediately. Shift-source taints and annotations
-  already on nodes are not removed. They are `PreferNoSchedule`, and they disappear with their nodes, but nothing
-  lifts them once the pipeline stops running (Open Question 2).
-- **Config errors** fail fast at startup with the validation error. They are never silently ignored, except for
-  unknown top-level keys under `pipeline:` (Open Question 10).
+- **Gate off (the default).** `disruptionMethods` returns no options, so `NewController` builds exactly today's methods; the pipeline packages are compiled in but never constructed. This holds by construction, not by a byte-for-byte test.
+- **Gate on, flag empty.** The decisions are today's, as the parity test checks. Some metric series move from `multi` and `single` to `pipeline`; dashboards that filter on `consolidation_type` need the new value.
+- **Gate on with a custom config.** Experimental by definition. Shift executors add the `shift-source` taint and `shift-source-since` annotation to nodes.
+- **Rollback.** Turning the gate off restores today's methods at the next start. Shift-source taints already on nodes are `PreferNoSchedule` and lapse with their nodes, but nothing lifts them once the pipeline stops running (Open Question 2).
+- **Config errors** fail at startup with the validation error, in both the bare and the `pipeline:`-wrapped form.
 
 ## Graduation Criteria
 
-### Rollout
-
-- **Alpha (this RFC).** The `ConsolidationPipeline` gate is off by default. No default changes. An empty flag selects
-  the coarse upstream adapters. The only supported production configuration is the default one. Every other strategy
-  is experimental, and the experiments report on it.
-- **Beta.** Requires all of:
-  1. A 10,000-state parity run with no unexplained mismatch.
-  2. Experimental results published in `experiments/RESULTS.md`, with a decision on which strategies, if any, are
-     recommended.
-  3. Open Questions 1, 3, 9 and 10 resolved.
-  4. The shift-source annotation registered as a `wellknown.Annotation`, and a metric for pipeline search timeouts.
-  5. Fine-mode parity for events and Balanced metrics, not only decisions.
-
-  The gate would still default off at beta unless the experiments show a strategy worth enabling by default.
-- **GA.** Requires production feedback on at least one non-default configuration, a decision on asynchronous
-  generation, and a decision on whether the two upstream methods are retired in favor of the coarse or fine adapters.
+- **Alpha (this RFC).** The `ConsolidationPipeline` gate, default off. An empty flag selects the coarse upstream adapters, the only supported production configuration. Every other strategy is experimental.
+- **Beta.** A 10,000-state parity run with no unexplained mismatch, repeated on a schedule; fine-mode parity for events and Balanced metrics, not only decisions; a decision on which strategies, if any, are recommended from the evidence; Open Questions 1, 3 and 9 resolved. The gate still defaults off at beta unless a strategy is shown to be worth enabling.
+- **GA.** Production feedback on at least one non-default configuration, a decision on asynchronous generation, and a decision on whether the two upstream methods are retired in favor of the adapters.
 
 ### Parity as the compatibility guarantee
 
-`TestParity` (`pkg/controllers/disruption/pipeline/parity_test.go`) is the guarantee that the gate on with the
-default config changes nothing.
+`TestParity` (`pkg/controllers/disruption/pipeline/parity_test.go`) is the proof that the gate on with the default config changes nothing.
 
-**What one case does.** For each seeded cluster state, the test runs upstream multi-node and then single-node
-consolidation the way `disrupt()` does. It then runs one pipeline cycle with each adapter configuration and requires
-identical `harness.Decision`s: the decision kind, the candidates in order, the replacement instance-type options in
-order, the budget consumed per NodePool, and any error.
+**What one case does.** For each seeded cluster state, the test runs upstream multi-node and then single-node consolidation the way `disrupt()` does, then runs one pipeline cycle with each adapter configuration, and requires identical decisions: the kind, the candidates in order, the replacement instance-type options in order, the budget consumed per NodePool, and any error.
 
-**What it holds fixed.** States come from `harness.GenerateState`: 4 to 40 nodes, on the KWOK catalog (up to 16
-vCPU) and on a thinned copy of the disruption suite's assorted catalog. Both paths get candidates ordered by name,
-validators that skip the wait (`harness.ZeroDelay`), and one fake clock, and every case stays far below the 1-minute
-multi-node limit.
+**What it holds fixed.** States have 4 to 40 nodes and one to three NodePools, on the KWOK instance catalog and on a thinned copy of the disruption suite's catalog, under both consolidation policies. Both paths get candidates ordered by name, validators that skip the wait, and one fake clock.
 
-**The configurations compared.**
+**Upstream's own nondeterminism.** With more than one NodePool, upstream interleaves pools in Go map order; with two pools the second-inserted pool comes first about one time in eight. On single-pool states the test runs upstream twice as a control and requires an exact match. On multi-pool states the reference is the set of decisions upstream makes over 8 runs; a pipeline decision outside that set sends upstream back for up to 256 more runs before it counts as a mismatch.
 
-- `coarse`: the default config.
-- `fine`: both move adapters in `mode: fine`.
-- `fine-balanced-planner`: the fine adapters with the `balanced` planner, on Balanced states only.
+**Results.** 1,000 of 1,000 states matched for every policy, catalog and configuration (coarse, fine, and fine with the `balanced` planner on Balanced states), then 10,000 of 10,000 in every configuration across the four policy-and-catalog chunks, on states where upstream itself decided to act in 83 to 91% of cases. A 1,000-state run takes about 21 minutes; the 10,000-state chunks took 53 to 71 minutes each. A 40-state run is in `make test`.
 
-**Upstream's own nondeterminism.** With more than one NodePool, upstream is not deterministic:
-`SingleNodeConsolidation.shuffleCandidates` interleaves pools in Go map order. With two pools, the second-inserted
-pool comes first only about 1 time in 8. The test handles this as follows:
-
-- On single-NodePool states it runs upstream twice as a control, and the decisions must match exactly.
-- On multi-NodePool states the reference is the set of decisions upstream makes over 8 runs. A pipeline decision
-  outside that set sends upstream back for up to 256 more runs before it counts as a mismatch.
-
-**Results so far.** These come from `experiments/parity/parity-1000-seed1.summary.txt`, with
-`PARITY_STATES=1000 PARITY_SEED=1`.
-
-| Policy | Catalog | Configurations | Match | Upstream non-no-op decisions | Upstream nondeterministic states |
-| --- | --- | --- | --- | --- | --- |
-| Balanced | assorted | coarse, fine, fine-balanced-planner | 1000/1000 each | 846 | 10 |
-| Balanced | kwok | coarse, fine, fine-balanced-planner | 1000/1000 each | 882 | 22 |
-| WhenEmptyOrUnderutilized | assorted | coarse, fine | 1000/1000 each | 903 | 10 |
-| WhenEmptyOrUnderutilized | kwok | coarse, fine | 1000/1000 each | 925 | 19 |
-
-The nondeterministic multi-NodePool states all resolved within the observed upstream decision set. The 1,000-state
-run took 21 minutes.
-
-**Mutation check.** Three bugs were injected into the fine adapters one at a time:
-
-- Dropping the multi-node budget decrement was caught (44 of 60 states matched).
-- Making the planner accept every move was caught on Balanced states (85 of 100 matched). It is correctly invisible on
-  `WhenEmptyOrUnderutilized` states.
-- Skipping the `CanPass` pre-filter was not caught, and cannot be: it changes compute, never decisions.
-
-**10,000-state run.** It is split into four chunks, one per policy and catalog (`experiments/parity/chunks/`). All
-four matched 10,000 of 10,000 states in every configuration (`docs/research/parity.md`). The test compares decisions,
-not events or metric deltas.
-
-**In CI.** A 40-state run (the `PARITY_STATES` default) runs with `make test`. Larger runs are invoked by hand.
-
-**Other checks.**
-
-- `TestRegisteredStrategiesConform` runs the shared conformance suite (`conformance.CheckSelector`,
-  `CheckGenerator`, `CheckPlanner`, `CheckPotential`) over every registered snapshot-level strategy.
-- `TestPotentialDeltaMatchesValue`, `TestSnapshotApply`, `TestFastNeverAcceptsWhatFullRejectsOnResources` and
-  `TestCommandMoveRoundTrip` cover the shared services.
+**Mutation check.** Three bugs injected into the fine adapters one at a time: dropping the multi-node budget decrement was caught (44 of 60 states matched); making the planner accept every move was caught on Balanced states (85 of 100) and is correctly invisible on `WhenEmptyOrUnderutilized` states; skipping the `CanPass` pre-filter was not caught and cannot be, since it changes compute, never decisions. That last gap is what the search budget's metrics and the decision log cover.
 
 ## Open Questions
 
-Each item is a known risk, how the current code handles it, and the decision that is still open.
+Resolved elsewhere: the recorder's default and verbosity, the meaning of `budget_remaining`, the per-pass budget, and what ships in the operator's registry are settled in the bounded-search RFC; strict parsing of both config forms and registration of the `shift-source-since` annotation are done.
 
-1. **Shift moves and `consolidateAfter`.** Evicting pods from a shift source restarts its `consolidateAfter` window
-   (the pod events controller in `pkg/controllers/nodeclaim/podevents` sets `LastPodEventTime` when a pod binds,
-   goes terminating or goes terminal), and an emptied source is removed by Emptiness only after the window passes. A chain of shifts therefore delays its
-   own payoff, and shifts onto a destination delay that node's candidacy too. The plan proposed marking shift sources
-   as planned removals. That is not implemented, and the delay is not yet recorded per source. Should
-   pipeline-initiated evictions be exempt from the pod-event timestamp? That would be a change to upstream code. Or
-   should planners price the delay into ΔE?
-2. **The PreferNoSchedule shift-source taint.** The taint keeps replacements from landing back on the source without
-   making the source unschedulable. Open points:
-   - Its key is experimental, and `consolidation.experimental.karpenter.sh/shift-source-since` is not registered in
-     `KarpenterAnnotations`.
-   - It is lifted only on `Execute` and `Idle`, and `Idle` runs only when a plan is empty. A cycle that generates no
-     moves, or that is skipped because the cluster state is unchanged, lifts nothing.
-   - Nothing removes it after rollback.
+1. **Shift moves and `consolidateAfter`.** Evicting pods from a shift source restarts its `consolidateAfter` window, and an emptied source is removed by Emptiness only after the window passes, so a chain of shifts delays its own payoff. Should pipeline-initiated evictions be exempt from the pod-event timestamp (a change to upstream code), or should planners price the delay into ΔE?
+2. **The `PreferNoSchedule` shift-source taint.** It is lifted only on `Execute` and `Idle` (which runs only when a plan is empty), and nothing removes it after rollback. Should a small reconciler own it instead of the executor?
+3. **Plan fidelity under kube-scheduler.** A shift plans a destination, but kube-scheduler places the replacement pod, and under `LeastAllocated` scoring it spreads them. `steered` is implemented in the simulator only; in the controller it behaves like `shift-evict`. How much fidelity loss is acceptable, and is a mutating webhook for preferred node affinity in scope at all?
+4. **The multi-node limit in fine mode.** Upstream bounds the multi-node search with a one-minute `context.WithTimeout` that can stop a simulation part-way; the fine adapter checks the same duration on the injected clock between steps, so it can finish one simulation past the limit. Is that difference acceptable for a production default, or should fine mode keep a context deadline as well?
+5. **Metric label drift.** Some series move to `consolidation_type="pipeline"`, others keep `multi` and `single`, and Balanced's score metrics disappear in fine mode. Should the pipeline report the label of the upstream method whose move won instead?
+6. **Snapshot cost.** `BuildSnapshot` runs once per round (a NodePool list with instance types, a PDB list, a deep copy of the nodes and a pod list per node) and has not been profiled at any scale.
+7. **Deletion-cost steering.** The planner's next merge targets could feed the `PodDeletionCostManagement` ranking so that ReplicaSet scale-down empties them at no disruption cost. Should the planner export that ranking?
+8. **Asynchronous generation.** Given these stages, what is the staleness and invalidation policy for a move generated in one cycle and executed in a later one?
+9. **Which strategies ship.** The evidence recommends none of the experimental strategies as a default. Should any ship in the operator at all, or stay in the simulator and the KWOK suite until a result justifies them?
+10. **Should the `Recorder` be a public extension point?** It is the stable part of the design and the part operators would most plausibly want to plug. Making it public makes the event schema an API.
 
-   Should the taint be owned by a small reconciler instead of the executor?
-3. **Plan fidelity under kube-scheduler.** A shift plans a destination, but kube-scheduler places the replacement
-   pod. Under the default `LeastAllocated` scoring it may spread replacements, which undoes part of the potential
-   drop. Balanced's FAQ notes the same divergence for merges. The mitigations so far are experiment-only:
-   - an opt-in `most-allocated` scheduler profile;
-   - `steered` in affinity mode, which calls `Env.Steer`. Only the simulator implements it, so in the operator it
-     does nothing and the executor behaves like `shift-evict`;
-   - `make-before-break`.
+## Frequently Asked Questions
 
-   How much fidelity loss is acceptable, and is a mutating webhook for preferred node affinity in scope at all? The
-   simulator measures this (plan fidelity, Exp 5 / H5); the session results are in `experiments/RESULTS.md`, which
-   rates H5 partial and flags the Exp 5 run set.
-4. **The wall-clock multi-node timeout becomes the injected clock in fine mode.** Upstream bounds the multi-node
-   search with a 1-minute `context.WithTimeout`. The scheduler checks that context between pod scheduling attempts,
-   so the search can stop partway through a simulation. The fine adapter checks the same duration on the injected
-   clock between binary-search steps. With a real clock the two agree except for granularity: fine mode can finish
-   one simulation past the limit. With a fake clock, fine mode times out only if the clock is stepped, which is what
-   makes it deterministic. Coarse mode keeps upstream's wall-clock limit. Is that difference acceptable
-   for a production default, or should fine mode keep a context deadline as well?
-5. **Metric label drift.** With the gate on, some series move to `consolidation_type="pipeline"`, others keep
-   `multi`/`single`, and Balanced's score metrics disappear in fine mode. Should the pipeline report the label of the
-   upstream method whose move won, as the parity harness does, rather than `pipeline`?
-6. **Snapshot cost.** `BuildSnapshot` makes one `DeepCopyNodes`, lists pods per node from the cached client, and lists
-   PDBs each cycle. Upstream also deep-copies per simulation, so this is small next to simulation cost, but it is new
-   per-pass work that has not been profiled at 5,000 nodes.
-7. **Deletion-cost steering.** The planner's next merge targets could feed the PodDeletionCostManagement ranking, so
-   that ReplicaSet scale-down empties them at no disruption cost. Should the planner export that ranking, given the
-   pod-deletion-cost RFC's requirement that both share one ranking function?
-8. **Asynchronous generation.** The Balanced RFC's question remains open. Given these stages, what is the staleness
-   and invalidation policy for a move generated in one cycle and executed in a later one?
-9. **What ships in the operator.** `pkg/controllers/controllers.go` imports `strategies/all`, so every experimental
-   strategy is compiled into the operator and selectable by config behind the alpha gate. Should alpha ship only the
-   upstream adapters and keep experimental strategies to the simulator and the KWOK suite?
-10. **Loose ends found while drafting.**
-    - `ParseConfig` decodes the `pipeline:`-wrapped form non-strictly, so a misspelled top-level key such as `planer:`
-      is silently replaced by its default. The unwrapped form rejects it.
-    - The decision log's `budget_remaining` is never set.
-    - The `none` potential's factory ignores its params instead of decoding them strictly.
-    - The conformance suite checks that generated moves pass `Fast`, not `Full`. Executors are checked only in the
-      simulator, not in the conformance suite.
-    - The `Guide` mirrors the `Evaluator` but does not reuse it, which is why fine mode emits no Balanced metrics.
+### Does the gate on change what my cluster does?
+
+Not with an empty flag: the coarse adapters call today's `ComputeCommands`, and the parity test holds them to today's decisions on 10,000 synthetic states. What changes is observability: a `pipeline` label on some metrics and a decision log at debug verbosity.
+
+### Why keep both a coarse and a fine adapter?
+
+The coarse adapter is upstream by construction and is the safe default. The fine adapter is the one that makes the planner swappable and the search budget bind; it re-implements the two searches and is pinned to upstream by the same parity test. Which one should carry the budget upstream is the bounded-search RFC's Open Question 3.
+
+### Why a potential at all? Balanced already scores moves.
+
+Balanced scores savings against disruption, and a shift saves nothing now. A potential gives a shift a value today for a saving that arrives later, when the drained node is removed. Without one, no planner can rank shifts.
+
+### Is random generation a serious proposal?
+
+No. It is the control that showed what upstream's ordering is worth: at equal compute, random generation was within 3% of upstream's search in 3 of 12 comparisons and dearer after a diurnal scale-down. It stays in the simulator.
 
 ## References
 
-- [Balanced consolidation RFC](balanced-consolidation.md), in particular its Open Questions (async move generation)
-  and its FAQ on kube-scheduler placement.
-- [Pod deletion cost controller RFC](pod-deletion-cost-controller.md), gate `PodDeletionCostManagement`.
-- [`docs/research/PLAN.md`](../docs/research/PLAN.md): the formal model, hypotheses, strategies and experiment matrix.
-- [`docs/research/code-map.md`](../docs/research/code-map.md), sections 8.1 to 8.7: the seams, the semantics the
-  method must preserve, the adapters, the snapshot contents, command and move conversion, and what parity holds fixed.
-- [`experiments/RESEARCH_LOG.md`](../experiments/RESEARCH_LOG.md): decisions, timing measurements, parity and
-  nondeterminism findings.
-- [`experiments/RESULTS.md`](../experiments/RESULTS.md): session-profile experimental results (Tier A only, four groups
-  cut).
-- Code: `pkg/controllers/disruption/pipeline` (interfaces, adapters, method, registry, conformance, harness),
-  `pkg/controllers/disruption/pipeline_hooks.go`, `pkg/controllers/controllers.go` (`disruptionMethods`),
-  `pkg/operator/options/options.go` (`ConsolidationPipelineFeatureGate`, `--consolidation-pipeline-config`),
-  `hack/consolidation-sim` (the simulator), and `test/suites/performance/pipeline_test.go` (the KWOK suite).
+- [Balanced consolidation](balanced-consolidation.md): the evaluator seam, its open question on asynchronous generation, and its FAQ on kube-scheduler placement.
+- [Pod deletion cost controller](pod-deletion-cost-controller.md): the fragmentation case and the `PodDeletionCostManagement` gate.
+- [Bounded search budgets and a decision log](consolidation-bounded-search-and-decision-log.md): the first increment of this design.
+- [Simulator study](../experiments/RESULTS.md), [KWOK replay](../experiments/TIERB.md) and [parity record](../docs/research/parity.md): the evidence quoted above.
+- Code: `pkg/controllers/disruption/pipeline` (interfaces, adapters, method, registry, conformance, parity harness and test), `pkg/controllers/disruption/pipeline_hooks.go`, `pkg/controllers/controllers.go`, `pkg/operator/options/options.go`, `hack/consolidation-sim` (the simulator), `test/suites/performance/` (the KWOK suite).
