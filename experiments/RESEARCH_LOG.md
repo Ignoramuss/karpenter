@@ -1018,3 +1018,18 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   regardless of sources (sources but no destination: 68%, 50%, 31%), and on those passes `random-merge`'s full
   simulation places pods on existing nodes too, not only on replacements. Statements that the simulations are
   "most of the cost" are attributions by elimination and are now worded so; the pipeline arms were not profiled.
+- **Both RFCs rewritten in the accepted-RFC style (Nov 2).** Asked to follow the structure and language of recently
+  merged Karpenter RFCs (balanced consolidation, node repair veto, the template) and to drop references to
+  branches and commits in forks, both design documents were rewritten: template section order, linked GitHub
+  issues, the configuration first, worked examples, a compact evidence section, an FAQ; no branch names, commit
+  hashes, "research branch", "session", tier or hypothesis labels, and no links to the research write-ups under
+  `experiments/`, `paper/` or `docs/research/` (the evidence is stated plainly with its condition instead). Prose
+  no longer says "upstream" for Karpenter's existing methods; the registry identifiers keep the name and are
+  defined once. The pipeline RFC went from 850 to about 500 lines and the bounded-search RFC from 942 to about
+  370. A four-lens review (style against the models, numbers, code claims, regression of the positions the
+  earlier rounds had established) confirmed 60 findings, all applied; the substantive ones were two
+  misattributed numbers (the 72x scaling figure and the decision-log table's "upstream" rows are the
+  implementation's heuristic configuration under an entropy-guided planner, not today's search), the worked
+  example's prefix sizes and refusal count, two open-question references, and the experimental strategies
+  table moved out of the spec. The paper and the refactor document were pointed at the new structure. Design
+  positions are unchanged.
