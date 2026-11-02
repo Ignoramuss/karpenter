@@ -831,12 +831,12 @@ nothing about them without one.
   under `consolidateAfter` and validation; the `sequence` planner, which scores a chain of shifts with its final
   delete, exists but was not in the matrix.
 - **Keep the instrument.** The stage interfaces, the coarse and fine adapters with their parity test, the decision log
-  and the equal-compute budgets are the part of this work that survives its results. The RFC's beta criteria list what
-  is left: events and Balanced-metrics parity in fine mode, a metric for search timeouts, published results with a
-  decision on which strategies, if any, are recommended, resolution of the shift/`consolidateAfter` and plan-fidelity
-  questions and of the RFC's listed loose ends (its Open Question 10: `budget_remaining` is never set, the conformance
-  suite checks the fast feasibility only, the planner mirror of Balanced's evaluator does not reuse it), and a
-  decision on whether experimental strategies ship in the operator.
+  and the equal-compute budgets are the part of this work that survives its results. The pipeline RFC's beta criteria
+  list what is left: a scheduled 10,000-state parity run, fine-mode parity for events and Balanced metrics, a decision
+  on which strategies, if any, are recommended, and resolution of its open questions on shifts and `consolidateAfter`,
+  plan fidelity and which strategies ship. The bounded-search RFC
+  (`designs/consolidation-bounded-search-and-decision-log.md`) proposes the first increment, counted budgets and the
+  decision log with upstream's own search behind the gate, with beta criteria of its own.
 - **More seeds for small effects.** At five seeds on the cluster the median 95% interval on end cost was ±4.7% at
   200 nodes; scaling that by one over the square root of the seed count, differences of 2% among upstream and the
   heuristic arms need about 30 seeds and differences of 1% about 110. The simulator, at ±7%, needs more than twice

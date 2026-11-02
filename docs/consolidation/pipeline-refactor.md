@@ -262,9 +262,9 @@ the data say about this.
 - **Fine mode's multi-node limit is on the injected clock.** Upstream's is a wall-clock context deadline that can
   stop a scheduling simulation part-way. The two agree with a real clock except at the granularity of one
   simulation, which is what makes fine mode deterministic, but it is a difference.
-- **A snapshot per pass.** Building it deep-copies the nodes and lists pods and PDBs. It is small next to a
-  scheduling simulation, but it has not been profiled at any scale (the only CPU profiles taken were of upstream
-  arms); the RFC's own caveat is that it is unprofiled at 5,000 nodes.
+- **A snapshot per pass.** Building it deep-copies the nodes and lists pods and PDBs. It is small next to a scheduling
+  simulation, but it has not been profiled at any scale (the only CPU profiles taken were of upstream arms), as the
+  RFC's open question on snapshot cost says.
 - **Measured overhead of the pipeline configured as upstream.** Small, and not consistently in one direction. In the
   simulator over whole 3-hour runs at 200 nodes it spent 5 to 16% *less* CPU per disruption pass than upstream (for
   example 93 vs 111 ms on the diurnal workload; from the raw `b4` and `exp1-baselines-n200` runs), and on the
@@ -277,9 +277,8 @@ the data say about this.
 - **Loose ends.** The decision log's `budget_remaining` field is never set; the conformance suite (the shared test
   suite that every registered selector, generator, planner and potential that builds without a live cluster must pass)
   checks generated moves against the fast feasibility check (the snapshot-only check of section 2), not the full one,
-  and does not exercise executors; the RFC's open questions list two items the code already handles (the
-  `pipeline:`-wrapped configuration form is decoded strictly, and the shift-source annotation is registered; the code
-  and the RFC text that calls them open date from the same commit), so the RFC is behind the code there.
+  and does not exercise executors. (The RFC's earlier open items on strict decoding of the `pipeline:`-wrapped form
+  and on registering the shift-source annotation are done, and it says so.)
 - **12,000 lines to own.**
 
 ## 6. What the experiments found when the new pieces were used
