@@ -1033,3 +1033,15 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   example's prefix sizes and refusal count, two open-question references, and the experimental strategies
   table moved out of the spec. The paper and the refactor document were pointed at the new structure. Design
   positions are unchanged.
+- **RFC style pass, second round (Nov 2).** A second verified review of the rewritten RFCs (style against the
+  accepted ones, numbers and code claims, regression of positions) confirmed 33 more findings, all applied: the
+  worked example's nothing-found search runs six probes, not seven, leaving ten simulations and 854 unreached
+  candidates; "the implementation ... today" language, which described this tree rather than Karpenter, was
+  replaced by design statements (one budget per pass; schema version 1 as the pipeline RFC's schema); the two
+  RFCs now agree on the recorder (none by default, `log` at V(1)/V(2), `file`), on schema version 2 and on the
+  per-pass budget; the pipeline RFC names the observer as the way the budget reaches the existing search; the
+  non-decision guide now describes the log the code writes (every generated move at `moves` and `plan`, every
+  planned move at `execute`); the Balanced row notes the score line logged twice; the snapshot republishes all
+  three do-not-disrupt annotation events; parity run times are stated per policy-and-catalog job; the
+  `strategies/all` import drop is stated as a code change; method identity (class, ShouldDisrupt, totals) is
+  back; and two formatting slips (a diagram line, two Go struct fields) were fixed.
