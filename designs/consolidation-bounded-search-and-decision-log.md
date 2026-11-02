@@ -130,7 +130,7 @@ type SearchBudget struct {
 }
 ```
 
-**Decision log schema.** This RFC ships schema version 2. Version 1, the pipeline RFC's schema, has `budget_remaining` always 0 and no `bindings`; it stays readable, and consumers read `schema_version` first. The version is bumped on any field change.
+**Decision log schema.** This RFC ships schema version 2. Version 1 has `budget_remaining` always 0 and no `bindings`; it stays readable, and consumers read `schema_version` first. The version is bumped on any field change.
 
 | Field | Type | Meaning |
 |---|---|---|
@@ -315,11 +315,11 @@ The pipeline RFC's fine adapters re-implement the multi-node binary search and t
 ## Backward Compatibility
 
 - **Gate off (the default).** `NewController` builds exactly today's methods; the pipeline packages are compiled in but the method is never constructed, and the observer in the two search loops is nil. The KWOK runs with the gate off confirmed that only multi-node and single-node evaluations appear in the controller's metrics. This is by construction: no test compares gate-off output byte for byte.
-- **Gate on, flag empty.** The decisions are today's, as the parity test checks on 10,000 states. The visible difference is `consolidation_type="pipeline"` on `decision_evaluation_duration_seconds`, `decisions_total`, `decisions_by_nodepool_total` and `queue_failures_total`, while `consolidation_timeouts_total` and `failed_validations_total` keep `multi` and `single`. Dashboards that filter on `consolidation_type` need the new value.
+- **Gate on, flag empty.** The decisions are today's, as the parity test checks on 10,000 states. The visible differences are `consolidation_type="pipeline"` on `decision_evaluation_duration_seconds`, `decisions_total`, `decisions_by_nodepool_total` and `queue_failures_total` (`consolidation_timeouts_total` and `failed_validations_total` keep `multi` and `single`), and the existing `karpenter.sh/do-not-disrupt` annotation events that building the snapshot republishes once more per round. Dashboards that filter on `consolidation_type` need the new value.
 - **Gate on with a budget or a recorder.** New behavior by definition: the search may stop earlier than today's limits would stop it, a budget-stopped pass does not mark the cluster consolidated, and log volume rises at V(2). No node, NodeClaim or pod is touched differently.
 - **Rollback.** Turning the gate off restores today's methods at the next start. Nothing is left on cluster objects.
 - **Configuration.** The flag is new; existing deployments are unaffected. There is no CRD or NodePool change, and no change to any annotation users set; the one annotation this RFC registers is the simulator's internal-only volume-zone annotation. Configuration errors fail at startup, never silently.
-- **Schema.** The decision log schema this RFC ships is version 2; version 1, the pipeline RFC's schema, stays readable (its `budget_remaining` is always 0 and it has no `bindings`). Consumers read `schema_version` first.
+- **Schema.** The decision log schema this RFC ships is version 2; version 1 stays readable (its `budget_remaining` is always 0 and it has no `bindings`). Consumers read `schema_version` first.
 
 ## Graduation Criteria
 
@@ -361,7 +361,7 @@ Because the time limits are what today's users rely on, and the gate should chan
 
 ### Is the gate-on, flag-empty configuration byte-for-byte today's behavior?
 
-Its decisions are, as the parity test checks on 10,000 states. Its metrics carry a new `consolidation_type` value, and the snapshot it builds publishes a malformed do-not-disrupt annotation event once more per round. Whole-run and cluster equivalence were measured with the fine adapters, which share the parity test but are not what ships; the beta criteria measure the shipped configuration directly.
+Its decisions are, as the parity test checks on 10,000 states. Its metrics carry a new `consolidation_type` value, and the snapshot it builds publishes the existing `karpenter.sh/do-not-disrupt` annotation events (invalid value, duration-based protection active, grace period elapsed) once more per round. Whole-run and cluster equivalence were measured with the fine adapters, which share the parity test but are not what ships; the beta criteria measure the shipped configuration directly.
 
 ### Will any of the experimental strategies ship later?
 

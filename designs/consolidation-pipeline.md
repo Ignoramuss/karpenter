@@ -275,7 +275,7 @@ The equivalence has limits. Balanced scores each source pool independently and r
 
 #### Experimental strategies
 
-These are the strategies the implementation registers for simulator and KWOK experiments, not for production. None is proposed as a default, and the first increment's allowlist rejects them at startup; Open Question 9 decides whether any becomes supported.
+These are the strategies registered for simulator and KWOK experiments, not for production. None is proposed as a default, and the first increment's allowlist rejects them at startup; Open Question 9 decides whether any becomes supported.
 
 | Stage | Name | Params (defaults) | Role |
 |---|---|---|---|
@@ -491,7 +491,7 @@ Not with an empty flag: the coarse adapters call today's `ComputeCommands`, and 
 
 ### Why keep both a coarse and a fine adapter?
 
-The coarse adapter is today's behavior by construction and is the safe default. The fine adapter is the one that makes the planner swappable and the search budget bind; it re-implements the two searches and is pinned to today's decisions by the same parity test. Which one should carry the budget into Karpenter is the bounded-search RFC's Open Question 3.
+The coarse adapter is today's behavior by construction and is the safe default. The fine adapter is the one that makes the planner swappable, and it binds the search budget without the `SearchObserver` hook; it re-implements the two searches and is pinned to today's decisions by the same parity test. Which one should carry the budget into Karpenter is the bounded-search RFC's Open Question 3.
 
 ### Why a potential at all? Balanced already scores moves.
 
@@ -499,7 +499,7 @@ Balanced scores savings against disruption, and a shift saves nothing now. A pot
 
 ### Is random generation a serious proposal?
 
-No. It is the control that showed what today's ordering is worth: at equal compute, random generation was within 3% of the existing search in 3 of 12 comparisons and dearer after a diurnal scale-down. It is not proposed for production; whether it stays compiled into the controller is Open Question 9, and the bounded-search RFC's allowlist rejects it at startup.
+No. It is the control that showed what today's ordering is worth: at equal compute, random generation was within 3% of the existing search in 3 of 12 comparisons and dearer after a diurnal scale-down. It is not proposed for production; the bounded-search RFC drops it from the controller build at alpha and its allowlist rejects it at startup, and what would justify compiling it back in is Open Question 9.
 
 ## References
 
