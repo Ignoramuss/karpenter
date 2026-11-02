@@ -140,10 +140,11 @@ passes rather than selecting candidates by their utilization, and what of this w
       attempts per searching pass by 75 to 85% and mean CPU per pass by 13 to 31% against the random reference with
       cost unresolved; biased selection added nothing on top of it; the band selector is a different operating
       point because it often has no destination on a consolidated fleet; guided shifts helped on W1 only.
-- [x] 1,000-node group (50 cells, W1): all valid. Early stopping cut mean CPU per pass by 37% there (the saving
-      grows with size because the early-stop arm also searches on fewer passes), and biased selection ended 2.8%
-      cheaper than uniform selection with 13% fewer evictions, which it had not at 200 nodes. Write-up in
-      RESULTS.md, "Exp 9"; the paper's sections 7 and 9 carry the result.
+- [x] 1,000-node group (50 cells, W1): all valid. Early stopping cut mean CPU per pass by 37% there (the saving grows
+  with size because the early-stop arm also searches on fewer passes), and the weighted early-stop arm ended 2.8%
+  cheaper than the uniform reference with 13% fewer evictions (2.7% and 5% against the uniform early-stop arm), where
+  at 200 nodes it was unresolved on cost on W1 and W2 and 1.3% dearer on W4. Write-up in RESULTS.md, "Exp 9"; the
+  paper's sections 7 and 9 carry the result.
 - [x] Upstream RFC `designs/consolidation-bounded-search-and-decision-log.md`: counted search budgets, a decision
       log through a recorder, and the stage seams with the coarse upstream adapters only, behind the gate, with the
       evidence scoped to what covers that configuration. Four review rounds (a disruption maintainer, an operator

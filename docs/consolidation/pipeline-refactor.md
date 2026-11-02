@@ -308,11 +308,14 @@ The point of the pipeline was to answer questions, and the answers so far favor 
 - **Early stopping is free; biased selection pays only at scale (Exp 9, run after the paper; not preregistered).**
   Letting each random generator stop after 50 consecutive attempts that found nothing cut attempts per searching pass
   by three quarters or more and mean decision CPU per pass by 13 to 31% at 200 nodes and 37% at 1,000, with cost
-  unresolved within about 2%; the searching pass itself got only 13 to 27% cheaper, because the simulations, not the
-  attempts, are most of its cost. Choosing sources in proportion to the potential drop from emptying them added no
-  CPU saving; at 1,000 nodes it ended 2.8% cheaper than uniform selection with 13% fewer evictions, and at 200 nodes
-  it was unresolved on cost. The utilization-band selector often had no destination on a consolidated fleet (no node
-  between the mean utilization and 95% full) and ended 6 to 8% dearer on two workloads with a third fewer evictions.
+  unresolved within 3%; the searching pass itself got only 14 to 27% cheaper at 200 nodes (13% at 1,000), so the blind
+  attempts were a minority of its cost and the simulations it still spends, with the scoring and planning, are most of
+  it (by elimination; not profiled). Choosing sources in proportion to the potential drop from emptying them added no
+  CPU saving at 200 nodes and cut early stopping's by a third at 1,000; there the weighted early-stop arm ended 2.8%
+  cheaper than the uniform reference with 13% fewer evictions (2.7% and 5% against the uniform early-stop arm), and at
+  200 nodes it was unresolved on cost on W1 and W2 and 1.3% dearer on W4. The utilization-band selector often had no
+  destination on a consolidated fleet (no node between the mean utilization and 95% full) and ended 6 to 8% dearer on
+  two workloads with a third fewer evictions.
 
 So the pipeline's demonstrated value is as an instrument: parity-checked stage boundaries, equal-compute
 comparison, a decision log, and one code path from simulator to cluster. No new strategy is a candidate default.

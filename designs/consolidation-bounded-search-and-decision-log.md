@@ -884,12 +884,14 @@ takes up.
    V(2), or only in the `file` sink, is a volume question for beta.
 6. **The research branch's fine adapters, strategies and simulator.** They stay where they are, on the research branch
    and in the simulator, and are not part of this proposal. Whether any of them comes upstream later depends on
-   results the experiments did not produce (Non-Goals). A follow-up experiment on early stopping and biased candidate selection for the research branch's random generators
-   (`experiments/EXP9.md`; RESULTS.md, Exp 9) found that stopping a generator after 50 idle attempts cut its attempts
-   per searching pass by three quarters or more and its mean decision CPU per pass by 13 to 37% with cost unresolved,
-   and that at 1,000 nodes a potential-weighted candidate choice ended 2.8% cheaper than uniform selection with 13%
-   fewer evictions. It bears on how a budget is best spent by a search that samples, not on this proposal's scope:
-   upstream's search does not sample, and its stop is the budget itself.
+   results the experiments did not produce (Non-Goals). A follow-up experiment on early stopping and biased candidate
+   selection for the research branch's random generators (`experiments/EXP9.md`; RESULTS.md, Exp 9) found that
+   stopping a generator after 50 idle attempts cut its attempts per searching pass by three quarters or more and its
+   mean decision CPU per pass by 13 to 37% with cost unresolved within 3%, and that at 1,000 nodes a
+   potential-weighted candidate choice combined with early stopping ended 2.8% cheaper than the uniform reference with
+   13% fewer evictions, of which the weighting itself accounts for 2.7% and 5% against the uniform early-stop arm. It
+   bears on how a budget is best spent by a search that samples, not on this proposal's scope: upstream's search does
+   not sample, and its stop is the budget itself.
 7. **Snapshot cost under the coarse adapters.** `BuildSnapshot` runs once per round with the gate on, so twice in a
    pass whose multi-node round executes nothing: before every round after the first, `Method.ComputeCommands`
    re-fetches candidates, totals and budgets (`refresh`, as `disrupt()` does per method today) and rebuilds the

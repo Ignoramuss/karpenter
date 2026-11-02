@@ -1002,3 +1002,19 @@ Every decision taken without asking, every fallback, and every blocked host, in 
   37 to 54% less mean CPU per pass for about twice the evictions, and the per-searching-pass gap narrows to 1.3 to
   1.5 times. `experiments/RESULTS.md`, "Exp 9", holds every number; the paper's sections 7 and 9, the refactor
   document's findings section and the RFC's open question 6 were updated from it.
+- **Exp 9 claim check (Nov 2, 00:05-00:35 UTC).** Two checkers (numbers; mechanisms) each followed by a verifier
+  went over the Exp 9 text in RESULTS, the paper, the refactor document, the RFC, PROGRESS and this log: 39
+  findings, 38 confirmed, all applied in the documents. Corrections to the entries above, left as written: the
+  "unresolved on cost at 200 nodes" for the weighted early-stop arm holds on W1 and W2 only; on W4 it was 1.3%
+  [+0.1, +2.5] dearer than uniform selection (and the all-combined arm 1.8%). The 13% fewer evictions at 1,000
+  nodes is against the reference without early stopping, of which early stopping alone gives 8.5 points; against
+  the uniform early-stop arm the weighting's own effect is 2.7% [-3.2, -2.2] on cost and 5.2% [-7.6, -2.6] on
+  evictions. The per-searching-pass gap to the heuristic at 200 nodes is 2.9 to 6.7 times, not "3 to 6". The 14%
+  more passes is summary.json's pass count (the logs' cycle numbers give 17%), and the mechanism is the
+  simulator's clock, not "a cheaper pass starts sooner": pass CPU never advances simulated time, and a pass that
+  executes waits out the 15 s validation delay. E3, judged against the protocol's own reference
+  (`weighted/entropy-greedy`), is not supported anywhere; E2's mechanism is not supported at either size, and its
+  cost clause holds only at 1,000 nodes. The band selector's 69%/64%/31% are passes with no destination
+  regardless of sources (sources but no destination: 68%, 50%, 31%), and on those passes `random-merge`'s full
+  simulation places pods on existing nodes too, not only on replacements. Statements that the simulations are
+  "most of the cost" are attributions by elimination and are now worded so; the pipeline arms were not profiled.
