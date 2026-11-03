@@ -1,0 +1,76 @@
+{
+  "source": "Google cluster trace 2011 v2.1 (clusterdata-2011-2), https://storage.googleapis.com/clusterdata-2011-2/",
+  "license": "CC-BY 4.0, https://creativecommons.org/licenses/by/4.0/ (google/cluster-data README.md and ClusterData2011_2.md)",
+  "attribution": "Google cluster-usage traces (clusterdata-2011-2), John Wilkes and Charles Reiss, Google Inc.; format: C. Reiss, J. Wilkes, J. L. Hellerstein, \"Google cluster-usage traces: format + schema\", 2011, revised 2014-11-17 for v2.1. Derived here: one window of task_events, scaled to absolute requests and subsampled (see README.md).",
+  "checksums": {
+    "name": "SHA256SUM",
+    "sha256": "b68993eefffd34d42f2fc6613187048112602d185ffe61992292bacf2c2e9940"
+  },
+  "inputs": [
+    {
+      "name": "task_events/part-00000-of-00500.csv.gz",
+      "sha256": "eae977d521bc6ed5d8deef56f1e06009d41844d4eb9a7e308e610d68e1b10f18"
+    },
+    {
+      "name": "task_events/part-00001-of-00500.csv.gz",
+      "sha256": "c122f250cf1f9817dc722a5b7457eb5caf122619accfada078de66d40f311501"
+    },
+    {
+      "name": "task_events/part-00002-of-00500.csv.gz",
+      "sha256": "3534b71a7c6a3952f192485c4726119ff8d904fc2d7b828b8d96987db4aab767"
+    },
+    {
+      "name": "task_events/part-00003-of-00500.csv.gz",
+      "sha256": "23b3df1b0e6c06d56c0cb28359635931bd0bbb7e584423537e23104580c56740"
+    },
+    {
+      "name": "task_events/part-00004-of-00500.csv.gz",
+      "sha256": "84f2198e7a083021294ce9c764ba4dcbed6baad30746f257b3580874f802e88e"
+    },
+    {
+      "name": "task_events/part-00005-of-00500.csv.gz",
+      "sha256": "44dc8e710448bc35a1cb51bbb0b34a8cdf58284606b6038d6e4a016aeee03cfa"
+    },
+    {
+      "name": "task_events/part-00006-of-00500.csv.gz",
+      "sha256": "39de1a6b85a1f6709b254f94aa46b3c9c2e06c0c6400ec33ce58a66877932cb3"
+    }
+  ],
+  "window": {
+    "offset": "6h0m0s",
+    "length": "3h0m0s",
+    "start_trace_micros": 22200000000,
+    "end_trace_micros": 33000000000,
+    "described_time": "2011-05-02 01:00 EDT to 2011-05-02 04:00 EDT"
+  },
+  "scale": {
+    "cpu_cores_per_normalized_unit": 32,
+    "memory_gib_per_normalized_unit": 128,
+    "min_cpu_millicores": 100,
+    "min_memory_mib": 128
+  },
+  "sample": {
+    "fraction": 0.2,
+    "seed": 1,
+    "method": "keep task (job ID, task index) when the first 8 bytes of SHA-256(\"\u003cseed\u003e/\u003cjob ID\u003e/\u003ctask index\u003e\"), big-endian, are below fraction * 2^64"
+  },
+  "counts": {
+    "events_read": 1175195,
+    "runs_in_window": 245895,
+    "dropped_missing_requests": 0,
+    "dropped_zero_length": 0,
+    "dropped_by_sample": 196220,
+    "rows_written": 49675,
+    "rows_running_at_window_start": 28181,
+    "rows_capped_at_window_end": 28793,
+    "rows_cpu_clamped": 1151,
+    "rows_memory_clamped": 328,
+    "rescheduled_without_end": 0,
+    "unmatched_end_events": 6317
+  },
+  "output": {
+    "name": "google-2011-6h-9h.csv",
+    "sha256": "c9c2e51820a081f85a42cf34c17da36fd581f37fd33329b1b0aa26e86f969e3f",
+    "bytes": 917928
+  }
+}

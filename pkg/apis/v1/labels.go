@@ -62,6 +62,8 @@ const (
 	RebootTerminationGracePeriodAnnotationKey  = apis.Group + "/reboot-termination-grace-period"
 	DRADriversAnnotationKey                    = apis.Group + "/requested-dra-drivers"
 	DisruptionCostAnnotationKey                = apis.Group + "/disruption-cost"
+	ShiftSourceSinceAnnotationKey              = "consolidation.experimental." + apis.Group + "/shift-source-since"
+	SimulatedVolumeZoneAnnotationKey           = "simulation." + apis.Group + "/volume-zone"
 )
 
 var (
@@ -172,6 +174,26 @@ var (
 			"controller.kubernetes.io/pod-deletion-cost itself.",
 		Stage: docs.Alpha,
 	}
+	ShiftSourceSinceAnnotation = wellknown.Annotation{
+		Name:    ShiftSourceSinceAnnotationKey,
+		Example: "2026-10-27T18:00:00Z",
+		UsedOn:  []runtime.Object{&v1.Node{}},
+		Help: "With the ConsolidationPipeline feature gate, the pipeline's shift executors set this to the RFC3339 " +
+			"time they tainted the node as a shift source (taint consolidation.experimental.karpenter.sh/shift-source, " +
+			"PreferNoSchedule). The taint and the annotation are removed once the executor's taint TTL passes.",
+		Stage:        docs.Alpha,
+		InternalOnly: true,
+	}
+	SimulatedVolumeZoneAnnotation = wellknown.Annotation{
+		Name:    SimulatedVolumeZoneAnnotationKey,
+		Example: "us-west-2a",
+		UsedOn:  []runtime.Object{&v1.Pod{}},
+		Help: "The consolidation simulator (hack/consolidation-sim) sets this on synthetic pods to the zone of the " +
+			"volume they are bound to. With the ConsolidationPipeline feature gate, the pipeline's fast feasibility " +
+			"check keeps such pods in that zone.",
+		Stage:        docs.Alpha,
+		InternalOnly: true,
+	}
 )
 
 // KarpenterAnnotations are the well known annotations Karpenter reads or writes.
@@ -186,6 +208,8 @@ var KarpenterAnnotations = []wellknown.Annotation{
 	RebootTerminationGracePeriodAnnotation,
 	DRADriversAnnotation,
 	DisruptionCostAnnotation,
+	ShiftSourceSinceAnnotation,
+	SimulatedVolumeZoneAnnotation,
 }
 
 // Karpenter specific finalizers

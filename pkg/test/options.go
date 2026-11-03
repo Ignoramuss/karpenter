@@ -51,6 +51,7 @@ type OptionsFields struct {
 	IgnoreDRARequests                *bool
 	LegacyNodeRepair                 *bool
 	FeatureGates                     FeatureGates
+	ConsolidationPipelineConfig      *string
 	SchedulerConfig                  *options.SchedulerConfiguration
 }
 
@@ -65,6 +66,7 @@ type FeatureGates struct {
 	TerminateFirstRepair      *bool
 	PodDeletionCostManagement *bool
 	PredictionEnabled         *bool
+	ConsolidationPipeline     *bool
 }
 
 func Options(overrides ...OptionsFields) *options.Options {
@@ -97,6 +99,7 @@ func Options(overrides ...OptionsFields) *options.Options {
 		IgnoreDRARequests:                lo.FromPtrOr(opts.IgnoreDRARequests, true),
 		LegacyNodeRepair:                 lo.FromPtrOr(opts.LegacyNodeRepair, false),
 		SchedulerConfig:                  opts.SchedulerConfig,
+		ConsolidationPipelineConfig:      lo.FromPtrOr(opts.ConsolidationPipelineConfig, ""),
 		FeatureGates: options.FeatureGates{
 			NodeRepair:                lo.FromPtrOr(opts.FeatureGates.NodeRepair, options.NodeRepairFeatureGate.Default),
 			ReservedCapacity:          lo.FromPtrOr(opts.FeatureGates.ReservedCapacity, options.ReservedCapacityFeatureGate.Default),
@@ -108,6 +111,7 @@ func Options(overrides ...OptionsFields) *options.Options {
 			TerminateFirstRepair:      lo.FromPtrOr(opts.FeatureGates.TerminateFirstRepair, options.TerminateFirstRepairFeatureGate.Default),
 			PodDeletionCostManagement: lo.FromPtrOr(opts.FeatureGates.PodDeletionCostManagement, options.PodDeletionCostManagementFeatureGate.Default),
 			PredictionEnabled:         lo.FromPtrOr(opts.FeatureGates.PredictionEnabled, options.PredictionEnabledFeatureGate.Default),
+			ConsolidationPipeline:     lo.FromPtrOr(opts.FeatureGates.ConsolidationPipeline, options.ConsolidationPipelineFeatureGate.Default),
 		},
 	}
 }
